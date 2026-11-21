@@ -849,6 +849,13 @@ k171 :- check('GCC\'s cleanup attribute is refused at its object\'s line with cl
           r('cleanup_twoargs.c', 4, '\'cleanup\' attribute takes one argument'),
           r('mode_attr.c', 3, 'not lowered yet: the \'mode\' attribute, a type of a machine mode\'s size')]),
         ( redef_refused(F, F, L, 17, M), redef_refused(F, F, L, 17, M) ))).
+%% A CLASS'S NAMES LEAVE WITH ITS READ (1.6.9): in C++ a class's member names stand in a frame while its body is read,
+%% and a read that a macro's refusal stops inside a member's body leaves them to no later read of the process --
+%% the println of `ownglobal_next.cpp', read after `ownglobal_left.cpp', is the global macro's, a call of printf
+k172 :- check('a class\'s member names leave with its read: a C++ read refused inside a member\'s body leaves them to no later read, whose println is the global macro\'s',
+    ( c('../cpp/ownglobal_left.cpp', P1), catch(cicilang_ast(P1, _), error(E1, _), true), nonvar(E1), E1 = macro_failed(print, _),
+      c('../cpp/ownglobal_next.cpp', P2), cicilang_ast(P2, unit(Is)), member(function(_, _, _, main, _, _, block(B)), Is),
+      memberchk(expr(_, call(id(printf), _)), B) )).
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -1173,6 +1180,8 @@ t_checks :-
     k170,
     section('GCC\'s cleanup and mode attributes (1.6.8)'),
     k171,
+    section('a program\'s own names and the global macros (1.6.9)'),
+    k172,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

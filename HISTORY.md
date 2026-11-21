@@ -325,6 +325,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.6 | a free operator only where its parameters take the operands | 1.6.1's Not done, a binary free operator taken by its count alone -- `M{} * 2.0` refused beside `W operator*(W, W)`, `M{} == 2.5` and `i += N{}` built and printed wrong values, `W{} += 1` built --, and every free operator over an enumeration operand: each asked, unary or binary, over a class or an enumeration, by its parameters' fit or a converting constructor, else the built-in operator | `freeopbin.cpp`, `freeopenum.cpp`, `freeoprval.cpp`; twelve probes; six copies broken on purpose, five caught and one whose path no run reaches; the nets |
 | 1.6.7 | a second definition at file scope | the Not done record of 1.6.3, a second definition built with no word -- `int x = 1; int x = 2;` printed 1, a function of two headers had the first one's body, a function of the file two times went to LLVM's parser --: each refused in clang's words at its line in C, a function, an object, a tag at C17 or of other content at C23, an enumerator, a typedef of another type, over the file and the live lines of its own headers; an `extern` object's initializer its definition; ccllib's shared guards held by its gate | `k170` over 15 refusals; `redefok.c`, `redefok23.c`; 41 forms; eighteen copies broken on purpose, each caught; the nets |
 | 1.6.8 | GCC's cleanup, constructor, destructor and mode attributes | the user's task, "Refuse or implement the GNU cleanup attribute": `cleanup` read and dropped, its call never run; the cleanup the defer of its call, the function refused in clang's words where none fits; `constructor` and `destructor` the unit's lists, in C and in C++, where C++ dropped a leading attribute's notes; `mode`, dropped with wrong sizes, refused by name | `k171` over 12 refusals; `cleanup.c`, `cleanup23.c`, `ctordtor.c`, `ctordtor_exit.c`, `cleanupcpp.cpp`, `ctordtorcpp.cpp`, `cleanup_overload.cpp`; 62 forms; eighteen copies broken on purpose, each caught; the nets |
+| 1.6.9 | A program's own format, print, println and clone win over the global macros | the owner's rule, "Yes user implemented should win over ccllib's macros": the four the language's in every scope through 1.6.8 -- a program's own `println` not called, its `print`, `format` and `clone` refused in the macros' words; in C++ a class's members no names of its scope, for every macro; a macro's call before the program's own declaration of the name taken with no word | `ownglobal.c`, `ownglobalcpp.cpp`, `k172`, the driver gate's two checks; 42 forms; sixteen copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23870,3 +23871,106 @@ refusal of `cleanup_overload.cpp` among them. The chain did not run, by the owne
 - RULES.md (the C reader's four rules, the answers of `__has_attribute`, Not done's record), HISTORY.md, CLAUDE.md.
 
 The module 1.6.8, the reader 206 and the lowering 180.
+
+## 1.6.9 — A program's own format, print, println and clone win over the global macros
+
+**1.6.9: the owner's rule, "Yes user implemented should win over ccllib's macros": a call of `format`, `print`,
+`println` or `clone` where the program's own text declares the name is the program's call, as a macro file's macro has
+been since 1.6.2; in C++ a member of the class or of a base is the program's in the class's scope, for every macro; and
+in C a call of a macro before the program's own declaration of its name is refused in clang's words.**
+
+THE QUESTION AND THE WORD. 1.6.2 made a name that the program declares win over a macro file's macro, and kept the four
+global macros the language's in every scope (`ccl_std_macro_name/1`), since the owner's rule named them global. The step
+asked the owner which of the two wins; the owner's answer is the rule above, and CLAUDE.md holds it.
+
+THE FORMS (`p169/formsall`, 42 programs, 18 in C and 24 in C++, each built and run by clang 22 or clang++ 22 and by
+cicilang, `p168/runforms168.sh`, their verdicts side by side in `p169/all_table.txt`): over 1.6.8, 4 of the 42 gave
+clang's verdict, and over 1.6.9, 35. Of the seven others, three are the language's own forms, which clang refuses as C
+-- the global macro where the program declares no name of it (`g09`, `g10`), and one beside the word `own` (`g15`) --,
+and four are Not done's records: a macro's call before the program's own declaration in C++ (`g14`), and a format
+macro's argument that names a data member in a member's body, by its bare name or through `this` (`h18`, `h22`, `h23`),
+refused over 1.6.8 alike. BESIDE THEM, a C++ member named `less` beside `<functional.pl>` is the member (`h24`): over
+1.6.8 the module's macro took the call, `1` where clang++'s twin prints `0` -- the class's scope serves a macro file's
+macros as it serves the global ones. AND ONE COST, a probe beside the fixture (`p169/forms8/h26_ns_leak_fmt.cpp`): a
+function of a namespace is the program's name in the whole file, so the global macro `format` called outside `namespace
+app` is refused `no matching function for call to 'format'` over 1.6.9, where 1.6.8 called the macro, `k = 3 one`; the
+reader keeps no namespace's scope of names, and a call that finds the function by its arguments' namespaces is the
+program's so. The refusal is loud, and Not done records it.
+
+THE CAUSES. `ccl_prog_named/1` excluded the four (`ccl_std_macro_name/1`), so a program's own `println` was not called,
+`hi` where the program printed `mine: hi`, and its own `print(2, 3)`, `format(1)` and `clone(a)` were refused in the
+macros' words. AND ONE IN C++, FOR EVERY MACRO: a class's members were no names in any scope that the reader keeps --
+its scope frames hold a block's names and its parameters, and the program's names a file's and a namespace's -- so a
+call in a member function's body of the class's own `print`, of a base's, of a static member's from a nested class, or
+in the body of a member defined out of its class, was the global macro's, refused `macro 'print' failed` or printing the
+macro's line; the same held for a macro file's macro, 1.6.2's rule. AND ONE OF THE RULE'S OWN: a call of the macro
+before the program's own declaration of its name took the macro, and the program's function below it was called after,
+with no word, where clang refuses the first call.
+
+THE RULES (RULES.md, the topic of the global macros: the four bullets of the macros, 1.6.2's rule and the new one; the C
+reader's 1.1.2 rule; Not done's records, the C++ use before the declaration and the global macros in C++'s classes). A
+class's member names are scanned ahead at its `{`, as its member templates are, since a member's body is a
+complete-class context: a function's declarator, a data member's, a pointer to a function's and a using-declaration's,
+at the body's own depth; they are kept by the class's bare name with its bases', and a frame holds them, with the
+enclosing class's, while the class's body is read and while the body of a member, a constructor or a destructor defined
+out of the class is. C++ and the program's own text alone. The use note of 1.1.2 notes a macro's call too, on the road
+of a macro that takes an argument unread as well, and refuses it only where the program's own text declares the name
+further on: glibc's `clone` in `<sched.h>` is no program's name. The reader is 207, since a read that the store kept
+holds the macro's expansion; the lowering stays 180.
+
+THE PROOF. `test/c/run/ownglobal.c` over `ownglobal.h` (a function of the file for each of the four, one that the header
+declares and the file defines below its call, a local and a parameter that hide them) and
+`test/cpp/run/ownglobalcpp.cpp` (a function of the file and of a namespace, a using-declaration, a lambda, a member
+called in its class, out of it by a class's name and by a namespace's path, from a derived class and a nested class, in
+a constructor's mem-initializer, in a destructor and through a pointer member; a class with no member of the name and
+main after the lambda's block call the macro still) print clang's lines -- the C++ one its twin's, where printf stands
+for the macro --, and over 1.6.8 both are refused, `ownglobal.c:14: macro 'print' failed` and `ownglobalcpp.cpp:11:
+macro 'format' failed`. The driver gate's two checks: a program's own `println`, of its file and of a header of its own,
+at the build that reads the header and at the build that the store serves its read to -- 1.6.2's check of the opposite
+rule stood in its place: over 1.6.9 its build prints `mine x`, where it wanted `x` --; and the refusals of a macro's
+call before the program's own declaration, at C17 and at C23 and over `unread.pl`'s `loop`, beside the global `clone`
+before `<sched.h>`, which builds. Reader `k172`: a C++ read that a macro's refusal stops inside a member's body leaves
+its class's names to no later read of the process.
+
+SIXTEEN COPIES BROKEN ON PURPOSE, a clause each (`p169/mk169.py`), over the reader, compile and driver gates, the C++
+fixture and the 42 forms, the unbroken work tree first with no check RED: each copy turns a check RED. The copy that
+excludes the four again (`stdexcl`) turns the compile gate's `ownglobal.c`, the driver gate's first check of 1.6.9, the
+C++ fixture and 31 of the forms RED; no note of a macro's call (`macronote`), a note that asks every declaration at file
+scope, a system header's too (`gscope`), and no note on the road of a macro that takes an argument unread (`unread`)
+turn the driver gate's second check RED, and `g13` and `g15` for the first two. The class's scope -- no frame (`frame`),
+a scan that notes no name (`scan`), no name of a pointer to a function (`fnptr`), no base's names (`bases`), no frame
+for a member defined out of its class by the class's name (`outfn`) or by a namespace's path (`firstseg`), none for a
+constructor (`outctor`) or a destructor (`outdtor`) defined out of it, a nested class's frame without its enclosing
+class's names (`nested`), the frame left after the class's body (`leave`), and no names kept for a later class
+(`record`) -- turns the C++ fixture RED, and each but `firstseg` some of the forms too; a top read that does not begin
+the class's names afresh (`reset`) turns the reader gate's `k172` RED. THE FIRST RUN OF THE COPIES taught two things:
+the copies held no `module/`, so the driver gate's check of the decimal runtime, which builds `module/bidrt.c` from the
+tree, failed in each of them -- the copies' layout, which links `module/` now --; and two static members of the C++
+fixture were named `format`, a name that the fixture's `namespace app` declares, so the call was the program's with no
+frame at all: `firstseg` passed every check, and `outctor` and `outdtor` failed the forms alone. The members are `print`
+now.
+
+THE NETS, over the step's code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN (399 s,
+4071 MB); the reader gate 173 ok, 5 skipped, `k172` among them; the compile gate 354 ok, `ownglobal.c` among them; the
+driver gate 100 ok, the two checks of 1.6.9 among them; the objects gate 29 ok; the ccllib gate 621 ok and no FAIL, 36
+programs in three runs, 187 refused and 21 alone; the C++ pools of the lighter run fixtures, 373 of 373 over libc++ 22,
+21 and 18, `ownglobalcpp.cpp` among them; every heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped by their
+`.needs`, of 520, at 1.6.8's rate of a fixture in 4.5 s; the C++ gate's later parts by hand, 221 ok. After them one
+comment's citation was corrected, `[class.mem]/6` as the reader cites the complete-class context elsewhere, and the flow
+gate ran again over it, GREEN (358 s); and two static members of `ownglobalcpp.cpp` were named `print`, a name that no
+namespace of the file declares, so that the fixture alone catches the copies of the out-of-class constructor, destructor
+and namespace path, and the fixture ran again alone over libc++ 22, 21 and 18, 1 of 1 each. The chain did not run, by
+the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_syntax.pl` (`ccl_prog_named/1` without `ccl_std_macro_name/1`, which is gone; the class's names,
+  `ccl_cls_names_ahead/5`, `ccl_cls_scan/6`, `ccl_cls_bases/3`, `ccl_cls_known/2`, `ccl_cls_record/2`, `ccl_cls_push/2`,
+  `ccl_cls_leave/1`, `ccl_cls_enter/2`, `ccl_cls_enter_fn/2`, and `ccl_class_members//4` with the bases;
+  `ccl_use_call/4` and `ccl_use_later/2`'s clause of a macro; the reader 207); `library/ccl_include.pl` (a top file's
+  read begins the class's names afresh); the module's version.
+- `test/c/run/ownglobal.c`, `ownglobal.h` and `ownglobal.expect`; `test/cpp/run/ownglobalcpp.cpp` and its `.expect`;
+  `test/cpp/ownglobal_left.cpp`, `ownglobal_next.cpp` and `test/reader.pl`'s `k172`; `test/driver.sh`'s two checks of
+  1.6.9, the first in the place of 1.6.2's check of a program's own `println`.
+- RULES.md (the rules of the global macros, 1.6.2's and 1.1.2's, Not done's two records), HISTORY.md, CLAUDE.md (the
+  owner's rule, the versions, the fixtures), README.md (the global macros' paragraph).
+
+The module 1.6.9, the reader 207 and the lowering 180.

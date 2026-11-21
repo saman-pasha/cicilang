@@ -332,11 +332,26 @@ opr12.c:3: error: invalid argument type 'struct P' to unary expression"
 # A NAME THAT THE PROGRAM DECLARES IS NO MACRO'S (1.6.2): a header of the program's own, included before <functional.pl>,
 # whose function is named as one of its macros, names the program's function at the build that reads the header and at
 # the build that the store serves the header's read to -- the store serves a header of the program's own only where no
-# macro file came before it (ccl_inst_context/1), and the file gets a newer time between the two builds -- and the
-# global macros stay the language's
+# macro file came before it (ccl_inst_context/1), and the file gets a newer time between the two builds
 check "a function of a header of the program's own, included before <functional.pl> and named as one of its macros, is the program's, at the build that reads the header and at the build that the store serves its read to (1.6.2)" "$(printf 'static int greater(int a, int b) { return a - b; }\n' > pn_hdr.h; printf '#include <stdio.h>\n#include "pn_hdr.h"\n#include <functional.pl>\nint main(void) { printf("%%d %%d\\n", greater(7, 3), less(1, 2)); return 0; }\n' > pn_main.c; "$CICILI" pn_main.c -o pn1 && ./pn1; touch -d "@$(( $(date +%s) + 5 ))" pn_main.c; "$CICILI" pn_main.c -o pn2 && ./pn2)" "4 1
 4 1"
-check "... and a program's own function named as a global macro (println) is the global macro still, the owner's rule (1.6.2)" "$(printf '#include <stdio.h>\nstatic void println(const char *s) { printf("mine %%s\\n", s); }\nint main(void) { println("x"); return 0; }\n' > pn_std.c; "$CICILI" pn_std.c -o pn3 2>&1 && ./pn3)" "x"
+# THE GLOBAL MACROS YIELD AS WELL (1.6.9, the owner's rule: "Yes user implemented should win over ccllib's macros"):
+# a program's own println, of its file or of a header of its own, is the program's, at the build that reads the
+# header and at the build that the store serves its read to; clang's build of the same file prints the same line
+check "... and a program's own function named as a global macro (println), of its file or of a header of its own, is the program's, at both builds, the owner's rule (1.6.9)" "$(printf '#include <stdio.h>\nstatic void println(const char *s) { printf("mine %%s\\n", s); }\nint main(void) { println("x"); return 0; }\n' > pn_std.c; "$CICILI" pn_std.c -o pn3 2>&1 && ./pn3; printf '#include <stdio.h>\nstatic void println(const char *s) { printf("own %%s\\n", s); }\n' > pn_std.h; printf '#include "pn_std.h"\nint main(void) { println("y"); return 0; }\n' > pn_std2.c; "$CICILI" pn_std2.c -o pn4 2>&1 && ./pn4; touch -d "@$(( $(date +%s) + 5 ))" pn_std2.c; "$CICILI" pn_std2.c -o pn5 2>&1 && ./pn5)" "mine x
+own y
+own y"
+# A GLOBAL MACRO'S CALL BEFORE THE PROGRAM'S OWN DECLARATION OF ITS NAME (1.6.9): the macro took the call, and the
+# program's println below it was not called, with no word -- `early' and `own late', where clang refuses the call; it is
+# refused in clang's words at its line, at C17 and at C23, as 1.1.2 refuses a call of a function defined further down,
+# and so is a macro file's macro that takes an argument unread (0.264's road, ccl_unread_call//3) where the program's
+# own text declares its name further on. A
+# name that a header of the system declares further on is no program's: the global clone before glibc's <sched.h> is
+# the macro's still, as everywhere a header of the system names it
+check "... and a call of a global macro by a name that the program's own text declares further on is refused in clang's words at its line, at C17 and at C23, a macro file's macro that takes an argument unread too; one by a name that a header of the system declares further on is the macro's (1.6.9)" "$(printf '#include <stdio.h>\nstatic void show(void) { println("early"); }\nstatic void println(const char *s) { printf("own %%s\\n", s); }\nint main(void) { show(); println("late"); return 0; }\n' > pn_late.c; "$CICILI" -std=c17 -fsyntax-only pn_late.c 2>&1 | head -1; "$CICILI" -std=c23 -fsyntax-only pn_late.c 2>&1 | head -1; printf '#include <stdio.h>\n#include <unread.pl>\nint main(void) { int s = 0; loop(i, 4, s += i); printf("%%d\\n", s); return 0; }\nstatic void loop(void) { }\n' > pn_unread.c; "$CICILI" -I "$R/run" -std=c17 -fsyntax-only pn_unread.c 2>&1 | head -1; printf '#define _GNU_SOURCE\n#include <stdio.h>\n#include <stdlib.h>\nstruct pt { int x; };\nstatic void use(void) { struct pt a = { 4 }; own struct pt *b = clone(&a); printf("%%d\\n", b->x); free(b); }\n#include <sched.h>\nint main(void) { use(); return 0; }\n' > pn_sched.c; "$CICILI" pn_sched.c -o pn6 2>&1 && ./pn6)" "pn_late.c:2: error: call to undeclared function 'println'; ISO C99 and later do not support implicit function declarations
+pn_late.c:2: error: use of undeclared identifier 'println'
+pn_unread.c:3: error: call to undeclared function 'loop'; ISO C99 and later do not support implicit function declarations
+4"
 # THE STREAMS AS C++'S (1.6.3): `cin >> a >> b' chains, a character is read after the white space before it, as C++'s
 # skipws, and `while (cin >> x)' ends where the input does, the stream failed after it -- the ccllib gate's programs
 # read no input, so this check gives cin its own; clang++'s build of the same program over std::cin prints the line

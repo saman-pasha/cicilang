@@ -1,0 +1,16 @@
+mine: hi
+many
+one
+box 3 7
+box 3 8
+box 5 9
+made 42
+counter 42 2
+outer from a nested class
+12
+103
+pointer member
+lambda x
+the global macro in a class with no such member: 4
+and in main after the lambda's block: 6
+exit 0

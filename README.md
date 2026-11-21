@@ -535,10 +535,13 @@ and `unread.c` as C++ and compares their output with their C builds';
 `test/cpp/run/elemborrowpp.cpp` is `elemborrow.c` the C++ way.
 
 `format`, `print`, `println` and `clone` are global macros, there in every
-program without an include (`library/ccl_format.pl`). The format string
-has Rust's holes, each becoming the `printf` conversion of its argument's
-inferred type, a struct printed by its members. An empty hole `{}` takes the
-next argument; a named hole `{name}` takes the variable of that name in scope:
+program without an include (`library/ccl_format.pl`). A name that the
+program declares is the program's: its own function `println`, a local or a
+parameter of the name, and in C++ a member of the class are called, not the
+macro (1.6.9). The format string has Rust's holes, each becoming the `printf`
+conversion of its argument's inferred type, a struct printed by its members.
+An empty hole `{}` takes the next argument; a named hole `{name}` takes the
+variable of that name in scope:
 
 ```c
 n := 42;

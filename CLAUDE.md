@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.8 the versions are: the module 1.6.8 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 206 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 180 (`ccl_lowering_version/1`,
+At 1.6.9 the versions are: the module 1.6.9 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 180 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -115,7 +115,11 @@ In `RULES.md`:
   variable named `tie` keep their meaning. `<*>`, the old spelling, is no punctuator in either lexer. (0.109)
 - `format`, `print`, `println` and `clone` are global macros in every file of the program, with no include (owner's
   rule). A library header read preprocessed does not get them (`ccl_lib_unit/1`): libc++ has a `format` of its own.
-  (from the start, 0.99)
+  A NAME THAT THE PROGRAM DECLARES IS THE PROGRAM'S, NOT THE MACRO'S (owner's rule, 1.6.9: "Yes user implemented should
+  win over ccllib's macros"): its own function or object of the name, a local or a parameter in scope, and in C++ a
+  member of the class or of a base in the class's scope; in C a call of the macro before the program's own declaration
+  of the name is refused, as clang refuses a call of a function that no declaration names yet. (from the start, 0.99,
+  1.6.9)
 - Every pointer has an ownership path, or the program is refused (owner's rule). There is no warning channel: `untied`
   (no owner behind) and `unconsumed` (plain pointer not consumed) are errors, by the owner's decision after 0.14. (M3)
 - An own array has a constant bound, or nothing (owner's rule). The one exception is a struct's last member, bounded by
@@ -604,7 +608,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             redefok.c over redefok_g.h, redefok_c.h, redefok_sa.h, redefok_sb.h and redefok_t.h, and
                             redefok23.c, what C and C23 take again at file scope (1.6.7); cleanup.c, cleanup23.c,
                             ctordtor.c and ctordtor_exit.c, GCC's cleanup, constructor and destructor attributes
-                            (1.6.8)
+                            (1.6.8); ownglobal.c over ownglobal.h, a program's own format, print, println and clone
+                            (1.6.9)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -649,7 +654,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             move (0.307); dropped_new.cpp, dropped_new_array.cpp and dropped_new_nothrow.cpp, C++'s
                             new-expressions thrown away (0.309); freeoprval.cpp, an rvalue for a free operator's
                             W & parameter, refused (1.6.6); cleanup_overload.cpp, a cleanup that names two
-                            overloads, refused (1.6.8)
+                            overloads, refused (1.6.8); ownglobal_left.cpp, a read that a macro's refusal stops in a
+                            class, and ownglobal_next.cpp, the read after it, of the reader gate's k172 (1.6.9)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -669,7 +675,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             scopedtypes.cpp, GNU's __typeof__ of a block's object (1.6.2); freeopbin.cpp and
                             freeopenum.cpp, a free operator taken only where its parameters take the operands, over a
                             class and over an enumeration (1.6.6); cleanupcpp.cpp and ctordtorcpp.cpp, GCC's cleanup,
-                            constructor and destructor attributes in C++ (1.6.8)
+                            constructor and destructor attributes in C++ (1.6.8); ownglobalcpp.cpp, a program's own
+                            format, print, println and clone in C++, its classes' members among them (1.6.9)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

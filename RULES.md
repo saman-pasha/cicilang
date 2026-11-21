@@ -2607,7 +2607,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - **A NAME USED BEFORE ANY DECLARATION OF IT IS REFUSED IN C** (1.1.2; the Ambitious session's finding 43; C17 6.5.1/2,
   whose footnote says that an undeclared identifier is a violation of the syntax, and C99's foreword, which took away
-  the implicit declaration of a function; `ccl_use_value//2`, `ccl_use_call/3`, `ccl_use_note/3`, `ccl_uses_keep/0`,
+  the implicit declaration of a function; `ccl_use_value//2`, `ccl_use_call/4`, `ccl_use_note/3`, `ccl_uses_keep/0`,
   `ccl_uses_check/1`): an identifier is a primary expression only where a declaration of it is in scope. The lowering
   knows every function of the unit, so a call of one that the file defines further down was lowered by the definition's
   type, and the program ran, where clang refuses it: `call to undeclared function 'later'; ISO C99 and later do not
@@ -2616,9 +2616,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   form, a call of another count of arguments, has been refused since 0.302 (the lowering's topic of a call's count), and
   the toolchain that reported it was 0.301. The reader notes each name of the program's file that it reads where no
   declaration or enumerator of it is in scope: a value at the name, a call at its `(` once the call is a call of that
-  name -- not a macro's, nor an instance's by name. At the end of the file it refuses the first noted name that a later
-  declaration at file scope -- the file's own, or a header's included later -- or an enumerator of the unit names, a
-  later block's among them, at the line of its use. A header's enumerators are in scope by the table of values alone,
+  name -- not an instance's by name --, and a macro's call by the name, which only a later declaration of the program's
+  own text refuses (1.6.9, the rule of the global macros). At the end of the file it refuses the first noted name that a
+  later declaration at file scope -- the file's own, or a header's included later -- or an enumerator of the unit names,
+  a later block's among them, at the line of its use. A header's enumerators are in scope by the table of values alone,
   which an include fills, and no declaration of them, so the note asks that table too. A NAME IS IN SCOPE JUST AFTER ITS
   DECLARATOR (C17 6.2.1/7), where the reader declares a declaration's names at its end and a function's parameters at
   its body, so each declarator's name, a parameter's among them, is the item's at once (`ccl_use_pend/1`, from
@@ -2639,7 +2640,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   deque's, `<deque.pl>`), a header's enumerators (`declorder.h`), and the names of one declaration or one parameter list
   in their own initializer, a later declarator and a later parameter's bound; `test/c/run/textorder.c` over
   `textorder.pl`, a macro's C text whose first function calls the second. The driver gate holds twenty forms at C17,
-  among them a parameter's bound before the parameter, two at C23 and the store's round. Reader 201. (1.1.2)
+  among them a parameter's bound before the parameter, two at C23 and the store's round. Reader 201. (1.1.2, 1.6.9)
 ### C's language levels
 
 - C's level is its own global, `'$ccl_c_std'` (`ccl_c_std/1`, default 17), since 17 and 23 are both languages'. The
@@ -2792,8 +2793,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   A cache hit loads nothing again, since the expansion happened at the read. Reader `k82`. (M1b)
 - **`format`, `print`, `println` are global macros** (owner's rule), in `library/ccl_format.pl`.
   `ccl_standard_macros/0` registers that file at the start of every unit, found on `$COCOLOG_LIBRARY`. It never does
-  inside a library header's read (`ccl_lib_unit/1`, `'$ccl_lib_unit'`). Why: libc++ calls a `format` of its own.
-  (0.99)
+  inside a library header's read (`ccl_lib_unit/1`, `'$ccl_lib_unit'`). Why: libc++ calls a `format` of its own. A
+  name that the program declares is the program's, not the global macro's (the rule of 1.6.9, below). (0.99, 1.6.9)
 - They are DCG macros. Rust's holes `{}`, `{0}`, `{name}`, `{{`, `}}` become printf conversions by `ccl_type_of/2`; a
   struct prints by its members. `print` is `printf`, `println` adds `\n`, `format` is `({ char *b; asprintf(&b, ...);
   b; })`, a malloc'd `char *`. An argument that cannot be formatted stops the read (`cannot_format(Expr)`). Reader
@@ -2801,22 +2802,50 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - **`clone(p)` is a global macro** (owner's rule), `ccl_macro_clone/2`: `({ own T *c = malloc(sizeof(T)); *c = *p; c;
   })`, a fresh owner, so an own parameter takes the copy and `p` stays the caller's. It refuses a non-pointer
   (`cannot_clone`), a pointee with an own member (`cannot_clone_own_members`, `ccl_has_own_member/1`) and a file with
-  no `malloc` (`clone_needs_malloc`). `test/c/run/clone.c`. (M3)
+  no `malloc` (`clone_needs_malloc`). `test/c/run/clone.c`. A program's own `clone` is its own (the rule of 1.6.9,
+  below). (M3, 1.6.9)
 - **A NAME THAT THE PROGRAM DECLARES IS NO MACRO'S** (1.6.2; the review of 1.1.3 to 1.6.0, its first item): a macro
   file's macro -- ccllib's `hash` and `less`, a `.pl` of the program's own -- is a name of that file, as C++'s
   `std::hash` is std's, and a call of a name that the program's own text declares is that declaration's call, at any
   count of arguments, as C has one name one entity (`ccl_prog_named/1` in `ccl_call_or_macro/3`, and in
   `ccl_unread_ahead/7` for a macro that takes an argument unread). The program's text is its file and a header of its
-  own -- not a header of the system, of the compiler's own or of ccllib (a `NAME.pl.h`, `ccl_library_file/1`), and
-  never a macro's C text (`ccl_prog_text/0`); a name is noted where the reader declares it at file scope there
+  own -- not a header of the system, of the compiler's own or of ccllib (a `NAME.pl.h`, `ccl_library_file/1`), and never
+  a macro's C text (`ccl_prog_text/0`); a name is noted where the reader declares it at file scope there
   (`ccl_prog_note/1` in `ccl_declare/2`) and where a header of the program's own comes in scope, whose read the store
   may serve -- it does where no macro file came before the header (`ccl_inst_context/1`) -- (`ccl_prog_unit/2` in
-  `ccl_include_scope/1`); a local or a parameter in scope is the program's too. The
-  global macros, `format`, `print`, `println` and `clone`, are the language's and stay macros (`ccl_std_macro_name/1`).
-  Through 1.6.0 `static unsigned hash(const char *s)` and `static int less(...)` beside `<functional.pl>` were the
-  module's macros: `1869612755 1` where the program means `96354 0`. `test/ccllib/ownnames.c` over `ownhdr.h` and its
-  twin; the driver gate's two checks, the second build of a file whose own header, before `<functional.pl>`, the store
-  serves, and a program's own `println`. Reader 203. (1.6.2)
+  `ccl_include_scope/1`); a local or a parameter in scope is the program's too. The global macros yield as well since
+  1.6.9 (the rule below). Through 1.6.0 `static unsigned hash(const char *s)` and `static int less(...)` beside
+  `<functional.pl>` were the module's macros: `1869612755 1` where the program means `96354 0`. `test/ccllib/ownnames.c`
+  over `ownhdr.h` and its twin; the driver gate's check of the second build of a file whose own header, before
+  `<functional.pl>`, the store serves. Reader 203. (1.6.2, 1.6.9)
+- **THE GLOBAL MACROS YIELD TO THE PROGRAM'S NAMES** (1.6.9, the owner's rule: "Yes user implemented should win over
+  ccllib's macros"): a call of `format`, `print`, `println` or `clone` where the program's own text declares the name --
+  a function or an object of its file or of a header of its own, a local or a parameter in scope -- is the program's
+  call (`ccl_prog_named/1`), as a macro file's macro has yielded since 1.6.2. Through 1.6.8 the four were the language's
+  in every scope (`ccl_std_macro_name/1`, gone): a program's own `static void println(const char *)` was not called,
+  `hi` where the program printed `mine: hi`, its own `print(2, 3)` and `format(1)` were refused in the macros' words,
+  `macro 'print' failed: no result for these arguments`, and its own `clone(a)` of a struct `macro:
+  cannot_clone(id(a))`. IN C++ A MEMBER OF THE CLASS OR OF A BASE is the program's in the class's scope -- a member
+  function's body, a default member initializer, a constructor's mem-initializers, and the body of a member, a
+  constructor or a destructor defined out of its class --, since each finds a name in the class's scope and its bases'
+  before the namespace's, a member declared further down the class among them ([basic.lookup.unqual]/1, [class.mem]/6):
+  the names that the class's members declare are scanned ahead at its `{` (`ccl_cls_names_ahead/5`, `ccl_cls_scan/6`), a
+  function's and a data member's, a pointer to a function's and a using-declaration's; they are kept by the class's bare
+  name with its bases' (`'$ccl_cls_names'`), and stand in a frame while the class's body, a nested class's, or the body
+  of a member defined out of the class is read (`'$ccl_cls_frame'`, `ccl_cls_enter/2`). `void print(int) const` beside
+  `void show() const { print(7); }` was refused `macro 'print' failed`, and a static member `println` that its class's
+  static member called printed the macro's line. A class with no member of the name, and each scope outside the class,
+  calls the macro still. C++ and the program's own text alone: a library header's read calls no macro, and C's members
+  are no names in a scope. A CALL OF A MACRO BEFORE THE PROGRAM'S OWN DECLARATION OF ITS NAME is refused in C, in
+  clang's words at its line, as a call of a function that the file defines further down is (1.1.2): `call to undeclared
+  function 'println'; ISO C99 and later do not support implicit function declarations`, at C23 `use of undeclared
+  identifier 'println'`. The macro took the call and the program's `println` below it was not called, with no word;
+  `ccl_use_call/4` notes a macro's call, on the road of a macro that takes an argument unread too (0.264), and
+  `ccl_use_later/2` asks the program's names for it, so that a name that a header of the system declares further on is
+  no program's: the global `clone` before glibc's `<sched.h>` is the macro's still. `test/c/run/ownglobal.c` over
+  `ownglobal.h`, `test/cpp/run/ownglobalcpp.cpp`, and the driver gate's two checks: a program's own `println`, of its
+  file and of a header of its own, at the build that reads the header and at the build that the store serves its read
+  to; and the refusals, at C17 and at C23, beside the system's `clone`. Reader 207. (1.6.9)
 - **A MACRO WRITES C TEXT WITH HOLES** (0.260; `CCLLIB.md`'s phase 0.1, the first step of ccllib on the owner's word):
   `ccl_c_items(Text, Holes, Items)` reads the text as file-scope items, `ccl_c_stmts/3` as block items in the call's
   scope, `ccl_c_expr/3` as one expression and `ccl_c_type/3` as a type name (`ccl_ctext/4`, `library/ccl_syntax.pl`).
@@ -15851,14 +15880,32 @@ Declarations topic of the C++ reader).
   enumerator and a header included after the use, where clang++ says `use of undeclared identifier 'later'` -- C++'s
   lookup has a member's body in its complete class, a template's dependent names looked up where it is made, and the
   namespaces that a call's arguments bring, which the reader's scope does not hold; and a name that nothing declares is
-  `not lowered yet: undeclared(nowhere)` in C++. A LIBRARY FUNCTION THAT NOTHING DECLARES has a call's words, `call to
-  undeclared function 'printf'; ...`, where clang says `call to undeclared library function 'printf' with type 'int
-  (const char *, ...)'` and notes the header that declares it. A LATER FUNCTION CALLED IN A FORMAT MACRO'S ARGUMENT,
-  `println("{}", later(1))`, is refused in the macro's words, `macro: cannot_format(call(id(later),[int(1)]))`: the
-  macro asks the argument's type, which no declaration gives yet, before the file's end. AN EARLIER BLOCK'S ENUMERATOR,
-  used after its block, builds: `return B;` after a function whose block declares `enum { A = 1, B = 2 }` returns 2,
-  where clang says `use of undeclared identifier 'B'` -- the table of values is the unit's, and the note asks it, since
-  a header's enumerators are in scope by it alone. ONE refusal is given, the first, where clang gives each.
+  `not lowered yet: undeclared(nowhere)` in C++. And a global macro's call before the program's own declaration of its
+  name is the macro's in C++ (1.6.9): `println("early")` in a function above `static void println(const char *s)` prints
+  `early`, and the program's `println` is called below it, where clang++ says `use of undeclared identifier 'println'`.
+  A LIBRARY FUNCTION THAT NOTHING DECLARES has a call's words, `call to undeclared function 'printf'; ...`, where clang
+  says `call to undeclared library function 'printf' with type 'int (const char *, ...)'` and notes the header that
+  declares it. A LATER FUNCTION CALLED IN A FORMAT MACRO'S ARGUMENT, `println("{}", later(1))`, is refused in the
+  macro's words, `macro: cannot_format(call(id(later),[int(1)]))`: the macro asks the argument's type, which no
+  declaration gives yet, before the file's end. AN EARLIER BLOCK'S ENUMERATOR, used after its block, builds: `return B;`
+  after a function whose block declares `enum { A = 1, B = 2 }` returns 2, where clang says `use of undeclared
+  identifier 'B'` -- the table of values is the unit's, and the note asks it, since a header's enumerators are in scope
+  by it alone. ONE refusal is given, the first, where clang gives each.
+- THE GLOBAL MACROS AND C++'S CLASSES (1.6.9; the topic of the global macros): a class's names are found by a scan of
+  its body's tokens and kept by its bare name, so two classes of one bare name -- in two namespaces, or nested in two
+  classes -- give each other's members to their scopes, and a base that the program's text does not define, a library
+  class, brings none of its members: a call `print(x)` in a class derived from a library class whose member is `print`
+  is the global macro's. A base that depends on a template's parameter brings its members as any base does, where C++
+  does not look an unqualified name up in it ([temp.dep]/3) and clang++ refuses the call. An enumerator of an unscoped
+  enumeration in the class is no name of the scan's. A FORMAT MACRO'S ARGUMENT THAT NAMES A DATA MEMBER in a member's
+  body, by its bare name or through `this`, is refused `macro: cannot_format(id(n))` and `macro:
+  cannot_format(arrow(this,n))`: the macro asks the argument's type, which the reader does not hold for a member -- an
+  older behaviour, which 1.6.9's probes found beside the class's scope, over 1.6.8 alike; a local copy of the member is
+  formatted. A FUNCTION OF A NAMESPACE is the program's name in the whole file, since the reader keeps no namespace's
+  scope of names: the global macro `format` called outside `namespace app { const char *format(int); }` is the program's
+  call, refused `no matching function for call to 'format'`, where 1.6.8 called the macro; and a call that finds such a
+  function by its arguments' namespaces ([basic.lookup.argdep]) is the program's so, as it has been since 1.6.2 for a
+  macro file's macros.
 
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (an older behaviour, found at 1.1.2): a macro file is loaded
   once in a process (`ccl_load_macros/2`, `ensure_loaded/1`), and its predicates are the database's, so where two files
