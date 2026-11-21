@@ -75,6 +75,16 @@ printf '#include <stdio.h>\n#include "%s/absh.h"\nint main(void) { printf("%%d\\
 check "an #include of an absolute path finds the file, as clang does (0.260)" "$("$CICILI" absinc.c -o absinc 2>&1 && ./absinc)" "42"   # the path was joined to the includer's directory: the header was never read, and the build failed later at undeclared(twice_h)
 check "two units that both make vector<int> link: its functions linkonce_odr, one kept (0.261)" "$("$CICILI" "$R/link/inst_a.c" "$R/link/inst_b.c" -o inst 2>&1 && ./inst)" "5 7 6"   # each unit defines vector_int_push, _at and _len; plain definitions would be duplicate symbols at the link
 check "two units over <vector.pl> link, each with the functions of vector<int> that it calls, one kept of what both made (0.274)" "$("$CICILI" "$R/link/vec_a.c" "$R/link/vec_b.c" -o vecab 2>&1 && ./vecab)" "6 9 7 6"
+check "two units over <memory.pl> share the program's pool: a handle one made, cloned in the other (1.6.5)" "$("$CICILI" "$R/link/sp_a.c" "$R/link/sp_b.c" -o spab 2>&1 && ./spab)" "a 5 1
+b 17
+count 2 1"   # the review's r15: through 1.6.4 each unit had its own pool, the linker kept one unit's `unique', and the other's call aborted
+check "... in the other order, and in C++ (1.6.5)" "$("$CICILI" "$R/link/sp_b.c" "$R/link/sp_a.c" -o spba 2>&1 && ./spba; "$ROOT/bin/cicilang++" "$R/link/sp_a.c" "$R/link/sp_b.c" -o sppp 2>&1 && ./sppp)" "a 5 1
+b 17
+count 2 1
+a 5 1
+b 17
+count 2 1"
+check "the pool of shared_ptr<int> and its lock are linkonce_odr globals, the program's and not each unit's (1.6.5)" "$("$CICILI" -S -emit-llvm "$R/link/sp_b.c" -o spb.ll 2>&1 && grep -c -e '^@shared_ptr_int_pool = linkonce_odr global' -e '^@shared_ptr_int_pool_lock = linkonce_odr global' spb.ll)" "2"
 lpout=$("$CICILI" "$R/lit_noplace.c" -o litnp 2>&1); lpcode=$?
 check "a list literal where no place gives it a type, a conditional's branch, is refused by name (0.263)" "$(echo "$lpout" | sed "s|$R/||g"; echo "exit $lpcode")" "lit_noplace.c:8: error: not lowered yet: list_literal_with_no_type_given (function main)
 lit_noplace.c:8: note: expanded from macro 'vector' on base([],[int])

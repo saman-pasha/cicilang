@@ -801,9 +801,10 @@ make_shared<point>(pt);`, `shared_ptr<point> q = clone(p);` a second owner,
 `use_count(p)`, `unique(p)`, `get(p)`, `*p`, `p->m`, `reset(p)`, `swap(p, q)`
 and the relations of the objects' addresses. A block is one of a fixed pool
 of 4096 for each element type, so a handle owns a slot's number rather than
-the block; the last drop gives the slot back. A handle belongs to the unit
-that made it: handed to another unit's function, it stops the program. An
-assignment or a call moves a handle, and `clone` copies it.
+the block; the last drop gives the slot back. The pool is the program's
+(1.6.5): a handle made in one unit is used in another, and threads share the
+blocks, each count changed under the pool's lock. An assignment or a call
+moves a handle, and `clone` copies it.
 `test/ccllib/shared_ptr.c` is the example.
 
 `#include <functional.pl>` gives C++'s function objects as expressions
@@ -864,7 +865,8 @@ and `atomic_flag<> f; test_and_set(f); clear(f)` over clang's atomic builtins. E
 operation is seq_cst, and a struct or a pointer-holding object is refused.
 `test/ccllib/atomic.c` is the example. `CCLLIB.md` gives the phases after them,
 Phase 2 has `<mutex.pl>` too (1.6.0): `mutex<> m; lock(m);` a `lock_guard<mutex<> >` and a `unique_lock<mutex<> >`
-over pthreads, with `latch<>` and `barrier<int>`; its C, C++ and C++23 runs print what its `std::` twin prints.
+over pthreads, with `latch<>` and `barrier<int>`; one thread initializes each at its first use (1.6.5), and its C, C++
+and C++23 runs, threads among them, print what its `std::` twin prints.
 to C++26.
 
 ## C++: the levels and the library

@@ -691,6 +691,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   its scope ends, a moved one by who took it (the autodrop of 0.262, whose own fixtures the compile gate runs on every
   machine). No valgrind: `SKIP NAME.valgrind (not here)`, the form that the CI takes for what a machine lacks; the full
   job installs valgrind (`test/ci.sh`). (0.273)
+- THE THREADS UNDER THREADSANITIZER (1.6.5): a program of `test/ccllib/` that makes threads (`pthread_create` in its
+  text) is built by cicilang as C to its IR (`-S -emit-llvm`), each `define` marked `sanitize_thread`, and the reference
+  clang -- `$LLVM`'s, else the one on the path -- builds that IR with `-fsanitize=thread`; the run, under
+  `TSAN_OPTIONS=halt_on_error=1`, prints `NAME.expect`, no report among its lines. valgrind's helgrind takes the atomics
+  of a spin lock and of a first use for no order -- a counter under an atomic spin lock was four races to it, and a
+  first use by compare-exchange one -- where ThreadSanitizer knows them: over 1.6.4's texts it reports the mutex's flag,
+  read and written by two threads, and a mutex initialized two times, and over 1.6.5's nothing. The C++ build lowers the
+  same texts and is not held to it. No clang with ThreadSanitizer: `SKIP NAME.tsan (no clang with ThreadSanitizer
+  here)`. (1.6.5)
 - A build has a cap of `CCLLIB_SECS` (600) and a run of `CCLLIB_RUN_SECS` (120), each by `timeout -s KILL`; the gate
   runs under an outside cap, as the small gates do. Its builds are serial, so a cold summary is read safely by the
   first C++ build; the chain runs the gate last, over the summaries that the library read left. (0.273)
@@ -2774,8 +2783,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - **AN INSTANCE'S FUNCTIONS ARE LINKONCE** (0.261; the owner's decision: "for linkonce use implicit"): a function that
   the instance defines with no storage word is `linkonce` (`ccl_inst_linkonce/2`), `define linkonce_odr` as a C++
   template's is, so that every unit that uses `vector<int>` defines `vector_int_push` and the link keeps one; a
-  program's own header's linkonce function is the unit's always, as its external definitions are (`ir_hdr_mode/2`).
-  The driver gate links two units that both make `vector<int>` (`test/c/link/inst_a.c`, `inst_b.c`). (0.261)
+  program's own header's linkonce function is the unit's always, as its external definitions are (`ir_hdr_mode/2`). AN
+  INSTANCE'S OBJECT AT FILE SCOPE with no storage word is linkonce too (1.6.5), `linkonce_odr global`, so that the
+  program has one of it, as it has one of each function: a shared_ptr's pool and its lock (ccllib's memory topic); until
+  then the reader marked the functions alone. The driver gate links two units that both make `vector<int>`
+  (`test/c/link/inst_a.c`, `inst_b.c`), and two that share a shared_ptr's pool (`sp_a.c`, `sp_b.c`). (0.261, 1.6.5)
 - **A C TEXT'S FUNCTIONS ARE NOEXCEPT IN C++** (0.267; `CCLLIB.md`'s phase 0.10): the text is C, which throws nothing,
   so each function that a C text's items define takes noexcept's mark in C++, its storage word under it,
   `nxif(bool(true), linkonce)` (`ccl_ctext_nx/3` at the end of `ccl_ctext/4`; `ccl_inst_linkonce/2` looks through the
@@ -10226,10 +10238,24 @@ in the first topic (The ccllib gate).
 - PHASE 2 CONTINUES WITH `<mutex.pl>` (1.6.0): `mutex<>`, `lock_guard<mutex<> >`, `unique_lock<mutex<> >`, `latch<>` and
   `barrier<T>` over pthreads. A no-argument type macro is written with `<>` (`mutex<> m;`) -- a bare `mutex m;` never
   invokes the macro and the lowering says `not lowered yet: typedef(mutex)` -- a guard is born from the address
-  (`lock_guard<mutex<> > g = &m;`), a latch's functions take its address, and a guard keeps that address as an integer
-  (the safe part follows no borrow stored in a field). The mutex is a struct with a flag and is initialized on its first
-  lock: a zeroed pthread mutex is no Darwin initializer. `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs
-  agree at C++23. (1.6.0)
+  (`lock_guard<mutex<> > g = &m;`), a latch's functions take its address, and a guard keeps that address as a
+  `uintptr_t` (the safe part follows no borrow stored in a field; an `unsigned long` until 1.6.5). ONE THREAD
+  INITIALIZES (1.6.5; the review's item 6, its r16): a mutex, a latch and a barrier are born with no live pthread object
+  -- a mutex zero, a latch and a barrier with their counts alone, `latch_of` and `barrier_of` writing no pthread object
+  -- and the first use of each initializes its objects in place: a state of 0 (none), 1 (one thread initializes) and 2
+  (live), which `__atomic_compare_exchange` takes from 0 to 1, the threads that meet it waiting for 2
+  (`<instance>_ensure`); a drop destroys what is live. Through 1.6.4 a mutex's flag was read and written by two threads
+  with no order, so two first locks could initialize it two times, and `latch_of` and `barrier_of` initialized a mutex
+  and a condition and returned them by value, which POSIX leaves undefined. A latch's and a barrier's pthread objects
+  stand in words of their size (`long long mu_[(sizeof(pthread_mutex_t) + 7) / 8]`): a struct that held glibc's
+  `pthread_mutex_t`, two pointers of its own list, was a struct of pointers to the safe part, and `latch<> l = 2L;` was
+  refused on Linux, `no owner behind` -- the ccllib gate's four FAIL of 1.6.0 to 1.6.4, beside an expect with no `exit
+  0` line. glibc's zero mutex and condition are initialized ones and its mutex copies whole, so no run on Linux tells a
+  first use from its breach: `alone/mutex_rules.c` reads the state from the instances' own fields, and holds a first use
+  that meets another's (state 1) to its wait. `mutex.c` -- the forms of 1.6.0, and two threads that lock one mutex
+  200,000 times each after a first lock of another from both, a latch that two threads count down, a barrier of three
+  threads, a `try_lock` from a thread while main holds the mutex -- its twin, its C IR under ThreadSanitizer, and
+  `safe/mutex_of_int.c`; the three runs agree at C++23. (1.6.0, 1.6.5)
 - PHASE 2 CONTINUES WITH `<atomic.pl>` (1.5.0): `atomic<T>` is a struct of one `T` member, and `atomic_flag<>`
   one `_Bool`; the functions are C++'s names over clang's `__atomic_*` builtins, all sequentially
   consistent: `load`, `store`, `exchange`, `is_lock_free`, `compare_exchange_strong`, `compare_exchange_weak`, and for
@@ -11243,19 +11269,19 @@ in the first topic (The ccllib gate).
   its instances in 12,744 bytes, where the twin's holds 67 in 37,032; the count run takes 0.93 s as C and 0.87 s as C++
   against the twin's 1.23 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.57 s and 387 MB,
   cicilang++'s 0.48 s and 149 MB, against clang++'s 0.30 s and 114 MB. (0.309)
-- **`shared_ptr<T>` IS ONE OWN POINTER TO A SLOT NUMBER, AND ITS BLOCK IS A POOL'S** (1.1.3; `CCLLIB.md`'s phase 1b, "the
-  shared block"): a shared block cannot be one owner's -- the safe part's linear ownership has no word for it -- so the
-  module gives each element type a pool of 4096 blocks, `static own shared_ptr_point_block
-  *shared_ptr_point_pool[4096];`, and a handle, `typedef struct shared_ptr_point { own size_t *slot; } shared_ptr_point;`,
-  owns only the number of its slot. A block holds the object's value and the two counts, strong and weak, and is made by
-  the first `make_shared` of a free slot; the last drop of the strong count frees the slot (`@P[i - 1] = 0`, which the
-  own array drains) for the next block, and the weak count keeps a block whose strong count is zero. A move empties the
-  handle's own slot as every moved object's own field is emptied, so a clone -- a second own number, the count one more
-  -- is the copy. A creation past 4096 live blocks of one instance stops the program (abort). THE POOL IS THE UNIT'S
-  OWN: the array is `static`, and a handle carries the pool's address as a number, so a handle handed to another unit's
-  function stops the program (abort) rather than read that unit's pool -- a shared_ptr is made and used in one unit. The
-  module's text is the safe part's too: a copy that frees an owner under the array's count is refused in it before any
-  program runs. (1.1.3)
+- **`shared_ptr<T>` IS ONE OWN POINTER TO A SLOT NUMBER, AND ITS BLOCK IS A POOL'S** (1.1.3; `CCLLIB.md`'s phase 1b,
+  "the shared block"): a shared block cannot be one owner's -- the safe part's linear ownership has no word for it -- so
+  the module gives each element type a pool of 4096 blocks, `own shared_ptr_point_block *shared_ptr_point_pool[4096];`,
+  and a handle, `typedef struct shared_ptr_point { own size_t *slot; } shared_ptr_point;`, owns only the number of its
+  slot. A block holds the object's value and the two counts, strong and weak, and is made by the first `make_shared` of
+  a free slot; the last drop of the strong count frees the slot (`@P[i - 1] = 0`, which the own array drains) for the
+  next block, and the weak count keeps a block whose strong count is zero. A move empties the handle's own slot as every
+  moved object's own field is emptied, so a clone -- a second own number, the count one more -- is the copy. A creation
+  past 4096 live blocks of one instance stops the program (abort). THE POOL IS THE PROGRAM'S, AND ITS COUNTS CHANGE
+  UNDER A LOCK (1.6.5: the rule after weak_ptr's); through 1.6.4 the pool was each unit's `static` array, and a handle
+  carried the pool's address as a number and stopped the program in another unit's function. The module's text is the
+  safe part's too: a copy that frees an owner under the array's count is refused in it before any program runs. (1.1.3,
+  1.6.5)
 - THE SURFACE OF `std::shared_ptr<T>`: `make_shared<T>(x)`, a block that holds a copy of x, and `make_shared<T>()`, T's
   zero, by the reader's maker by name (the facts `maker_shared_ptr_make_shared` and
   `maker_shared_ptr_make_shared_for_overwrite`), and `make_shared_for_overwrite<T>()`, a block whose bytes are not set;
@@ -11348,11 +11374,33 @@ in the first topic (The ccllib gate).
   takes the weak count and frees the slot when the strong and the weak counts are both zero. The birth `weak_ptr<int> w
   = p;` is `_of_shared_ptr_int(const shared_ptr_int *)`, the reader's `_of` passing the shared handle's address, so p is
   not moved; `clone` gives a second weak handle, `lock` a shared owner (or an empty shared_ptr), `expired`, `use_count`,
-  `reset` and `swap` are the rest, and each checks the pool's own address. `test/ccllib/weak_ptr.c` and its twin over
-  `std::weak_ptr` print the same 7 lines; `alone/weak_ptr_rules.c` at 16,902 checks; `safe/weak_ptr_of_pointer.c` and
-  `weak_ptr_two_types.c`; no stop is its own. Three copies broken on purpose -- a drop that frees the block under a live
-  weak, a lock that counts nothing, an expired that is always false -- are each caught by the rules program. A weak_ptr
-  of a type whose shared_ptr is not in the unit makes that instance with it. (1.1.5)
+  `reset` and `swap` are the rest, and each that reads or changes a count takes the pool's lock (1.6.5; until then each
+  checked the pool's own address). `test/ccllib/weak_ptr.c` and its twin over `std::weak_ptr` print the same 7 lines;
+  `alone/weak_ptr_rules.c` at 16,902 checks; `safe/weak_ptr_of_pointer.c` and `weak_ptr_two_types.c`; no stop is its
+  own. Three copies broken on purpose -- a drop that frees the block under a live weak, a lock that counts nothing, an
+  expired that is always false -- are each caught by the rules program. A weak_ptr of a type whose shared_ptr is not in
+  the unit makes that instance with it. (1.1.5, 1.6.5)
+- **THE POOL AND ITS LOCK ARE THE PROGRAM'S, AND THREADS SHARE THEM** (1.6.5; the review of 1.1.3 to 1.6.0, its item 5,
+  and its reading: the counts had no lock, where phase 2 brings threads): the pool and its lock, `int
+  shared_ptr_point_pool_lock;`, stand in the instance's text with no storage word, so the compiler makes each a
+  `linkonce_odr global` (AN INSTANCE'S FUNCTIONS ARE LINKONCE, in the topic of the language's own forms), and every unit
+  that makes `shared_ptr<point>` names the one pool. Through 1.6.4 the pool was each unit's `static` array, the link
+  kept one unit's copy of each function, and `unique(p)` in the unit that made p ran the other unit's copy over that
+  unit's empty pool: abort (the review's r15). THE LOCK is a spin lock of one int, taken by `__atomic_exchange_n`
+  (acquire) and given back by `__atomic_store_n` (release), and the pool's own functions stand in the type's text, each
+  under it: `_pool_put` gives a new block a free slot, `_pool_count` reads a block's strong count, `_pool_down` brings
+  it down -- the last strong owner ends the object, the last owner of either kind frees the slot -- and `_pool_hold`
+  makes the handle of a new block; the weak instance's text adds `_pool_weak_up` and `_pool_weak_down`, and `clone` and
+  a weak handle's `lock` raise the strong count under the lock. `*p`, `p->m` and `get(p)` take none: a strong handle
+  keeps its block and the block's `live`, which only the last strong owner's drop writes. A handle's drop and its
+  `reset`, of either kind, are one text by two names (`ccllib_shared_ptr_release/5`): a `reset` that calls the drop
+  leaves its handle's own field, to the safe part, not whole at the return. Through 1.6.4 four threads that cloned and
+  dropped one handle stopped with `double free or corruption` in two runs of five. `test/c/link/sp_a.c` and `sp_b.c`,
+  two units that share a handle, linked in both orders and as C++ by the driver gate, which also finds the pool and its
+  lock `linkonce_odr` in a unit's IR; `test/ccllib/sharedthreads.c` and its twin over `std::shared_ptr`, `std::weak_ptr`
+  and `std::thread` -- four threads each clone, count, take a weak handle, lock it, reset the lock and make a block of
+  their own, 20,000 times, and the count is 1 again --, its C IR under ThreadSanitizer, and its three runs under
+  valgrind. (1.6.5)
 
 ## The safe part
 
@@ -12182,6 +12230,12 @@ in the first topic (The ccllib gate).
   `sfinaedefs.cpp` was refused in 0.221's gate) and a place in a pointer parameter's pointee (`&p->f`, `&p[i]`, `&*p`),
   which no flow took: `out.push_back(&p->v)` over the caller's `&s` let `s` escape with `out`, and `out.push_back(p +
   1)` over a local array alike. `flowarith.cpp`, `flowarith2.cpp` (refused), `test/cpp/run/flowarithok.cpp`.
+- AN OWN PARAMETER'S VALUE IS NO BORROW (1.6.5; `ck_flow_value/3`): the call moves the caller's owner into it, so its
+  store is the owner's and no flow -- `put(b)` over `size_t put(own blk *b) { slot[0] = b; return 1; }` was
+  `borrow_stored` in C++, and taken in C and as `put(move(b))`; so was a chain of two such calls, and ccllib's own text
+  met it in C++ when a maker handed its new block to the pool's `_pool_hold`. `test/c/run/ownparams.c`, which the C++
+  gate builds as C++ too: into an own array, into a global through a chain of two calls, by a written move, and into a
+  struct that the call returns; a plain pointer parameter's store stays `borrow_stored`. (1.6.5)
 - A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's own storage, static to
   the check (`ck_static_value/1`, `ck_pointer_arg/1`; 0.138): `const time_zone *ny = locate_zone("America/New_York");`
   was fresh memory, `plain pointer not consumed`, where the zone lives in the database libc++ keeps for the whole run. A

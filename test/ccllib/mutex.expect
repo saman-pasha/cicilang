@@ -15,3 +15,9 @@ latch 0
 latch 1
 waited
 barrier
+threads 400000 2
+latch threads 1
+barrier threads
+held 0
+free 1
+exit 0

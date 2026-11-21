@@ -12,6 +12,14 @@
 # 0.262, whose own fixtures every machine runs). No valgrind: the check is skipped by name, never a RED for what the box
 # lacks.
 #
+# THE THREADS UNDER THREADSANITIZER (1.6.5): a program that makes threads (`pthread_create') is built by cicilang as C to
+# its IR, each function of which is marked `sanitize_thread', and the reference clang ($LLVM's, else the one on the
+# path) builds that IR with -fsanitize=thread; the run prints NAME.expect, no report among its lines. valgrind's
+# helgrind takes the atomics of a spin lock and of a mutex's first use for no order, and reports races that are none;
+# ThreadSanitizer knows them, and reports the 1.6.4 forms -- a mutex's state read and written by two threads, a mutex
+# initialized two times. The C++ build lowers the same texts, and is not held to it. No clang with ThreadSanitizer: the
+# check is skipped by name.
+#
 # WHAT THE SAFE PART REFUSES (0.274): each test/ccllib/safe/NAME.c is refused by cicilang as C and by cicilang++ as C++,
 # with the words of NAME.expect (NAME.expect.cpp where C++ has words of its own) -- a borrow of a vector's buffer used
 # after a call that may replace it, a vector used after its move, an element that a container does not take. They
@@ -76,6 +84,10 @@ if [ "$twin" = yes ]; then
   who="clang++ $cv over libc++ $lv"
 fi
 vg=no; command -v valgrind > /dev/null 2>&1 && vg=yes
+# the reference clang for ThreadSanitizer, the C driver of the twin's tree, and whether its runtime is here (1.6.5)
+CCREF=clang; [ -n "$LLVM" ] && [ -x "$LLVM/bin/clang" ] && CCREF="$LLVM/bin/clang"
+printf 'int main(void) { return 0; }\n' > "$D/tsan.c"
+tsan=no; command -v "$CCREF" > /dev/null 2>&1 && "$CCREF" -fsanitize=thread "$D/tsan.c" -o "$D/tsan" > /dev/null 2>&1 && "$D/tsan" > /dev/null 2>&1 && tsan=yes
 ok() { echo "ok   $1"; }
 bad() { echo "FAIL $1"; shift; for l in "$@"; do printf '%s\n' "$l" | head -6 | cut -c1-300 | sed 's/^/     /'; done; failures=$((failures + 1)); }
 # ccl_ran BIN OUT [ARG]: what BIN prints and returns, to OUT
@@ -137,6 +149,19 @@ for src in "$T"/*.c; do
     if [ -z "$left" ]; then ok "$n: under valgrind each run has no error and frees every block${cnt:+, with a count of 5000 too}"
     else bad "$n: under valgrind each run has no error and frees every block" "not so:$left" "$(for h in c cpp twin; do grep -a 'Unrecognised instruction\|ERROR SUMMARY\|definitely lost\|in use at exit' "$D/${n}_$h.vg" "$D/${n}_$h.vgl" 2>/dev/null; done)"; fi
   else echo "SKIP $n.valgrind (not here)"; fi
+  # and a program that makes threads has no race, under ThreadSanitizer (1.6.5)
+  if grep -q 'pthread_create' "$src"; then
+    if [ "$tsan" = yes ]; then
+      if timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang" -S -emit-llvm "$src" -o "$D/${n}_ts.ll" > "$D/${n}_ts.log" 2>&1 < /dev/null &&
+         sed -E '/^define /s/\) \{$/) sanitize_thread {/' "$D/${n}_ts.ll" > "$D/${n}_tsi.ll" &&
+         "$CCREF" -O1 -fsanitize=thread -w "$D/${n}_tsi.ll" -o "$D/${n}_ts" >> "$D/${n}_ts.log" 2>&1; then
+        { TSAN_OPTIONS=halt_on_error=1 timeout -s KILL "$CCLLIB_RUN_SECS" "$D/${n}_ts" < /dev/null 2>&1; echo "exit $?"; } > "$D/${n}_ts.out"
+        if cmp -s "$D/${n}_ts.out" "$want"; then ok "$n: its C build's IR, under ThreadSanitizer, prints what its twin prints and no race"
+        else bad "$n: its C build's IR, under ThreadSanitizer, prints what its twin prints and no race" "$(grep -a -A4 'WARNING: ThreadSanitizer' "$D/${n}_ts.out" | head -12)" "$(diff "$want" "$D/${n}_ts.out" 2>&1 | tail -4)"; fi
+      else bad "$n: its C build's IR builds under ThreadSanitizer" "$(cat "$D/${n}_ts.log")"; fi
+      rm -f "$D/${n}_ts" "$D/${n}_ts.ll" "$D/${n}_tsi.ll"
+    else echo "SKIP $n.tsan (no clang with ThreadSanitizer here)"; fi
+  fi
 done
 [ "$nprog" -gt 0 ] || { echo "RED: ccllib (no program in test/ccllib)"; exit 1; }
 nsafe=0

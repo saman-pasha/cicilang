@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.4 the versions are: the module 1.6.4 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 203 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 176 (`ccl_lowering_version/1`,
+At 1.6.5 the versions are: the module 1.6.5 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 204 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 177 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -419,7 +419,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   memory.pl, memory.pl.h      std::unique_ptr (0.309): one own pointer and a drop; make_unique<T>(x) by the reader's
                               maker by name, *p and p->m by its pointer's type macro; std::shared_ptr (1.1.3): one own
                               slot number into a pool of 4096 blocks, a count, clone as a copy; weak_ptr<T> (1.1.5):
-                              lock, expired, use_count, reset, swap, clone, born from a shared handle
+                              lock, expired, use_count, reset, swap, clone, born from a shared handle; the pool and
+                              its lock the program's, linkonce, every count under the lock (1.6.5)
   functional.pl               the function objects as macros (1.1.4): less, greater, plus, hash and the rest, and a
                               name that orders a set where C++ writes a type
   any.pl, any.pl.h            std::any (1.1.5) as `any<>`: a copy of a value with its type's number, any_cast<T>(a),
@@ -462,7 +463,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   atomic.pl, atomic.pl.h      std::atomic<T> and std::atomic_flag over clang's atomic builtins (1.5.0): load, store,
                               exchange, fetch_add and the rest, compare_exchange_strong, all seq_cst
   mutex.pl, mutex.pl.h        std::mutex, lock_guard, unique_lock, barrier and latch over POSIX's pthreads (1.6.0):
-                              `mutex<>' initialized at its first lock, a guard born from a mutex's address
+                              each initialized at its first use by one thread (1.6.5), a guard born from a
+                              mutex's address
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -508,7 +510,8 @@ test/libcxx.sh              the library read: the asserted headers read whole, a
 test/ccllib.sh              the ccllib gate (0.273): each program of test/ccllib in its three runs -- cicilang as
                             C, cicilang++ as C++, its twin over std:: by clang++ --, what the safe part refuses, the
                             programs that stand alone (0.281), and what each run costs, a build timed after a change
-                            of its file (0.289)
+                            of its file (0.289); the C IR of a program that makes threads under ThreadSanitizer
+                            (1.6.5)
 test/cost.c                 what a command costs, for the ccllib gate: the wall clock and the largest resident size
 test/readhdr.pl             one asserted header read whole at a level, in its own process
 test/libcxx.pl              the library read's old one-process form; no gate runs it
@@ -547,7 +550,8 @@ test/c/link/                two files linked into one program; the ABI against c
                             the decimal runtime against libgcc's (decrt.c, 0.243), three machines' calling conventions
                             and layouts against clang's (abi_targets.c, 0.244); two units that both make vector<int>
                             (inst_a.c, inst_b.c over ../run/tvector.pl, 0.261); two units over <vector.pl>, each
-                            with the functions that it calls (vec_a.c, vec_b.c, 0.274)
+                            with the functions that it calls (vec_a.c, vec_b.c, 0.274); two units over <memory.pl>
+                            that share a handle, over the program's one pool (sp_a.c, sp_b.c, 1.6.5)
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std, NAME.needs (0.224), NAME.ref
                             (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt;
                             ctext.pl, the macro file of ctext.c (0.260); tvector.pl, tvhdr.h and
@@ -591,7 +595,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             declarations of the same names, with declorder.h, and textorder.c over textorder.pl, a
                             macro's C text whose functions call one another in any order (1.1.2); operands.c, the
                             operands that C's operators take, and the forms beside them that C refuses not (1.6.1);
-                            scopedtypes.c, the types that a block's object and a block's typedef give (1.6.2)
+                            scopedtypes.c, the types that a block's object and a block's typedef give (1.6.2);
+                            ownparams.c, own parameters that their callee stores, built as C and as C++ (1.6.5)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -676,7 +681,9 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             streamchain.c, the streams as C++'s: `<<` and `>>` chained, endl, the bases, the
                             precision, the reads that fail, a stringstream's room and its empty reads (1.6.3);
                             numbers.c, the numbers as C++'s: the ratio operations, the engine and the
-                            distributions, complex, a bool's limits, to_chars and from_chars (1.6.4)
+                            distributions, complex, a bool's limits, to_chars and from_chars (1.6.4);
+                            sharedthreads.c, shared_ptr and weak_ptr over four threads, and mutex.c's threads
+                            (1.6.5)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -720,7 +727,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             shared_ptr_rules.c, the rules of a shared_ptr, held to a model of three handles (1.1.3);
                             functional_rules.c, the function objects and the hash, and stops.c's shared_ptr cases
                             (1.1.4); any_rules.c and weak_ptr_rules.c, their rules (1.1.5); fromchars_range.c, a value
-                            out of range that from_chars leaves, as C++17 says and libc++ 22 does not (1.6.4)
+                            out of range that from_chars leaves, as C++17 says and libc++ 22 does not (1.6.4);
+                            mutex_rules.c, the state of a first use, read from the instances' own fields (1.6.5)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

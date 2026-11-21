@@ -1257,9 +1257,11 @@ ck_flow_indirect(Ps, I) :- ck_param_type(Ps, I, T), catch(ccl_resolve_type(T, T1
 %% what is stored: a parameter's value that borrows -- a pointer's, a reference's referent (`&r'), a library object's --, under
 %% a cast, a move or a forward, or an initializer list's item; ... AND A VALUE COMPUTED FROM ONE (0.221): a pointer or an
 %% iterator moved within what it points into (`p + n', `n + p', `p - n'), and a place in a pointer's pointee (`&p->f',
-%% `&p[i]', `&*p'), which a flow took for none, so `out.push_back(&p->v)' over the caller's `&s' let `s' escape with `out'
+%% `&p[i]', `&*p'), which a flow took for none, so `out.push_back(&p->v)' over the caller's `&s' let `s' escape with `out'.
+%% AN OWN PARAMETER'S VALUE IS NO BORROW (1.6.5): the call moves the caller's owner into it, so its store is the owner's
+%% and no flow -- `put(b)' over `size_t put(own blk *b) { slot[0] = b; ... }' was `borrow_stored' in C++ and taken in C
 ck_flow_value(id(N), Ps, J) :- !, ck_param_pos(Ps, N, 1, J), ck_param_type(Ps, J, T), catch(ccl_resolve_type(T, T1), _, fail),
-    ( T1 = ptr(_, _) -> true ; T1 = ref(_, RT) -> ck_borrowing_type(RT) ; T1 = rref(_, RT) -> ck_borrowing_type(RT) ; ck_borrowing_type(T1) ).
+    ( T1 = ptr(_, _) -> \+ ck_own_type(T), \+ ck_own_type(T1) ; T1 = ref(_, RT) -> ck_borrowing_type(RT) ; T1 = rref(_, RT) -> ck_borrowing_type(RT) ; ck_borrowing_type(T1) ).
 ck_flow_value(addr(E), Ps, J) :- !, ck_flow_name(E, N), ck_param_pos(Ps, N, 1, J), ck_param_type(Ps, J, T), catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ref(_, _) ; T1 = rref(_, _) ; T1 = ptr(_, _), ck_flow_pointee(E) ), !.
 ck_flow_value(bin(Op, X, Y), Ps, J) :- memberchk(Op, ['+', '-']), !, ( ck_flow_value(X, Ps, J), \+ ck_flow_ptr_operand(Y, Ps) ; Op == '+', ck_flow_value(Y, Ps, J), \+ ck_flow_ptr_operand(X, Ps) ).   % a pointer moved by an INTEGER: `b - a' of two pointers is a number, which borrows nothing (0.221: `n = (int) (b - a)' made a flow of b into *this)
 ck_flow_value(cast(_, X), Ps, J) :- !, ck_flow_value(X, Ps, J).

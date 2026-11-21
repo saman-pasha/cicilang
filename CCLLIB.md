@@ -885,25 +885,27 @@ file takes 0.57 s and 387 MB, cicilang++'s 0.48 s and 149 MB, against clang++'s 
 
 `shared_ptr<T>` is `std::shared_ptr`: `shared_ptr<point> p = make_shared<point>(pt);`, `shared_ptr<point> q = clone(p);`
 is a second owner, `use_count(p)` says how many, `unique(p)` says it is one, `get(p)`, `*p`, `p->m`, `reset(p)`,
-`reset(p, x)`, `swap(p, q)` and the relations of the objects' addresses, as C++'s compare them. The object is a value with
-no pointer in it, as a `unique_ptr`'s (decision 2); `make_shared<T>(x)` takes a value of T, `make_shared<T>()` gives T's
-zero, and `make_shared_for_overwrite<T>()` a block whose bytes are not set. A `shared_ptr` is not an owner in the safe
-part's sense -- its block is shared -- so the module gives it a fixed pool of 4096 blocks to each element type (a static
-own array of the instance), and a handle owns only the number of its slot: a move empties the handle as every own field
-of a moved object is emptied, a clone gives a second number and increments the count, and the last drop frees the slot
-for the next block. A block is a pool slot, so a program has at most 4096 live blocks of one element type at once, and
-`*p`, `p->m`, `get` and the relations see the object as long as any handle holds it. A handle belongs to the unit that
-made it: the pool is the unit's own (a `static` array of the instance), and a handle handed to another unit's function
-stops the program (abort) rather than read that unit's pool. What differs from C++: `clone(p)` is the copy, where `q = p`
-moves p (as every object of an instance's type is moved); `if (p)`, `p == nullptr` and `p == 0`
-have no form, and `*p` of an empty one stops the program (abort), where C++ is undefined; there is no deleter, no
-aliasing constructor, no array and no void; and `weak_ptr<T>` and `enable_shared_from_this` wait -- a weak pointer shares
-the block's counts, and its own step gives it the pool and a `shared_ptr<T>` of the unit. `test/ccllib/shared_ptr.c`, its
-twin over `std::shared_ptr`, twelve programs of `test/ccllib/safe/`, `test/ccllib/alone/shared_ptr_rules.c` -- a model
-of three handles over a walk of chance of 4000 steps, 295,091 checks -- and `stops.c`'s cases of an empty one; twelve
-copies of the module broken on purpose are each caught, one of them by the safe part in the module's own text. The
-pool of 4096 is the step's decision, for the owner to see: it bounds a program's live blocks, never the blocks that a run
-makes in all, and a creation past it stops the program.
+`reset(p, x)`, `swap(p, q)` and the relations of the objects' addresses, as C++'s compare them. The object is a value
+with no pointer in it, as a `unique_ptr`'s (decision 2); `make_shared<T>(x)` takes a value of T, `make_shared<T>()`
+gives T's zero, and `make_shared_for_overwrite<T>()` a block whose bytes are not set. A `shared_ptr` is not an owner in
+the safe part's sense -- its block is shared -- so the module gives it a fixed pool of 4096 blocks to each element type
+(an own array of the instance), and a handle owns only the number of its slot: a move empties the handle as every own
+field of a moved object is emptied, a clone gives a second number and increments the count, and the last drop frees the
+slot for the next block. A block is a pool slot, so a program has at most 4096 live blocks of one element type at once,
+and `*p`, `p->m`, `get` and the relations see the object as long as any handle holds it. THE POOL IS THE PROGRAM'S
+(1.6.5): the pool and its lock have no storage word, so the compiler makes them linkonce, one in the program, and a
+handle made in one unit is used in another; each count and each slot changes under the pool's spin lock, so threads
+share the blocks, as C++'s control block is shared (through 1.6.4 the pool was the unit's own, a `static` array, and a
+handle handed to another unit's function stopped the program). What differs from C++: `clone(p)` is the copy, where `q =
+p` moves p (as every object of an instance's type is moved); `if (p)`, `p == nullptr` and `p == 0` have no form, and
+`*p` of an empty one stops the program (abort), where C++ is undefined; there is no deleter, no aliasing constructor, no
+array and no void; and `weak_ptr<T>` and `enable_shared_from_this` wait -- a weak pointer shares the block's counts, and
+its own step gives it the pool and a `shared_ptr<T>` of the unit. `test/ccllib/shared_ptr.c`, its twin over
+`std::shared_ptr`, twelve programs of `test/ccllib/safe/`, `test/ccllib/alone/shared_ptr_rules.c` -- a model of three
+handles over a walk of chance of 4000 steps, 295,091 checks -- and `stops.c`'s cases of an empty one; twelve copies of
+the module broken on purpose are each caught, one of them by the safe part in the module's own text. The pool of 4096 is
+the step's decision, for the owner to see: it bounds a program's live blocks, never the blocks that a run makes in all,
+and a creation past it stops the program.
 
 The costs over libc++ 23, as above, the run `shared_ptr 100000000`:
 
@@ -976,8 +978,8 @@ and `swap(w, q)`. The weak handle has the shared handle's own slot number and po
 the block is freed when the strong and the weak counts are both zero. A weak_ptr of a type whose shared_ptr is not in
 the unit makes that instance in the unit with it (type_weak_ptr calls the shared type macro), so a program that names
 `weak_ptr<T>` has the block's layout and pool. What differs from C++: an assignment or a call moves a weak handle and
-`clone` copies it; there is no `weak_ptr<T[]>`, no `owner_before`; a handle belongs to the unit that made it, as a
-shared_ptr's does. `test/ccllib/weak_ptr.c` and its twin over `std::weak_ptr`; `alone/weak_ptr_rules.c` at 16,902
+`clone` copies it; there is no `weak_ptr<T[]>`, no `owner_before`; a handle is used in any unit and in any thread, as a
+shared_ptr's is (1.6.5). `test/ccllib/weak_ptr.c` and its twin over `std::weak_ptr`; `alone/weak_ptr_rules.c` at 16,902
 checks; two programs of `safe/`; no stop of its own.
 
 ### 1c, algorithms and numbers (1.2.0)
@@ -1106,14 +1108,19 @@ refused, as C++ deletes `to_chars` of one.
 `<mutex.pl>` gives `std::mutex`, `std::lock_guard`, `std::unique_lock`, `std::barrier` and `std::latch` over POSIX's
 pthreads. A no-argument type macro is written with its empty list, `mutex<> m;`, `latch<> l = 2;` -- the reader makes an
 instance only at the `name<...>` form -- and a guard's birth takes the mutex's address: `lock_guard<mutex<> > g = &m;`,
-`unique_lock<mutex<> > u = &m;`. `mutex<>` is a struct of the pthread mutex and a flag, born zero; its first `lock`,
-`try_lock` or `unlock` initializes the pthread mutex (Darwin's `PTHREAD_MUTEX_INITIALIZER` is no zero), and the scope's
-drop destroys it. A guard keeps the mutex's address as an integer and casts it back, because the safe part follows no
-borrow kept in a struct's field; `lock_guard` locks at its birth and unlocks where its scope ends, `unique_lock` has
-`lock`, `try_lock`, `unlock`, `owns_lock` and `release`. A latch's functions take its address: `count_down(&l, 1)`,
-`wait(&l)`, `try_wait(&l)`, `latch_value(&l)`; `barrier<T>` takes its completion object's type and `arrive`,
-`arrive_and_wait`. The timeouts (`try_lock_for`), `arrive_and_drop` and a barrier's completion function are not written.
-`test/ccllib/mutex.c` and its twin over `std::` print the same lines as C, as C++ and at C++23;
+`unique_lock<mutex<> > u = &m;`. `mutex<>` is a struct of the pthread mutex and its state, born zero; its first `lock`,
+`try_lock` or `unlock` initializes the pthread mutex (Darwin's `PTHREAD_MUTEX_INITIALIZER` is no zero) -- one thread of
+the ones that meet it first, by an atomic compare-exchange of the state, the others waiting (1.6.5) -- and the scope's
+drop destroys it. A latch and a barrier are born with their counts alone and initialize their mutex and condition at
+their first use the same way, and their pthread objects stand in words of their size, so the safe part sees no pointer
+of glibc's mutex in them (1.6.5: `latch<> l = 2L;` was refused on Linux). A guard keeps the mutex's address as a
+`uintptr_t` and casts it back, because the safe part follows no borrow kept in a struct's field; `lock_guard` locks at
+its birth and unlocks where its scope ends, `unique_lock` has `lock`, `try_lock`, `unlock`, `owns_lock` and `release`. A
+latch's functions take its address: `count_down(&l, 1)`, `wait(&l)`, `try_wait(&l)`, `latch_value(&l)`; `barrier<T>`
+takes its completion object's type and `arrive`, `arrive_and_wait`. The timeouts (`try_lock_for`), `arrive_and_drop` and
+a barrier's completion function are not written. `test/ccllib/mutex.c` and its twin over `std::` print the same lines as
+C, as C++ and at C++23, threads among them, and its C IR runs under ThreadSanitizer with no race (1.6.5);
+`test/ccllib/alone/mutex_rules.c` reads the state of a first use from the instances' own fields;
 `test/ccllib/safe/mutex_of_int.c` holds the refusal.
 
 ### 2b, atomic (1.5.0)

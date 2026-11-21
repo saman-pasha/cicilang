@@ -321,6 +321,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.2 | a name that the program declares is no macro's; each operand read once; a block's types its own | the review's first, eighth and ninth items -- the program's own `hash` and `less` were `<functional.pl>`'s, `min(i++, 10)` read i two times, `accumulate` summed in a char -- and, found beside them, `__typeof__` of a block's object and a block's typedef, which the passes took from another block | `ownnames.c`, `readonce.c`, `scopedtypes.c` and `.cpp`, `blocktypedef_leak.c`, two driver checks; 23 copies broken on purpose, each caught; the nets |
 | 1.6.3 | the streams as C++'s | the review's items 2, 3, 4 and 10 to 13 and three found by reading -- `cout << "a" << 1 << endl` wrote `a`, `hex` of -1 a long long's bits, `endl` flushed nothing, `cin >> c` kept a space, a stringstream wrote past its room and read a null buffer, `str` was new memory --: each operator gives the stream, a read that finds no value a null pointer and a failed stream, endl a value that flushes, and the forms beside | `streamchain.c` and its twin, the driver gate's `cin` check, `stops.c`'s endl, two refusals; 28 copies broken on purpose, 27 caught, `fstream.pl.h`'s by no check; the nets |
 | 1.6.4 | the numbers as C++'s | the review's items 7, 14 and 15 and five found by reading -- two ratio operations over one four numbers were one name, an engine that no seed seeded gave 0, `uniform_int(r, -5, 5)` was never negative, `to_chars` wrote 0.1 as `0.10000000000000001` and `from_chars` read no format, a complex quotient was the textbook formula, a bool's limits a signed 8-bit type's --: each module's values are libc++ 22's, and `phase1c` under valgrind passes | `numbers.c` and its twin, `fromchars_range.c`, `phase1c.cpp`'s distributions, seven refusals; 53 copies broken on purpose, each caught; the nets |
+| 1.6.5 | shared_ptr over units and threads; the mutex's first use | the review's items 5 and 6 and the ccllib gate's four FAIL of 1.6.0 -- two units over `<memory.pl>` had a pool each, and a handle that one made stopped the program in the other; the counts had no lock; a mutex's first lock was two threads', and a latch that held glibc's mutex was refused on Linux --: one pool and lock a program, the counts under a spin lock, the first use one thread's, the latch's objects in words; an own parameter's store no borrow in C++; ThreadSanitizer in the ccllib gate | `sp_a.c` and `sp_b.c`, `sharedthreads.c` and its twin, `mutex.c`'s threads, `alone/mutex_rules.c`, `ownparams.c`; 23 copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23525,3 +23526,94 @@ rule of 0.271. No CI job ran.
 - RULES.md (phase 1c, phase 2's charconv), HISTORY.md, CLAUDE.md, README.md, CCLLIB.md.
 
 The module 1.6.4, the reader 203 and the lowering 176.
+
+## 1.6.5 — shared_ptr over units and threads, and the mutex's first use
+
+**1.6.5: the fifth step of the review of 1.1.3 to 1.6.0, its items 5 and 6, what it found by reading of the two modules,
+and the ccllib gate's four FAIL of 1.6.0. Two units over `<memory.pl>` had a pool each, and a handle that one unit made
+stopped the program in the other; the counts of a shared block had no lock; a mutex's first lock from two threads could
+initialize it two times; `latch<> l = 2L;` was refused on Linux. A shared_ptr's pool and its lock are the program's now,
+every count changes under the lock, a mutex's, a latch's and a barrier's first use is one thread's, and the ccllib gate
+holds each program with threads to ThreadSanitizer. On the way: in C++, an own local handed to a function that stores
+its own parameter was refused.**
+
+THE FINDINGS, RUN FROM THEIR REDUCTIONS (`rev/r15_a3.c` with `r15_b.c`, `rev/r16_race.c`, and the gate's `mutex.c`). Two
+units that both make `shared_ptr<int>`, the second asking `unique` of its own handle: `a 5 1` and the program stopped
+(abort), where C++ prints `a 5 1` and `b 17`. r16 under ThreadSanitizer, as cicilang built it over 1.6.4: two reports in
+the mutex, `mutex_ensure`'s flag and `pthread_mutex_lock` over a mutex that two threads initialized; over 1.6.5 none but
+the reduction's own `volatile int go` flag. `mutex.c` as C, as C++ and at C++23: `no owner behind: 'l' in
+var(l,call(id(latch_of),[long(2)]))`; its twin printed the expect less its `exit 0` line. THE FORMS BESIDE: the two
+units in the other order and as C++; four threads that clone and drop one handle, over 1.6.4 a `double free or
+corruption` in two runs of five; a weak handle taken, locked and reset in each thread; a barrier's and a latch's first
+use; a `try_lock` from a thread while another holds the mutex. Helgrind, which the review used, takes no atomic for an
+order: a counter under an atomic spin lock was four races to it and a first use by compare-exchange one, where
+ThreadSanitizer, which knows the atomics, reports neither and reports each 1.6.4 form. THE STEP'S OWN FINDING: the
+maker's text that handed its new block to the pool's `_pool_hold` was refused in C++, `a borrow stored where it cannot
+be followed` -- and so was any own local handed to a function that stores its own parameter, in C++ alone
+(`put(move(b))` was taken) -- and the forms beside it: a chain of two such calls, a store through another parameter,
+into a struct that the call returns, and a plain pointer's store, which stays refused.
+
+THE CAUSES. `memory.pl`'s pool was `static own ... [4096]`, each unit's, while the instance's functions were linkonce:
+the link kept one copy of each, and a handle held the pool's address to stop the program where a unit's copy met another
+unit's pool; nothing in the reader marked an instance's object linkonce. Its counts and slots had no lock. `mutex.pl`'s
+`ensure` read and wrote an int with no atomic; `latch_of` and `barrier_of` initialized a pthread mutex and condition and
+returned them by value; a latch and a barrier held glibc's `pthread_mutex_t`, whose `__list` is two pointers, so the
+safe part took the struct for one with pointers to own. In C++, the check's flows (0.217) took an own parameter's store
+for a borrow's (`ck_flow_value/3`).
+
+THE RULES (RULES.md: ccllib's memory topic, THE POOL AND ITS LOCK ARE THE PROGRAM'S, AND THREADS SHARE THEM, and the
+shared_ptr and weak_ptr rules; phase 2's `<mutex.pl>`, ONE THREAD INITIALIZES; the language's own forms, AN INSTANCE'S
+FUNCTIONS ARE LINKONCE, and its object at file scope; the safe part, AN OWN PARAMETER'S VALUE IS NO BORROW; the ccllib
+gate, THE THREADS UNDER THREADSANITIZER). An instance's object at file scope with no storage word is `linkonce_odr
+global` (`ccl_inst_linkonce/2`), and the pool and its lock are such objects; a handle is its own slot number alone. The
+pool's functions stand in the type's text and take a spin lock of one int: put, count, down, hold, and the weak
+instance's weak_up and weak_down; clone and lock raise the count under it; `*p`, `p->m` and `get(p)` take none. A drop
+and a `reset` are one text by two names. A mutex's, a latch's and a barrier's state is 0, 1 or 2, taken from 0 to 1 by
+one compare-exchange, the others waiting for 2; a latch's and a barrier's pthread objects stand in words of their size,
+and `latch_of` and `barrier_of` write none; a guard holds a `uintptr_t`. In C++ an own parameter's value is no borrow's
+flow. The ccllib gate builds a program that makes threads to its C IR and runs it under ThreadSanitizer.
+
+THE PROOF. `test/c/link/sp_a.c` and `sp_b.c` print `a 5 1`, `b 17` and `count 2 1` in both orders and as C++, and the
+driver gate finds the pool and its lock `linkonce_odr` in `sp_b.c`'s IR; `test/ccllib/sharedthreads.c` and its twin over
+`std::shared_ptr`, `std::weak_ptr` and `std::thread` print the same line as C, as C++ and at C++23, under valgrind too,
+and its C IR runs under ThreadSanitizer with no report; `mutex.c`, with its threads, prints its expect in the three runs
+and under ThreadSanitizer; `alone/mutex_rules.c` holds the state of a first use at 14 checks, as C and as C++;
+`test/c/run/ownparams.c` prints its line as C and as C++. Over 1.6.4 each fails: the two units stop (abort),
+`sharedthreads.c` stops or prints nothing, `mutex.c` is refused, `mutex_rules.c` is refused with it, and `ownparams.c`
+is refused as C++. TWENTY-THREE COPIES BROKEN ON PURPOSE, a rule each -- the instance's object linkonce and the own
+parameter's flow, in the compiler; the pool's storage word and the lock's; the lock's taking and its giving back; the
+lock in the pool's put, count and down, in clone, in the weak count's up and down and in a weak handle's lock; the reset
+of either kind as the drop's text; expired by the strong count, unique by one, a new block's weak count zero; the
+mutex's first use by compare-exchange and its wait, a latch's objects in words, a latch born with no live object, a
+barrier's first use -- are each caught by these checks: the locks' by ThreadSanitizer over `sharedthreads.c`'s C IR,
+four of them by its plain run too, which stops or prints another count; the storage words by the driver gate's link and
+its check of the IR; the giving back by every program of a shared_ptr, each held at its cap; the own parameter's flow by
+`ownparams.c` as C++; the resets by the safe part as the module's text is read; expired, unique and the weak count by
+`weak_ptr.c`, `shared_ptr.c`, the rules programs and valgrind; the mutex's first use by ThreadSanitizer over `mutex.c`;
+the latch's words by `mutex.c` on Linux; and the wait, the latch's birth and the barrier's first use by
+`alone/mutex_rules.c` alone, since glibc's zero mutex and condition are initialized ones and its mutex copies whole. A
+guard's `uintptr_t` has no copy: on each LP64 machine that the gates run on it is `unsigned long`'s width.
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(325 s, 4421 MB); the reader gate 170 ok, 5 skipped; the compile gate 347 ok, `ownparams.c` among them; the driver gate
+99 ok, the three checks of `sp_a.c` and `sp_b.c` among them; the objects gate 29 ok; the ccllib gate 620 ok and no FAIL,
+36 programs in three runs, 187 refused and 21 alone -- `mutex.c`'s six and `sharedthreads.c`'s six, ThreadSanitizer's
+two among them, and `alone/mutex_rules.c`'s two --, where 1.6.4 had the 4 FAIL of 1.6.0; the C++ pools of the lighter
+run fixtures, 368 of 368 over libc++ 22, 21 and 18; every heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped
+by their `.needs`, of 520; the C++ gate's later parts by hand, 219 ok, `ownparams.c` as C++ among them. The chain did
+not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_syntax.pl` (an instance's object at file scope linkonce; the reader 204); `library/ccl_check.pl` (an own
+  parameter's value no borrow's flow); `library/ccl_ir.pl` (the lowering 177); `library/ccllib/memory.pl` (the pool and
+  its lock the program's, the pool's functions under the lock, the handle's slot alone, the drop and the reset one text)
+  and `memory.pl.h` (its words); `library/ccllib/mutex.pl` (the first use one thread's, the latch's and the barrier's
+  objects in words and initialized at their first use, a guard's `uintptr_t`) and `mutex.pl.h` (`<stdint.h>`); the
+  module's version.
+- `test/c/link/sp_a.c`, `sp_b.c`, and their three checks in `test/driver.sh`; `test/ccllib/sharedthreads.c`, `.cpp`,
+  `.expect`; `test/ccllib/mutex.c`, `.cpp`, `.expect` (the threads, and the `exit 0` line);
+  `test/ccllib/alone/mutex_rules.c`, `.expect`; `test/c/run/ownparams.c`, `.expect`, in `test/cpp.sh`'s list;
+  `test/ccllib.sh` (ThreadSanitizer).
+- RULES.md (ccllib's memory topic, phase 2's mutex, the instances' linkonce, the safe part's flows, the ccllib gate),
+  HISTORY.md, CLAUDE.md, README.md, CCLLIB.md.
+
+The module 1.6.5, the reader 204 and the lowering 177.
