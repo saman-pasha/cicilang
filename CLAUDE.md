@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.17 the versions are: the module 1.6.17 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 186 (`ccl_lowering_version/1`,
+At 1.6.18 the versions are: the module 1.6.18 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 187 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -621,7 +621,10 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             casts among them (1.6.14); noreturn.c and noreturn23.c, calls that do not return and loops
                             that do not end, each such call in a child of its own (1.6.15); noreturnbody.c, functions
                             whose body returns never, each case in a child of its own, and longjmps.c, the longjmps that
-                            the safe part follows (1.6.17)
+                            the safe part follows (1.6.17); loopjoins.c, loops and joins that the safe part refused,
+                            and nullcopies.c, the copies of a pointer that its null test found null, each built as C
+                            and as C++, and refilled.c, pointers that a free or a null test left holding nothing, given
+                            new memory by getline through their address (1.6.18)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -656,7 +659,11 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             noreturn_docontinue.c and noreturn_asmgoto.c, bodies that a path leaves, which return, and
                             noreturn_return.c, noreturn_end.c, noreturn_decl_end.c and noreturn_def_end.c, a function
                             declared not to return that returns; lj_*.c, what a longjmp leaves, the pointers that it
-                            finds changed and the functions that may jump (1.6.17)
+                            finds changed and the functions that may jump (1.6.17); loop_break_refine.c,
+                            do_once_twice.c, do_cond_leak.c, null_join_garbage.c and null_join_garbage2.c, what the
+                            rules of a loop's condition, of a do's body and of a join refuse still, and
+                            anchor_freed.c and anchor_nulltest.c, getline's memory through such an address leaked by
+                            an own copy (1.6.18)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

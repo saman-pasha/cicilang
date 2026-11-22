@@ -334,6 +334,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.15 | Paths end at calls that do not return and loops that do not end | the third item of the user's "do some not done items", the record of 1.6.10: a block that ends in `exit()`, `abort()` or a trap with new memory live in it was refused, `plain pointer not consumed`; a call of a function declared not to return -- `_Noreturn`, `[[noreturn]]`, GCC's `noreturn`, glibc's and libc++'s so declared -- a trap that ends and `__builtin_unreachable()` end their path now, a cast of one to void, a comma and a conditional of two such arms too, and a loop whose condition is left out or a nonzero constant ends by its breaks alone; the reader keeps the mark on the result (reader 209), a C++ member's leading attribute its notes, the lowering ends the block in `unreachable` (lowering 184); a function's marks are no part of its type, a constructor's neither, which `_Generic` took for one since 1.6.8 | 34 forms as clang's and clang++'s builds but two that the safe part refuses by its own rules; 28 broken copies over the first tree, 25 caught, two rules out and a body for the third; 26 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 381 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 | 1.6.16 | The safe part walks the functions of a namespace and of an `extern "C"` block | found by the probes of the user's "Fix these points", before their step: the desugaring keeps a namespace and an `extern "C"` block as items, which the table's noter and the lowering open, and the check's walk and its three passes before the walk took the units' top level alone -- a namespace's function, a member of a namespace's class, an anonymous namespace's and an `extern "C"` block's were compiled and never walked, their leaks unrefused, a static result freed, a local's address kept in a namespace's vector and a borrow read after a namespace's function stored into a static own array; `ck_item_container/2` and `ck_unit_item/2` open them (lowering 185) | 84 namespace fixtures, 83 as before and one skipped by its `.needs`; 7 broken copies, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 382 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 240 |
 | 1.6.17 | A body that returns never, a noreturn function that returns, and longjmp | the user's "Fix these points", the three records of 1.6.15: a function whose body returns never ends its caller's path, found by a least fixpoint before the walk, and a throw ends its path; a function declared not to return that returns is refused in clang's words, a return at its line and an end at the body's last statement; a longjmp is followed -- the frames that it leaves hold no live memory and no defer, the frames that it lands in hold each pointer as the setjmp saw it and given no value since, a function that sets a global buffer itself catches its own jumps, and a function that may longjmp is called by its name alone; a loop's body walked once, found and recorded (lowering 186) | 42 fixtures; 85 broken copies over the final tree, each caught, three after a body for them, and two rules out; the nets: the flow gate GREEN; reader 173, compile 392, driver 110, objects 29, cross 229, ccllib 623; the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 250 |
+| 1.6.18 | The false refusals of loops and joins | five false refusals of the safe part that the probes of the next step met, each old: a loop's condition refines what it tests, as an `if`'s does; a do's body runs once at least, and `do ... while (0)` once; an owner that a loop's body leaves null is kept; a loose pointer found null is no owner; a join takes a field from the side whose owner is not null; a copy of what the test found null is null and its address anchors it, the step's own regression repaired before its commit -- the loop that frees a list, the do-while(0) of a macro and a null test that gives new memory again were refused; two old holes found and recorded, a plain pointer's freed memory and a join of new memory and a borrow (lowering 187) | nets: flow, reader 173, compile 402, driver 110, objects 29, cross 232 GREEN; ccllib and the C++ nets running at the commit, their numbers the next commit's |
 
 ## M5 — the C++ mode
 
@@ -24643,3 +24644,100 @@ run, by the owner's rule of 0.271. No CI job ran.
   in), HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.17, the reader 209 and the lowering 186.
+
+## 1.6.18 — The false refusals of loops and joins
+
+The probes of the next step -- a loop's body walked again, the record of 1.6.17 -- met five false refusals of the safe
+part, which a second pass meets in each loop and which 1.6.17 met with one: the usual loop that frees a list, `while
+(head) { own node *next = head->next; free(head); head = next; }`, was `owner consumed inside a loop`; `do { free(p); p
+= NULL; } while (0)`, a macro's statement, was `owner consumed inside a loop` over an own pointer and `plain pointer
+not consumed` over a plain one; `char *p = malloc(8); if (p == NULL) p = malloc(8); free(p);` was `use after move of
+'p'`; and an own pointer that is null on one path and holds a node on the other was `owner used before it was given
+anything` at its next. Each such program runs right under clang -O0 and -O2 and under GCC's AddressSanitizer. The step
+is the five rules; the second walk is the next step's, over them.
+
+A LOOP'S CONDITION REFINES WHAT IT TESTS (`ck_refine_cond/4` in `ck_loop_with_step/6` and `ck_do_loop/5`), as an `if`'s
+does: the body is walked from where it holds, and the path after the loop leaves from where it fails, before the first
+pass and after the body, its breaks as they left. A DO'S BODY RUNS ONCE AT LEAST: the path after a `do` leaves from the
+body's end and its breaks, never from the state before it -- the state that the walk joined in, as if the body might
+not run --, and a `do` whose condition is a constant zero runs its body once, so no later pass is asked to own again
+what it consumed (`ck_loop_ends/2`, `once`).
+
+AN OWNER THAT A LOOP'S BODY LEAVES NULL IS KEPT (`ck_frames_kept/3`): the rule asked that an owner from outside be
+`live` at the body's end, and `head = next` over the last node leaves it null, as `p = NULL` after `free(p)` does; the
+next pass frees nothing. An owner left freed is refused as before (`test/c/safe/move_loop.c`).
+
+A LOOSE POINTER FOUND NULL IS NO OWNER (`ck_set_null/3`): the null test of 0.290 made it `null`, an owner's state, so
+that new memory given to it on that path made it an owner, `live`, and the join with the other path, where it was new
+memory, was `partial`, refused at its next use; it is `none` since, a plain pointer that holds nothing. A FIELD WHOSE
+OWNER IS NULL ON ONE SIDE IS THE OTHER SIDE'S (`ck_null_base/2` in `ck_merge_owners/3`): nothing is behind a null, so
+the state of its own fields there says nothing; the declaration `own node *head = NULL;` leaves `head->next` unset, and
+the join with a path that gave head a node kept unset. The base is looked for up the key, so an own member of a struct
+under a null pointer (`b->in.data`) is found too.
+
+FOUND, RECORDED. Two holes of the safe part, each old, that the probes beside the forms found: a plain pointer's freed
+memory is followed no further -- `free` makes a loose pointer `none`, so `free(p); free(p);` over new memory and a
+write through p after its free are taken --; and a join of new memory and a borrow is the borrow (0.216), so the other
+path's memory is never asked for -- `char *p = c ? argv[0] : malloc(8);` with no free is taken. The second takes since
+1.6.18 one form more, which was refused in another's words until it: `if (p == NULL) p = argv[0];` over new memory,
+where the null path's p was an owner and the borrow `borrow_stored`. Both are records of Not done.
+
+A FINDING OF THE STEP'S OWN PROBES: two of them ran the tree of 1.6.17 and a prototype in one HOME, and the second
+tree's verdicts were the first's kept builds -- the two trees had one lowering version, and the store serves a build
+whose signature matches (0.282's rule: a probe after a change of a library file runs over a fresh HOME). Their forms
+were run again, a tree to a HOME; the batteries and the nets make a HOME of their own.
+
+A REGRESSION OF THE STEP, FOUND BEFORE ITS COMMIT by the probes of the next step's labels: a pointer that its null test
+found null is `none` since this step, and the copy of a plain local whose state was `none` was new memory to the check,
+where the copy of a null, or of a local with no state, is null (0.99) -- so `if (!q) { char *r = q; return 1; }` was
+`plain pointer not consumed: 'r'`, `g = q;` and `v.p = q;` there were `no owner behind`, and `own char *o = q;` was
+`owner leaked`: eight forms that 1.6.17 took, in a branch that every program that tests what malloc gave may hold. THE
+COPY OF A LOCAL THAT HOLDS NOTHING THE CHECK FOLLOWS IS NULL TO THE CHECK since (`ck_plain_copy/3`), and
+`test/c/run/nullcopies.c` holds the eight forms, each run on its null path and on the other, as C and as C++; the tree
+before the repair refuses it at its first form. The copy of a plain pointer after its free, refused until the repair as
+`plain pointer not consumed` -- the words of a rule that does not hold, as the copy holds no new memory --, is taken
+since, as the second free and the write after it are (Not done's record of freed memory). A leak through such a copy is
+refused as before, in the words of the copy of a null: `char *r = q; r = malloc(2);` with no free is `owner leaked:
+'r'`, as it is after `char *q = NULL;`.
+
+AND THE REPAIR'S OWN HOLE: a copy of a `none` is null, but a call can give new memory through the address of such a
+pointer, and the address anchored a local with no state alone -- so `free(line); line = NULL; getline(&line, &n, f);
+own char *c = line;` with no free of c, which 1.6.17 refused by the accident of a copy of a `none` as new memory, was
+taken. THE ADDRESS ANCHORS A LOCAL THAT HOLDS NOTHING THE CHECK FOLLOWS since (`ck_anchor_local/3`), its key set in
+place, and the own copy of the anchor's value is new memory (0.299); the same form after a null test, taken by 1.6.17
+too, is refused since. `test/c/safe/anchor_freed.c` and `anchor_nulltest.c`, and `test/c/run/refilled.c`, the forms
+that free the copy. The first run of the nets was stopped at its ccllib gate, as its tree changed, and so was the
+second, for the anchor; the nets ran again over the tree with both repairs.
+
+THE FORMS. The run fixture's 13 functions, each a program of its own, over each tree in a HOME of its own: 1.6.17
+refuses each -- 3 `owner consumed inside a loop`, 3 `plain pointer not consumed`, 3 `owner used before it was given
+anything`, 2 `owner leaked`, 2 `use after move` --, and 1.6.18 takes each. The fixture prints as clang's build at -O0
+and at -O2, as C and as C++, and GCC's AddressSanitizer and its leak check find nothing in it. Beside them, 11 forms:
+the five refusals, refused by both trees but `do_once_twice.c`, which 1.6.17 refuses in the loop rule's words; the
+double free of a plain pointer and a write after its free, and three joins of new memory and a borrow -- in an `if`,
+after a free, in a conditional --, taken by both, the records; and a field of a field (`b->next->next`), which the
+check has no key for, `a borrow consumed` by both.
+
+THE BROKEN COPIES. 19 copies, each caught. Five of the first run's texts held a list's bar, which the script took for
+its own split between the old and the new text, and those copies did not load; the script holds each text as a pair
+since and calls a copy that does not load so; the five, run again, each caught. The copy without the copy's repair
+(`CP1`) is caught by `nullcopies.c`, as C and as C++, and the copy without the anchor's (`AN1`) by `anchor_freed.c` and
+`anchor_nulltest.c`; the seventeen others, run again over the tree with both repairs, each caught as before.
+
+THE PROOF. The nets over the tree with both repairs: the flow gate GREEN (669 s, 0 findings), the reader gate 173 ok,
+compile 402, driver 110, objects 29 and cross 232, each GREEN. The ccllib gate, the C++ pools of the lighter run
+fixtures over libc++ 22, 21 and 18, the heavier C++ run fixtures over 22 and the C++ gate's later parts were still
+running when the step was committed, at the stop hook's word: the next commit carries their numbers. The first run's
+compile gate gave 397 and one failure -- loopjoins.c read argc, which the gate gives two arguments -- and 398 over the
+corrected fixture; that run and the second were stopped, each where its tree changed. The chain did not run, by the
+owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_check.pl` (`ck_loop_with_step/6`, `ck_do_loop/5`, `ck_refine_cond/4`, `ck_loop_ends/2`'s `once`,
+  `ck_frames_kept/3`, `ck_set_null/3`, `ck_merge_owners/3`, `ck_null_base/2`, `ck_plain_copy/3`, `ck_anchor_local/3`),
+  `library/ccl_ir.pl` (the lowering 187), `test/cpp.sh` (`loopjoins.c` and `nullcopies.c` among the C run fixtures built
+  as C++), the fixtures, the module's version.
+- RULES.md (the rule of a loop's condition and of a do's body after the rule of 1.6.15; the loop rule, the join and the
+  null test changed, the copy of what the test found null among them, and the anchor's rule; two records in Not done,
+  and the loop's record narrowed), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.18, the reader 209 and the lowering 187.

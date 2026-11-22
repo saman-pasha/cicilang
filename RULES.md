@@ -11715,29 +11715,53 @@ in the first topic (The ccllib gate).
   side. Any other pair is `partial`, which is refused on use and counts as a leak. A JOIN KEEPS A KEY THAT ONE SIDE MADE
   IN AN OUTER FRAME (0.217; `ck_only_in/3` in `ck_merge_frames/3`): what a local holds, declared from inside a branch or
   a loop's body in the frame of the local whose storage it is, was lost where the join took the other side's keys alone
-  (`test/cpp/librowstore.cpp`). (M3, 0.216, 0.217)
+  (`test/cpp/librowstore.cpp`). A FIELD WHOSE OWNER IS NULL ON ONE SIDE IS THE OTHER SIDE'S (1.6.18; `ck_null_base/2`
+  in `ck_merge_owners/3`): nothing is behind a null -- the base of the field's key, or a base of its base, null on that
+  side --, so the field's state there says nothing: `own node *head = NULL;` left `head->next` unset, and the join with
+  a path that gave head a node whose next is null was unset, `owner used before it was given anything` at the first use
+  of `head->next`, and so was a struct's own member under a null pointer (`b->in.data`). `test/c/run/loopjoins.c`;
+  refused, `test/c/safe/null_join_garbage.c` and `null_join_garbage2.c` (the other side's next never given anything,
+  the null side first and second). (M3, 0.216, 0.217, 1.6.18)
 - A scope's end runs its defers last first (`ck_run_defers/3`). Then `ck_leaks/2` demands each owner consumed
   (`owner_leaked`; a loose pointer is `unconsumed`). Then every borrow of the closing frame's keys dangles
   (`ck_scope_end/2`). A `return` does the same for every frame. (M3)
-- A loop may not consume an owner from outside it, unless the iteration owns it again by its end
-  (`ck_no_moves_across/3`, `move_in_loop`). `break` and `continue` close the frames inside the loop and join its exits
-  (`'$ck_loops'`). A `switch` merges its entry state at each case label, and a `break` in it is its own. A `continue` IS
-  ITS NEAREST LOOP'S, PAST ANY SWITCH (0.290; `ck_exit_to_loop/2`, `ck_continue_to/3`): its frames are closed down to
-  that loop's, so the defers of the loop's body run there and an owner of the body that is live there is leaked there
-  (`owner_leaked`), and its state joins that loop's exits. Until 0.290 a `continue` in a `switch` in a loop closed its
-  frames down to the SWITCH's and handed the loop a state with the frames of the switch and of the body still open; the
-  loop's join met frame stacks of two lengths, `ck_merge_frames/3` failed, and the check stopped with no line -- `not
-  lowered yet: phase(check) (function file)` for every such program, with one `continue` as with two. No fixture had
-  one. `test/c/run/contswitch.c` (a while, a for whose step still runs, a do-while, a switch in a switch, a block in a
-  case, a defer of the body, an owner freed before the continue; as C and as C++); `test/c/safe/cont_switch_leak.c`.
-  (M3, 0.290)
-- A LOOP THAT ENDS BY A BREAK ALONE (1.6.15; C17 6.8.5/4, 6.8.5.3/2; `ck_loop_ends/2`, `ck_loop_with_step/5`): a
+- A loop may not consume an owner from outside it, unless the iteration owns it again by its end, or leaves it null
+  (`ck_no_moves_across/3`, `move_in_loop`; null since 1.6.18: `while (head) { own node *next = head->next; free(head);
+  head = next; }` leaves head null after the last node, and the next pass frees nothing -- it was `owner consumed inside
+  a loop`, and so was `while (p != NULL) { free(p); p = NULL; }`; `test/c/run/loopjoins.c`, and
+  `test/c/safe/move_loop.c`, an owner left freed, refused as before). `break` and `continue` close the frames inside the
+  loop and join its exits (`'$ck_loops'`). A `switch` merges its entry state at each case label, and a `break` in it is
+  its own. A `continue` IS ITS NEAREST LOOP'S, PAST ANY SWITCH (0.290; `ck_exit_to_loop/2`, `ck_continue_to/3`): its
+  frames are closed down to that loop's, so the defers of the loop's body run there and an owner of the body that is
+  live there is leaked there (`owner_leaked`), and its state joins that loop's exits. Until 0.290 a `continue` in a
+  `switch` in a loop closed its frames down to the SWITCH's and handed the loop a state with the frames of the switch
+  and of the body still open; the loop's join met frame stacks of two lengths, `ck_merge_frames/3` failed, and the check
+  stopped with no line -- `not lowered yet: phase(check) (function file)` for every such program, with one `continue` as
+  with two. No fixture had one. `test/c/run/contswitch.c` (a while, a for whose step still runs, a do-while, a switch in
+  a switch, a block in a case, a defer of the body, an owner freed before the continue; as C and as C++);
+  `test/c/safe/cont_switch_leak.c`. (M3, 0.290, 1.6.18)
+- A LOOP THAT ENDS BY A BREAK ALONE (1.6.15; C17 6.8.5/4, 6.8.5.3/2; `ck_loop_ends/2`, `ck_loop_with_step/6`): a
   condition left out, `for (;;)`, or an integer constant other than zero -- `while (1)`, `do ... while (1)`, C++'s
   `while (true)` -- ends the loop never, and the path after it is its breaks' alone, or none. The state before the loop
   and the state at its body's end went on past it: a function whose loop only a `return` left had a live end, and new
   memory there was refused, `plain pointer not consumed`. `test/c/run/noreturn.c` (`for (;;)`, `while (1)`, `do ...
   while (1)`), `test/cpp/run/noreturncpp.cpp` (`while (true)`, `for (;;)`); `test/c/safe/loop_break_leak.c`, the path of
   a break, new memory that it leaves live refused as before. (1.6.15)
+- A LOOP'S CONDITION REFINES WHAT IT TESTS (1.6.18; `ck_refine_cond/4` in `ck_loop_with_step/6` and `ck_do_loop/5`),
+  as an `if`'s does (`ck_refine/4`, a null test): the body is walked from where the condition holds, and the path after
+  the loop leaves from where it fails -- before the first pass and after the body, a `do`'s after the body alone --,
+  its breaks as they left. The two went on unrefined: after `while (p) { free(p); p = NULL; }` over a plain pointer
+  the entry's new memory went past the loop, `plain pointer not consumed` at the return, and `while (!p) p =
+  malloc(4);` over new memory gave it new memory again, `plain pointer not consumed` at the assignment. A DO'S BODY RUNS
+  ONCE AT LEAST (C17 6.8.5.2, the condition is evaluated after each run of the body): the path after a `do` leaves
+  from the body's end, where the condition fails, and from its breaks, never from the state before it; a `do` whose
+  condition is a constant zero (`ck_loop_ends/2`, `once`) -- `do { ... } while (0)`, a macro's statement -- runs its
+  body once, and no later pass is asked to own again what it consumed. The state before it went past it: `do {
+  free(p); p = NULL; } while (0)` over an own pointer was `owner consumed inside a loop`, over a plain one `plain
+  pointer not consumed`, and `do { free(p); } while (0);` was `owner consumed inside a loop`. A `while (0)` and a
+  `for (; 0;)` are walked as any loop. `test/c/run/loopjoins.c`, as C and as C++; refused,
+  `test/c/safe/loop_break_refine.c` (a break, which leaves with what it holds), `do_once_twice.c` (a do-while(0) that
+  frees, and a free after it), `do_cond_leak.c` (new memory that a do-while's end holds). (1.6.18)
 - A CALL THAT DOES NOT RETURN ENDS ITS PATH (1.6.15; C17 6.7.4/8, 7.22.4.1/2, 7.22.4.4/2, 7.13.2.1/4; C23 6.7.12.7;
   [dcl.attr.noreturn]/1; `ck_noreturn_call/1`): an expression statement that calls a function declared not to return --
   `_Noreturn`, `[[noreturn]]`, GCC's `noreturn` (the reader's topic): glibc's `exit`, `abort`, `_Exit`, `quick_exit`,
@@ -11865,12 +11889,17 @@ in the first topic (The ccllib gate).
   dangle (`ck_dangle/3`). (M3)
 - A null test refines an owner and its own fields (`ck_refine/4`, `ck_set_null/3`). `!p` and `p == NULL` make them null
   on the then path; `p` and `p != NULL` do so on the else path. A PLAIN LOCAL THAT HOLDS FRESH MEMORY IS REFINED TOO
-  (0.290): on the path where a loose pointer is null it holds nothing (`ck_set_null/3` makes it `null`), so `FILE *f =
-  fopen(path, "r"); if (f == NULL) return -1;` returns with nothing to consume -- until 0.290 it was `unconsumed` at the
-  `return`, and `README.md`'s own lines were refused. Where the two paths join, null on one and loose on the other is
-  loose (`ck_merge_state/3`): `if (!p) puts("none");` with no free after it is `unconsumed` as before
-  (`test/c/safe/loose_null_test.c`), and `if (f) fclose(f);` with nothing after it, refused until 0.290, is taken
-  (`test/c/run/loadedptr.c`). (M3, 0.290)
+  (0.290): on the path where a loose pointer is null it holds nothing, so `FILE *f = fopen(path, "r"); if (f == NULL)
+  return -1;` returns with nothing to consume -- until 0.290 it was `unconsumed` at the `return`, and `README.md`'s own
+  lines were refused. AND IT IS NO OWNER THERE (1.6.18): `ck_set_null/3` makes it `none`, a plain pointer that holds
+  nothing; it made it `null`, an owner's state, so that new memory given to it on that path made it an owner, `live`,
+  and the join with the other path, where it was new memory, was `partial`: `char *p = malloc(8); if (p == NULL) p =
+  malloc(8); free(p);` was `use after move of 'p'` at the free, and so was `if (!p) free(p); free(p);`. A COPY OF IT IS
+  NULL TO THE CHECK, as a copy of a local with no state is (`ck_plain_copy/3`, 0.99): `char *r = p;`, `r = p;`, `g =
+  p;`, `v.p = p;` and `own char *o = p;` on that path are taken (`test/c/run/nullcopies.c`). Where the two paths join,
+  none on one and loose on the other is loose (`ck_merge_state/3`): `if (!p) puts("none");` with no free after it is
+  `unconsumed` as before (`test/c/safe/loose_null_test.c`), and `if (f) fclose(f);` with nothing after it, refused until
+  0.290, is taken (`test/c/run/loadedptr.c`; `test/c/run/loopjoins.c`). (M3, 0.290, 1.6.18)
 - A statement expression's last value is consumed when it is an owner. That is how `clone`'s copy leaves its block.
   (M3)
 
@@ -12192,10 +12221,15 @@ in the first topic (The ccllib gate).
   `static own thing *slot[2];` is the array's key, which a store into the array and a call that may store into it end
   (the own arrays' topic). (M3, 0.307)
 - A tie to a plain local, `&x` of one, or a local array used as a pointer ANCHORS the local (`ck_anchor/3`;
-  `ck_anchor_addrs/3` runs before an expression statement, an initializer and a return). The anchor is `Y-anchor` in
-  the state frame of Y's symbol frame (`ck_declare_at/4`). Nothing consumes it, it ends with its scope, and its
-  borrows may sit in plain slots, as C has them. A static local is never anchored (`'$ck_statics'`). An array member of
-  a local struct anchors the struct. `test/c/run/tie.c`, `clone.c`, the eight `test/c/safe/tie_*.c`. (M3, 0.108)
+  `ck_anchor_addrs/3` runs before an expression statement, an initializer and a return). The anchor is `Y-anchor` in the
+  state frame of Y's symbol frame (`ck_declare_at/4`). Nothing consumes it, it ends with its scope, and its borrows may
+  sit in plain slots, as C has them. A static local is never anchored (`'$ck_statics'`). An array member of a local
+  struct anchors the struct. `test/c/run/tie.c`, `clone.c`, the eight `test/c/safe/tie_*.c`. A LOCAL THAT HOLDS NOTHING
+  THE CHECK FOLLOWS -- `none`, after a free or a null test that found it null -- IS ANCHORED BY ITS ADDRESS TOO, its key
+  set in place (1.6.18, `ck_anchor_local/3`), as a local with no state is: new memory that a call gives through the
+  address, getline's, is the anchor's, and its copy into an own pointer is new memory (0.299); with no anchor its copy
+  was null (`ck_plain_copy/3`), and `free(line); line = NULL; getline(&line, &n, f); own char *c = line;` with no free
+  was taken. `test/c/run/refilled.c`; refused, `test/c/safe/anchor_freed.c`, `anchor_nulltest.c`. (M3, 0.108, 1.6.18)
 
 ### Views
 
@@ -16644,10 +16678,24 @@ Declarations topic of the C++ reader).
 - A LOOP'S BODY IS WALKED ONCE (found at 1.6.17; the safe part's topic), and a cycle of a backward goto in the order of
   its first pass: what a pass leaves to the next is not walked again -- `char *p = NULL; for (int i = 0; i < 3; i++) p =
   malloc(4); free(p);` leaks in the second pass and is taken, where the loop rule asks only that an owner from outside
-  be owned again by the body's end; and a jump that a later pass makes to a setjmp of an earlier pass, which the walk
-  meets before the setjmp, is held to none and taken as a jump out, its landing unchecked -- `for (int i = 0; i < 3;
-  i++) { if (i == 2) longjmp(e, 1); if (setjmp(e) != 0) { free(p); return 0; } free(p); p = malloc(4); }` frees memory
-  twice under clang -O2 and is taken; a write in a goto's cycle after the jump is not noted for its next pass.
+  be owned again, or left null, by the body's end; and a jump that a later pass makes to a setjmp of an earlier pass,
+  which the walk meets before the setjmp, is held to none and taken as a jump out, its landing unchecked -- `for (int i
+  = 0; i < 3; i++) { if (i == 2) longjmp(e, 1); if (setjmp(e) != 0) { free(p); return 0; } free(p); p = malloc(4); }`
+  frees memory twice under clang -O2 and is taken; a write in a goto's cycle after the jump is not noted for its next
+  pass.
+- A PLAIN POINTER'S FREED MEMORY IS FOLLOWED NO FURTHER (found at 1.6.18; the safe part's topic): `free`, `fclose`,
+  `realloc` and an own parameter make a loose pointer `none` (`ck_consume_loose/3`), a pointer that holds nothing that
+  the check follows, so `char *p = malloc(8); free(p); free(p);`, a write through p after its free and a copy of p after
+  it -- null to the check since 1.6.18 (`ck_plain_copy/3`), new memory before -- are taken, where an own pointer's are
+  refused (`use after move`); new memory that a call gives through its address after the free is followed, as an
+  anchor's (`ck_anchor_local/3`). A state of its own for freed memory -- refused at a read and at a free, given new
+  memory again by an assignment -- would close it, and reaches every program that frees a plain pointer.
+- A JOIN OF NEW MEMORY AND A BORROW IS THE BORROW (M3, 0.216; found at 1.6.18; the safe part's topic): the other path's
+  new memory is never asked for -- `char *p = malloc(4); if (c) { free(p); p = argv[0]; }` and `char *p = c ? argv[0] :
+  malloc(8);`, each with no free after, are taken; and `if (p == NULL) p = argv[0];` over new memory, refused until
+  1.6.18 in another's words (`a borrow stored where it cannot be followed`, the null path's p an owner), is taken since.
+  A state of its own for the pair -- refused at a free, as a borrow, and at the scope's end, as new memory -- would
+  close it.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and

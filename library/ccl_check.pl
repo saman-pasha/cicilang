@@ -877,7 +877,7 @@ ck_arrlocal(N) :- nb_getval('$ck_arrlocals', As), memberchk(N, As).
 ck_array_member(E, F) :- ccl_type_of(member(E, F), MT), ccl_resolve_type(MT, arr(_, _)).
 ck_anchor_addrs_list([], St, St).
 ck_anchor_addrs_list([A|As], St0, St) :- ck_anchor_addrs(A, St0, St1), ck_anchor_addrs_list(As, St1, St).
-ck_anchor_local(N, St0, St) :- ( ck_state(St0, N, _) -> St = St0 ; ck_is_local(N) -> ck_anchor(St0, N, St) ; St = St0 ).
+ck_anchor_local(N, St0, St) :- ( ck_state(St0, N, S) -> ( S == none -> ck_set(St0, N, anchor, St) ; St = St0 ) ; ck_is_local(N) -> ck_anchor(St0, N, St) ; St = St0 ).   % A LOCAL THAT HOLDS NOTHING THE CHECK FOLLOWS (none) IS ANCHORED BY ITS ADDRESS, as one with no state is (1.6.18): its copy is null, and getline's memory, given through `&line' after `free(line)', went unfollowed into an own pointer
 ck_storage_base(id(N), N).
 ck_storage_base(member(E, _), N) :- ck_storage_base(E, N).
 ck_storage_base(index(E, _), N) :- ccl_type_of(E, T), ccl_resolve_type(T, arr(_, _)), ck_storage_base(E, N).
@@ -1524,8 +1524,21 @@ ck_merge_frames([fr(Oa, D)|As], [fr(Ob, _)|Bs], [fr(Oc, D)|Cs]) :- ck_merge_owne
 %% : g) row.push_back(&b); return g;' was accepted
 ck_only_in([], _, []).
 ck_only_in([K-S|T], Oa, E) :- ( memberchk(K-_, Oa) -> E = E1 ; E = [K-S|E1] ), ck_only_in(T, Oa, E1).
-ck_merge_owners([], _, []).
-ck_merge_owners([N-Sa|T], Ob, [N-Sc|T1]) :- ( memberchk(N-Sb, Ob) -> ck_merge_state(Sa, Sb, Sc) ; Sc = Sa ), ck_merge_owners(T, Ob, T1).
+ck_merge_owners(Oa, Ob, Oc) :- ck_merge_owners_(Oa, Oa, Ob, Oc).
+%% A FIELD WHOSE OWNER IS NULL ON ONE SIDE IS THE OTHER SIDE'S (1.6.18): nothing is behind a null, so the state of its
+%% own fields there says nothing -- `own node *head = NULL;' left `head->next' unset, and the join with a path that gave
+%% head a node whose next is null was unset, `owner used before it was given anything' at the first use of head->next
+ck_merge_owners_([], _, _, []).
+ck_merge_owners_([N-Sa|T], Oa, Ob, [N-Sc|T1]) :-
+    (   memberchk(N-Sb, Ob)
+    ->  (   Sa == Sb -> Sc = Sa
+        ;   ck_null_base(N, Oa), \+ ck_null_base(N, Ob) -> Sc = Sb
+        ;   ck_null_base(N, Ob), \+ ck_null_base(N, Oa) -> Sc = Sa
+        ;   ck_merge_state(Sa, Sb, Sc) )
+    ;   Sc = Sa ),
+    ck_merge_owners_(T, Oa, Ob, T1).
+%% a field's key whose base, or a base of its base, is null in a frame's keys
+ck_null_base(N, Os) :- ck_base_path(N, B), ( memberchk(B-S, Os), S == null -> true ; ck_null_base(B, Os) ).
 ck_merge_state(S, S, S) :- !.
 ck_merge_state(shadow, S, S) :- !.                  % a key that one side masks and the other declares: the other's (0.297)
 ck_merge_state(S, shadow, S) :- !.
@@ -1585,8 +1598,8 @@ ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L),
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
-ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St1, St2), ck_expr(C, St2, St).
-ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_sj_loop(do(L, S, C)), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St0, St1), ck_expr(C, St1, St).
+ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, C, Ends, St1, St2), ck_expr(C, St2, St).
+ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_sj_loop(do(L, S, C)), ck_loop_ends(C, Ends), ck_do_loop(S, C, Ends, St0, St).
 ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        % C++: a range-for over an array is the for it stands for
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
 ck_stmt(using(_, _), St, St) :- !.
@@ -1595,7 +1608,7 @@ ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L), ck_sj_loop(for(L, n
     ccl_scope_push, ck_bpath_push, ck_push(St0, St1),
     ( Init = decl(_, Vs) -> ck_decls(Vs, St1, St2) ; Init == none -> St2 = St1 ; ck_anchor_addrs(Init, St1, St1a), ck_expr(Init, St1a, St2) ),
     ( C == none -> St3 = St2 ; ck_expr(C, St2, St3) ),
-    ck_loop_ends(C, Ends), ck_loop_with_step(S, Step, Ends, St3, St4),
+    ck_loop_ends(C, Ends), ck_loop_with_step(S, Step, C, Ends, St3, St4),
     ck_scope_end(St4, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt(return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 %% a coroutine's skeleton (0.108): co_return leaves every scope as a return does; the promise, the frame and the
@@ -1766,7 +1779,7 @@ ck_null_test(bin('!=', N, E), E, live) :- ck_null(N), !.
 ck_null_test(E, E, live) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ), !.
 ck_set_null(E, St0, St) :-
     (   ck_path(E, K), ck_state(St0, K, S), memberchk(S, [live, partial]) -> ck_own_under(St0, K, Ks), ck_set_all(St0, [K|Ks], null, St)
-    ;   E = id(N), atom(N), ck_state(St0, N, loose) -> ck_set(St0, N, null, St)   % A LOOSE POINTER THAT IS NULL HOLDS NOTHING (0.290; below)
+    ;   E = id(N), atom(N), ck_state(St0, N, loose) -> ck_set(St0, N, none, St)   % A LOOSE POINTER THAT IS NULL HOLDS NOTHING (0.290; below), AND IS NO OWNER (1.6.18)
     ;   St = St0 ).
 %% ... AND A NULL TEST ON A PLAIN POINTER THAT HOLDS NEW MEMORY (0.290): `FILE *f = fopen(...); if (f == NULL) return -1;
 %% fclose(f);' -- the README's own lines -- was `plain pointer not consumed: 'f'' at the return, since the test refined
@@ -1857,7 +1870,7 @@ ck_kind(E, St, owner(P)) :- ck_owner_path(St, E, P), !.
 ck_kind(E, St, borrow(P)) :- ck_borrows_from(E, St, P), !.
 ck_kind(E, _, borrow(static(N))) :- ck_static_value(E), !, ck_static_name(E, N).   % STATIC STORAGE, a borrow that nothing ends (0.294, ck_static_name/2)
 ck_kind(_, _, fresh).
-ck_plain_copy(St, P, How) :- atom(P), ( ck_state(St, P, S) -> ( S == null -> How = null ; S == anchor, ck_anchored_pointer(P), How = anchor ) ; ck_is_local(P), How = null ).
+ck_plain_copy(St, P, How) :- atom(P), ( ck_state(St, P, S) -> ( memberchk(S, [null, none]) -> How = null ; S == anchor, ck_anchored_pointer(P), How = anchor ) ; ck_is_local(P), How = null ).   % A COPY OF A LOCAL THAT HOLDS NOTHING THE CHECK FOLLOWS (none) IS NULL TO THE CHECK, as a copy of a local with no state is (1.6.18): a pointer that its null test found null, copied in its branch, was new memory
 %% A POINTER VALUE THAT HOLDS NO MEMORY THE CHECK FOLLOWS IS NO NEW MEMORY (0.299; C17 6.5.6/8, the sum points into the
 %% object that its pointer operand points into): the value of a plain local that holds none -- null or no state, How =
 %% null; or a pointer local whose address is taken, `anchor', whose value any write through that address gives
@@ -2036,17 +2049,40 @@ ck_init_where(Base, Key, W) :- ck_key_root(Base, R),
 %% other than zero, `while (1)', `do ... while (1)', ends the loop never (ck_loop_ends/2), and the path after it is its breaks'
 %% alone, or none. The state before the loop and the state at its body's end went on past it: a loop that only a `return' left
 %% made the function's end live, and new memory there was refused, `plain pointer not consumed'
-ck_loop_with_step(S, Step, Ends, St0, St) :-
+%% A LOOP'S CONDITION REFINES WHAT IT TESTS (1.6.18), as an `if''s does (ck_refine/4): the body is walked from where it
+%% holds, and the path after the loop leaves from where it fails -- before the first pass and after the body. The two
+%% went on unrefined: after `while (p) { free(p); p = NULL; }' over a plain pointer the entry's new memory went past the
+%% loop, `plain pointer not consumed' at the return
+ck_loop_with_step(S, Step, C, Ends, St0, St) :-
+    ck_refine_cond(C, St0, InT, InF),
+    ck_loop_enter(InT, loop),
+    ck_stmt(S, InT, St1),
+    ck_loop_leave(Exits), ck_continues(Conts),
+    ck_merge_all([St1|Conts], StEnd),
+    ( Step == none -> StEnd1 = StEnd ; StEnd == dead -> StEnd1 = dead ; ck_expr(Step, StEnd, StEnd1) ),
+    ck_no_moves_across(InT, StEnd1, S),
+    (   Ends == never -> ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
+    ;   ck_refine_cond(C, StEnd1, _, EndF), ck_merge_all([InF, EndF|Exits], St) ).
+%% A DO'S BODY RUNS ONCE AT LEAST (1.6.18; C17 6.8.5.2: the condition is evaluated after each run of the body): the path
+%% after it leaves from the body's end, where the condition fails, and from its breaks, never from the state before it;
+%% and a `do' whose condition is a constant zero -- `do { ... } while (0)', a macro's statement -- runs its body once, and
+%% no pass after it is asked to own again what it consumed. The state before it went past it: `do { free(p); p = NULL; }
+%% while (0)' over an own pointer was `owner consumed inside a loop', and over a plain one the entry's new memory went on,
+%% `plain pointer not consumed'
+ck_do_loop(S, C, Ends, St0, St) :-
     ck_loop_enter(St0, loop),
     ck_stmt(S, St0, St1),
     ck_loop_leave(Exits), ck_continues(Conts),
     ck_merge_all([St1|Conts], StEnd),
-    ( Step == none -> StEnd1 = StEnd ; StEnd == dead -> StEnd1 = dead ; ck_expr(Step, StEnd, StEnd1) ),
-    ck_no_moves_across(St0, StEnd1, S),
-    (   Ends == never -> ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
-    ;   ck_merge_all([St0, StEnd1|Exits], St) ).
+    ( StEnd == dead -> StC = dead ; ck_expr(C, StEnd, StC) ),
+    ck_refine_cond(C, StC, StT, StF),
+    (   Ends == never -> ck_no_moves_across(St0, StT, S), ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
+    ;   Ends == once -> ck_merge_all([StC|Exits], St)
+    ;   ck_no_moves_across(St0, StT, S), ck_merge_all([StF|Exits], St) ).
+ck_refine_cond(none, St, St, St) :- !.
+ck_refine_cond(C, St, StT, StF) :- ck_refine(C, St, StT, StF).
 ck_loop_ends(none, never) :- !.
-ck_loop_ends(C, never) :- catch(ccl_const_eval(C, V), _, fail), number(V), V =\= 0, !.
+ck_loop_ends(C, Ends) :- catch(ccl_const_eval(C, V), _, fail), number(V), !, ( V =\= 0 -> Ends = never ; Ends = once ).
 ck_loop_ends(_, cond).
 ck_loop_enter(St, Kind) :- nb_getval('$ck_loops', L), nb_setval('$ck_loops', [lp(Kind, St, [], [])|L]).
 ck_loop_leave(Exits) :- nb_getval('$ck_loops', [lp(_, _, Exits, _)|L]), nb_setval('$ck_loops', L).
@@ -2055,7 +2091,7 @@ ck_no_moves_across(_, dead, _) :- !.
 ck_no_moves_across(st(Before), st(After), S) :- ck_frames_kept(Before, After, S).
 ck_frames_kept([], _, _).
 ck_frames_kept([fr(Ob, _)|Bs], [fr(Oa, _)|As], S) :-
-    ( member(N-live, Ob), memberchk(N-SA, Oa), SA \== live -> ck_fail(move_in_loop, N, S) ; true ),
+    ( member(N-live, Ob), memberchk(N-SA, Oa), \+ memberchk(SA, [live, null]) -> ck_fail(move_in_loop, N, S) ; true ),   % OWNED AGAIN, OR NULL (1.6.18): `free(head); head = next;' over the last node leaves head null, and the next pass frees nothing
     ck_frames_kept(Bs, As, S).
 %% a break or continue: its state joins the loop's exits (or the switch's), the frames inside the loop closed first.
 %% A CONTINUE'S LOOP IS THE NEAREST LOOP, PAST ANY SWITCH (0.290; C17 6.8.6.2): its frames are closed down to that
