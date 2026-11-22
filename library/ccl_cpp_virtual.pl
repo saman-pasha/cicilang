@@ -156,12 +156,29 @@ cpp_strip_top(T, T).
 cpp_bare_static_class(Ctx, N, Ctx) :- atom(Ctx), Ctx \== none, \+ cpp_data_member(Ctx, N, _), cpp_static_member(Ctx, N, _), !.
 cpp_bare_static_class(none, N, C) :- cpp_class_ctx(C), C \== none, \+ cpp_data_member(C, N, _), cpp_static_member(C, N, _), !.
 cpp_dynamic_cast(T, X, E) :- T = ptr(_, base(_, [void])), !,   % `dynamic_cast<void *>': THE COMPLETE OBJECT, the table's offset-to-top added (0.112; refused by name since 0.108)
-    ( ccl_type_of(X, XT), ccl_unref(XT, XT1), ccl_resolve_type(XT1, ptr(_, S0)), cpp_class_of_type(S0, S), cpp_polymorphic(S) -> E = dyncast(X, void, void, T) ; cpp_refuse(0, dynamic_cast_to_void) ).
-cpp_dynamic_cast(T, X, E) :- T = ptr(_, D0), cpp_class_of_type(D0, D), !, ccl_type_of(X, XT), ccl_unref(XT, XT1), ccl_resolve_type(XT1, ptr(_, S0)), cpp_class_of_type(S0, S),
+    ( cpp_dynamic_source(T, X, S), cpp_polymorphic(S) -> E = dyncast(X, void, void, T) ; cpp_refuse(0, dynamic_cast_to_void) ).
+cpp_dynamic_cast(T, X, E) :- T = ptr(_, D0), cpp_class_of_type(D0, D), !, cpp_dynamic_source(T, X, S),
     ( ( S == D ; cpp_derives(S, D) ) -> E = cast(T, X) ; cpp_rtti_needed(dynamic_cast_requires_rtti), cpp_rtti_chain(S, SC), cpp_rtti_chain(D, DC), E = dyncast(X, SC, DC, T) ).
-cpp_dynamic_cast(T, X, E) :- ( T = ref(_, D0) ; T = rref(_, D0) ), cpp_class_of_type(D0, D), !, cpp_class_of_type_of(X, S),
+cpp_dynamic_cast(T, X, E) :- ( T = ref(_, D0) ; T = rref(_, D0) ), cpp_class_of_type(D0, D), !, cpp_dynamic_glvalue(T, X, S),
     ( ( S == D ; cpp_derives(S, D) ) -> E = ccast(static, T, X) ; cpp_rtti_needed(dynamic_cast_requires_rtti), cpp_rtti_chain(S, SC), cpp_rtti_chain(D, DC), E = deref(dyncast_ref(addr(X), SC, DC, ptr([], D0))) ).
-cpp_dynamic_cast(T, _, _) :- cpp_refuse(0, dynamic_cast_to(T)).
+cpp_dynamic_cast(T, X, _) :- ( T = ptr(_, D) ; T = ref(_, D) ; T = rref(_, D) ), !,   % a plain struct is a class, its operand asked, then refused by name as before
+    (   cpp_record_type(D) -> ( T = ptr(_, _) -> ( cpp_dynamic_source(T, X, _) -> true ; true ) ; ( cpp_dynamic_glvalue(T, X, _) -> true ; true ) ), cpp_refuse(0, dynamic_cast_to(T))
+    ;   cpp_type_spelled(D, A), cpp_refuse_prog(not_a_class(A)) ).
+cpp_dynamic_cast(T, _, _) :- cpp_type_spelled(T, B), cpp_refuse_prog(dynamic_target(B)).
+%% A DYNAMIC_CAST'S OPERAND AND TARGET (1.6.14; [expr.dynamic.cast]/1, /2), in clang++'s words: to a pointer the operand is a
+%% pointer, `cannot use dynamic_cast to convert from 'void' to 'S *'' -- an integer's and a class value's alike --, and a
+%% pointer to a class, `'int' is not a class type'; to a reference a glvalue of a class, a void value to an lvalue reference
+%% `dynamic_cast from rvalue to reference type 'S &'' and a value of no class `'int' is not a class type'; a target that is
+%% no pointer or reference to a class `'int' is not a class type', or `invalid target type 'S' for dynamic_cast; target type
+%% must be a reference or pointer type to a defined class'. Through 1.6.13 an operand that did not fit failed the desugaring
+%% without a word, `phase(desugaring)', and a target was refused by name, `dynamic_cast_to(...)'
+cpp_dynamic_source(T, X, S) :- ccl_type_of(X, XT), XT \== unknown, ccl_unref(XT, XT1),
+    (   ccl_resolve_type(XT1, ptr(_, S0)) -> ( cpp_class_of_type(S0, S) -> true ; cpp_record_type(S0) -> fail ; cpp_type_spelled(S0, A), cpp_refuse_prog(not_a_class(A)) )
+    ;   cpp_type_spelled(XT1, A), cpp_type_spelled(T, B), cpp_refuse_prog(bad_dynamic_cast(A, B)) ).
+cpp_dynamic_glvalue(_, X, S) :- cpp_class_of_type_of(X, S), !.
+cpp_dynamic_glvalue(T, X, _) :- T = ref(_, _), cpp_void_value(X), !, cpp_type_spelled(T, B), cpp_refuse_prog(void_cast_rvalue_ref(dynamic, B)).
+cpp_dynamic_glvalue(_, X, _) :- ccl_type_of(X, XT), XT \== unknown, ccl_unref(XT, XT1), \+ cpp_record_type(XT1), cpp_type_spelled(XT1, A), cpp_refuse_prog(not_a_class(A)).
+cpp_type_spelled(T, S) :- ( catch(ir_type_text(T, S0), _, fail), atom(S0) -> S = S0 ; term_to_atom(T, S) ).
 %% -fno-rtti (0.191): `typeid' and a `dynamic_cast' that asks the type information (a downcast or a cross-cast) are
 %% refused, as clang++ -fno-rtti refuses them (`use of typeid requires -frtti'); a cast to a base and `dynamic_cast<void
 %% *>' need none. A header's code is refused alike: libc++'s no-RTTI configuration guards its own typeids, and leaves

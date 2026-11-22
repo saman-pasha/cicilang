@@ -343,6 +343,7 @@ dr_diag(F, not_lowered(designator_negative(K)), where(_, line(L))) :- !, dr_erro
 %% A CALL OF ANOTHER COUNT OF ARGUMENTS THAN ITS PROTOTYPE'S (0.302, ir_arg_count/4), and an integer and a pointer converted as if
 %% by assignment (ir_int_ptr_check/4), in clang's words; C++'s call that no overload fits (cpp_call/4)
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_error(F, L, Ps).
+dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_error(F, L, Ps).   % A VOID VALUE AND THE OPERANDS BESIDE IT (1.6.14, dr_value_text/2)
 dr_diag(F, not_lowered(int_conversion(Dir, Site, A, B)), where(_, line(L))) :- !,
     ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),
     dr_int_conv_site(Site, A, B, Ps), dr_error(F, L, [K|Ps]).
@@ -379,13 +380,65 @@ dr_call_text(cleanup_not_single(F), ['''cleanup'' argument ''', F, ''' is not a 
 dr_call_text(builtin_value(_), ['builtin functions must be directly called']).   % a trap or __builtin_unreachable taken as a value (1.6.10, ir_undeclared/1)
 dr_call_text(verbose_trap_arg(string), ['argument to __builtin_verbose_trap must be a pointer to a constant string']).   % (1.6.10, ir_trap_strings/2, ir_trap_no_string/1)
 dr_call_text(verbose_trap_arg(dollar), ['argument to __builtin_verbose_trap must not contain $']).
+%% CLANG'S WORDS FOR A VOID VALUE (1.6.14; ir_void_check/3 and its kin in library/ccl_ir.pl), C's by the place and C++'s by
+%% the object, and for the operands beside it: a switch's, a subscript's, an indirection's
+dr_value_text(void_value(initializing, B), ['initializing ''', B, ''' with an expression of incompatible type ''void''']).
+dr_value_text(void_value(assigning, B), ['assigning to ''', B, ''' from incompatible type ''void''']).
+dr_value_text(void_value(passing, B), ['passing ''void'' to parameter of incompatible type ''', B, '''']).
+dr_value_text(void_value(returning, B), ['returning ''void'' from a function with incompatible result type ''', B, '''']).
+dr_value_text(void_value(variable, B), ['cannot initialize a variable of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(void_value(member, B), ['cannot initialize a member subobject of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(void_value(element, B), ['cannot initialize an array element of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(void_value(new_value, B), ['cannot initialize a new value of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(void_value(return_object, B), ['cannot initialize return object of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(void_value(parameter, B), ['cannot initialize a parameter of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(void_value(conversion, B), ['no viable conversion from ''void'' to ''', B, '''']).
+dr_value_text(void_value(return_conversion, B), ['no viable conversion from returned value of type ''void'' to function return type ''', B, '''']).
+dr_value_text(void_value(overloaded_assign, _), ['no viable overloaded ''=''']).
+dr_value_text(void_vararg, Ps) :- ( ccl_lang(cpp) -> Ps = ['cannot pass expression of type ''void'' to variadic function'] ; Ps = ['argument type ''void'' is incomplete'] ).
+dr_value_text(void_condition, ['value of type ''void'' is not contextually convertible to ''bool''']).
+dr_value_text(void_variable, ['variable has incomplete type ''void''']).
+dr_value_text(void_reference, ['cannot form a reference to ''void''']).
+dr_value_text(void_bind(nonconst, B), ['non-const lvalue reference to type ''', B, ''' cannot bind to a temporary of type ''void''']).
+dr_value_text(void_bind(other, B), ['reference to type ''', B, ''' could not bind to an rvalue of type ''void''']).
+dr_value_text(void_arm(left, B), ['left operand to ? is void, but right operand is of type ''', B, '''']).
+dr_value_text(void_arm(right, B), ['right operand to ? is void, but left operand is of type ''', B, '''']).
+dr_value_text(void_sizeof, ['invalid application of ''sizeof'' to an incomplete type ''void''']).
+dr_value_text(fn_sizeof, ['invalid application of ''sizeof'' to a function type']).
+dr_value_text(cast_operand(A), ['operand of type ''', A, ''' where arithmetic or pointer type is required']).
+dr_value_text(cast_to_pointer(A), ['operand of type ''', A, ''' cannot be cast to a pointer type']).
+dr_value_text(pointer_cast_to(B), ['pointer cannot be cast to type ''', B, '''']).
+dr_value_text(union_cast(A), ['cast to union type from type ''', A, ''' not present in union']).
+dr_value_text(void_cast(const_kind, B), ['const_cast to ''', B, ''', which is not a reference, pointer-to-object, or pointer-to-data-member']).
+dr_value_text(void_cast(K, B), [S, ' from ''void'' to ''', B, ''' is not allowed']) :- dr_cast_spelled(K, S).
+dr_value_text(void_cast_pointer(B), ['cannot cast from type ''void'' to pointer type ''', B, '''']).
+dr_value_text(void_cast_memptr(B), ['cannot cast from type ''void'' to member pointer type ''', B, '''']).
+dr_value_text(void_cast_rvalue_ref(K, B), [S, ' from rvalue to reference type ''', B, '''']) :- dr_cast_spelled(K, S).
+dr_value_text(void_cast_class(K, B), ['no matching conversion for ', S, ' from ''void'' to ''', B, '''']) :- dr_cast_spelled(K, S).
+dr_value_text(bad_dynamic_cast(A, B), ['cannot use dynamic_cast to convert from ''', A, ''' to ''', B, '''']).
+dr_value_text(not_a_class(A), ['''', A, ''' is not a class type']).
+dr_value_text(dynamic_target(B), ['invalid target type ''', B, ''' for dynamic_cast; target type must be a reference or pointer type to a defined class']).
+dr_value_text(no_matching_member(M), ['no matching member function for call to ''', S, '''']) :- dr_short_name(M, S).
+dr_value_text(no_matching_ctor(C), ['no matching constructor for initialization of ''', S, '''']) :- dr_class_spelled(C, S).
+dr_value_text(void_auto(N, T), ['variable ''', N, ''' with type ''', T, ''' has incompatible initializer of type ''void''']).
+dr_value_text(switch_operand(A), ['statement requires expression of integer type (''', A, ''' invalid)']).
+dr_value_text(pointer_operand(indirection, A), ['indirection requires pointer operand (''', A, ''' invalid)']).
+dr_value_text(pointer_operand(subscript, _), ['subscripted value is not an array, pointer, or vector']).
+dr_value_text(index_operand, ['array subscript is not an integer']).
 %% ... and where an integer and a pointer meet as if by assignment, the words of each place
 dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
 dr_int_conv_site(initializing, A, B, ['initializing ''', B, ''' with an expression of type ''', A, '''']).
 dr_int_conv_site(assigning, A, B, ['assigning to ''', B, ''' from ''', A, '''']).
 dr_int_conv_site(returning, A, B, ['returning ''', A, ''' from a function with result type ''', B, '''']).
-dr_class_spelled(C, S) :- catch(cpp_pf_class(C, S0), _, fail), !, S = S0.
+dr_class_spelled(C, S) :- catch(ck_cpp_class_text(C, S0), _, fail), !, S = S0.
 dr_class_spelled(C, C).
+%% a cast's spelling in clang's words
+dr_cast_spelled(cstyle, 'C-style cast').
+dr_cast_spelled(functional, 'functional-style cast').
+dr_cast_spelled(static, 'static_cast').
+dr_cast_spelled(reinterpret, 'reinterpret_cast').
+dr_cast_spelled(const, 'const_cast').
+dr_cast_spelled(dynamic, 'dynamic_cast').
 %% A FAILED LINK'S LINES (0.251): the linker's message is many lines, and the command passes on only a line that holds
 %% `: error: ', `: warning: ' or `: note: ' (bin/cicilang): the first line is the error and each line after it a note, so
 %% the symbols the linker names after its first line reach the user -- a Mac's `Undefined symbols for architecture x86_64:'

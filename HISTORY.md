@@ -330,6 +330,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.11 | The repository's Prolog under cocolint | the user's word "Yes lint it": cocolog's linter over the 104 `.pl` files, a capped run each, 101 clean: `test/reader.pl`'s `sh/2` one predicate with library(process)'s, each command of the gate run bare before it ran with its words, and `test/prof.pl`'s streams loaded only by library(flow/debug), both mended; `ccl_bidrt.pl`'s clause of 12 KB, the one WARN, held by no store | cocolint 0 HARD over the two files; the probes of `sh/2` and of `cp`; the reader gate, `test/prof.sh`, the flow gate |
 | 1.6.12 | cocolint in the flow gate | the user's word "Add cocolint to flow gate": the flow gate lints the repository's 104 Prolog files in one run, a job of its pool, RED on any finding, HARD or WARN; the decimal runtime's clause of 12 KB acknowledged where it stands, by its generator; cocolint's stream pattern names no `nl/1` or `write/2`, a finding for cocolog | the flow gate GREEN, `no finding, 1 acknowledged`; a copy of the tree with three seeds RED, each at its line |
 | 1.6.13 | A comma, an assignment and a prefix step as C++'s lvalues | the first item of the user's "do some not done items": in C++ a comma over an lvalue, an assignment and a prefix `++` or `--` are lvalues -- the desugaring takes them (overloads, forwarding, copies, `decltype`), the lowering takes their places once, the safe part borrows the places; beside them C took `(c ? a : b) = 5` and refused `(g(), s).m`, now in clang's words and taken, the check walked no initializer of a reference bound to a value (a double free), and the largest chart passed cocolog's default stack, 2 GB in the flow gate and a finding for cocolog | the twenty forms as clang++'s build, the probes as clang's and g++'s but one recorded limit; 32 broken copies, 30 caught and the two others' rules taken out; the flow gate, the C gates, ccllib, the C++ pools over 22, 21 and 18, the heavier fixtures and the gate's later parts GREEN |
+| 1.6.14 | A void value used as a value, refused at its line in clang's words | the second item of the user's "do some not done items": a void value where a value is taken is refused at its line in clang's words, C's by the place and C++'s by the object, in the lowering and in the desugaring; 498 bodies over the forms beside it found and mended the operands of a switch, a subscript and an indirection, C's call value as no lvalue, a conditional with a throw arm, a block's function and `extern` object, `sizeof` of a function, C's cast by clang's order and GNU's cast to a union, C++'s casts of a void value by their target's kind, the qualified call of one function, `dynamic_cast`'s operands, the type text of C++'s types and the line after a landing pad; the broken copies took four rules out, and their new bodies found six more forms -- a class copy-initialized from a void value, a class's parameter and assignment, a member's line in a local class, a local struct's name and `decltype` of a throw arm -- and C's operand read as a value named by its unqualified type, a block pointer no pointer, the library guards out | the 498 bodies as clang's and clang++'s words but 13 recorded limits, and 32 more; 124 broken copies over the first tree, 104 caught, four rules out and fifteen caught by 32 new bodies; 136 over the mended tree, 135 caught, the block pointer's alternative out; 146 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 357, driver 108, objects 29, cross 225, ccllib 623; the C++ pools 379 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 
 ## M5 — the C++ mode
 
@@ -24266,3 +24267,145 @@ parts by hand, 230 ok. The chain did not run, by the owner's rule of 0.271. No C
   CLAUDE.md (the versions, the fixtures, the flow gate's line).
 
 The module 1.6.13, the reader 207 and the lowering 182.
+
+## 1.6.14 — A void value used as a value, refused at its line in clang's words
+
+**1.6.14: at the user's word "Add cocolint to flow gate, do some not done items", its second half, the second item: a
+void value where a value is taken is refused at its line in clang's words, C's by the place and C++'s by the object, in
+the lowering and in the desugaring; the forms beside it were probed in both languages, 498 bodies against clang's and
+clang++'s words, and mended where they differed: the operands of a switch, a subscript and an indirection, C's call
+value as no lvalue, a conditional with a throw arm, a block's function and `extern` object, `sizeof` of a function, C's
+cast by clang's order (two casts of a record built), GNU's cast to a union, C++'s casts of a void value by their
+target's kind, the qualified call of one function, a type's name called with a void value, `dynamic_cast`'s operands
+and targets, the type text of C++'s references, pointers to members and classes, and the line of a statement after a
+landing pad; then the broken copies, one a rule, took out five rules that no body told from their absence, and the four
+library guards of the desugaring's void refusals, and their new bodies found more forms that were not clang's: a class
+copy-initialized from a void value, a class's parameter and assignment, a member's line in a local class, a local
+struct's name, `decltype` of a conditional with a throw arm, an operand read as a value named by its unqualified type,
+and Apple's block pointer under `*` and `[]`.**
+
+THE ITEM. Not done's record of 1.6.10: `int z = f();`, `z = f();`, `g(f())` and `return f();` over `void f(void)` went
+to LLVM's parser, `%t2 = sext void none to i32` (`void type only allowed for function results`) at a line of the IR,
+none of the program's, and `f() + 1` was `not lowered yet: type(unknown)`; a trap's call is such an expression.
+
+THE CHANGE, THE VOID VALUE. The lowering (`ccl_void_typed/1`, `ir_void_check/3` and its kin): as if by assignment -- an
+initializer, an assignment, an argument, a return -- C's words by the place, C++'s by the object (`ir_void_word/3`: a
+variable, a member subobject, an array element, a new value, a return object, a parameter, and a class's `no viable
+conversion`), an aggregate's item naming its kind for the items' time (`ir_init_as/2`); through an ellipsis; as an
+operand of the binary and unary operators, the comparisons and the compound assignments, an atomic's among them; as a
+condition (C's record words with `'void'`, C++'s `not contextually convertible to 'bool'`); as a cast's operand; as an
+object (`void x;`, `auto x = f();`), a reference to void and a reference bound to a void value; as a step's operand;
+C++'s `sizeof` of void and of a function type. The desugaring (`cpp_void_args/2` over `cpp_void_value/1`, the void
+value it trusts): a call of a function, an overload set or a template given one is `no matching function for call to
+'g'`, a class's name `no matching conversion for functional-style cast`, an overloaded member `no matching member
+function`, a constructor `no matching constructor`, `new int(f())` and a member's initializer their words, `auto *p =
+f();` its words. The check: a void value is no new memory (`ck_void_value/1`).
+
+THE FORMS BESIDE IT. The bodies probed against clang's and clang++'s words: 91 C and 105 C++ forms of the first part,
+then 35 C bodies of the driver gate, 63 and 66 C++ bodies of the C++ gate and 36 C bodies of C's casts and calls, each
+set written from clang's line. They found:
+- C TOOK FORMS CLANG REFUSES, OR REFUSED THEM BY NAME: a switch over a double, a pointer or a struct ran or was `no
+  conversion from` (`ir_switch_operand/2`); `2[a]` and `*1` were refused by name, `a[d]` ran (`ir_subscript/10`,
+  `ir_pointer_operand/2`, `ir_index_operand/2`); `h() = 4` and `h()++` over `int h(void)` ran, and `&h()` was `plain
+  pointer not consumed` (`ccl_c_rvalue_form/1`: a call's value is no lvalue); `sizeof(f)` was 8, GNU's 1 now
+  (`ccl_sizeof_value/2`); C++'s `sizeof(void)` was 1.
+- C'S CAST (`ir_c_cast_check/3`): `(_Bool)s` over a struct and `(int)u` over a union BUILT, where clang refuses both;
+  `(struct S)f()` gave the operand's words where clang names the type first; the record and floating misfits were `no
+  conversion from`; GNU's `(union U)9` reached LLVM's parser, `sext i32 9 to { i32 }` (`ir_union_value/6` lowers it).
+- C++'S CASTS OF A VOID VALUE (`ir_void_cast_kind/4`, `cpp_void_cast_check/3`): to a pointer and a member pointer
+  `cannot cast from type 'void' to pointer type`, to a class `no matching conversion for static_cast`, to a reference a
+  binding's or `from rvalue to reference type`; a cast to a reference reached LLVM's parser, `alloca void`.
+- C++'S CALLS: a qualified name of one function is the parameter's initialization in clang++'s words, `ns::h(f())`,
+  `::g(f())`, `std::puts(f())`, and an overload set's or a template's call `no matching function`
+  (`cpp_names_overloads/1`); a call with template arguments, `tk<int>(f())`, is an overload set's; a type's name called
+  with one void value is a functional cast whatever the type, a plain struct's call C's compound literal before
+  (`cpp_void_called_type/2`, `cpp_type_call/3`); a class with two values its constructor's words.
+- `dynamic_cast`: an operand or a target that does not fit failed the desugaring without a word, `phase(desugaring)`,
+  or was refused by name; each is refused in clang++'s words now, at its line (`cpp_dynamic_source/3`,
+  `cpp_dynamic_glvalue/3`).
+- THE TYPE TEXT: a C++ reference and a pointer to member were their terms in a message, a class its key, `TT.int`
+  (`ck_c_decl_text/4`, `ck_cpp_class_text/2`).
+- THE LINE: a statement that the desugaring made, of line 0, refuses at the last line seen; and a refusal after a call
+  under an object with a destructor stood at the object's line, because the landing pad's cleanups set their own
+  (`ir_line_state/1`); under -g the statement's instructions after the call took that line too.
+- C AND C++ BESIDE: a conditional of one void arm is void in C, GNU's, and refused in C++; a C++ conditional with a
+  throw arm has the other arm's type and value (`ccl_throw_arm/1`), where it was void and a lambda deduced void; a
+  function and an `extern` object that a C block declares are in scope there (`ir_local_extern/2`); an enumerator is in
+  scope just after itself, so `enum e { A, B } v = B;` is read (`ccl_enumerator//1`, the reader 208); `_Atomic(int)` is
+  spelled.
+- RECORDED, NOT MENDED: a typedef's `(aka ...)` in every message; GNU's `?:` with no middle operand is not read; a
+  closure's call words; a parenthesized callee and a C++ block's function, for which clang++ looks up no argument's
+  namespace; a C++ call's prvalue taken as a place; a local class defined with its object.
+
+THE BROKEN COPIES, A RULE EACH. 124 copies of the tree, each with one rule broken, over the battery -- the driver
+gate's and the C++ gate's bodies, the fixtures, the link: 104 were caught. One copy was not made, its text changed by
+the union's lowering. Four rules no body told from their absence, and they are out: `ir_void_check/3`'s exception for a
+parameter (no parameter is void: deduction refuses a template's), the C++ branch of `ir_scalar_pair/2` (C++'s `&&` and
+`||` over a void value reach the condition's net, `ir_cond_/2`, which gives the same words at the same line), the third
+arm's alternative of a throw arm's type (the type's last line gives the second arm's) and the reader's `throw(_)` in
+`ccl_throw_arm/1` (no type is asked of the reader's throw). The fifteen others are caught by new bodies, the C++ gate's
+thirty-two of `vu`: a call through a pointer or a reference to a function, which the desugaring does not trust, as a
+cast's operand, a reference's, a condition's, `&&`'s and `||`'s; an overloaded call as a conditional's place and
+object; a template declared and not defined; a class template's own name in its member and a nested class by its
+qualified name, each called with one; and C's `sizeof` in a constant expression and of `z ? 1 : f()`, the ccllib
+assignment as C++, the local names. Those bodies found six forms that were not clang++'s, now mended:
+- A CLASS COPY-INITIALIZED FROM A VOID VALUE (`cpp_copy_init_void/4`): `M m = f();`, a static local so written, a
+  default member initializer, an element and an aggregate's member from a braced item, a comma's and a conditional's
+  value, each `no matching constructor for initialization of 'M'`, where clang++ says `no viable conversion from 'void'
+  to 'M'`.
+- A CLASS MEMBER'S `m(f())` IN A LOCAL CLASS stood at its function's line, the constructor road's statement line; the
+  member's check takes the constructor's (`cpp_void_ctor_check/3`).
+- A LOCAL PLAIN STRUCT'S NAME was its key, `L.local_1_<tag>`, and a local class's only by `'$cpp_pf_local'`; both are
+  their source names now through the function's local names (`ck_cpp_local_name/2`), the one rule of the two.
+- A CLASS'S PARAMETER of a qualified call was `cannot initialize a parameter of type 'M'`, clang++'s `no viable
+  conversion from 'void' to 'M'`; and a CLASS ASSIGNED ONE was C's `assigning to 'M' from incompatible type 'void'`,
+  clang++'s `no viable overloaded '='` (`ir_void_word/3`).
+- `decltype(z ? z : throw 1)` was the prvalue's `int`, and a store through the name went to a copy; it is the other
+  arm's, `int &` ([expr.cond]/2.1; `cpp_decltype_of/2`), and `throwarm.cpp` holds both arms' forms.
+- `void_assign.c`'s expected words were a guess: as C its type macro refuses it, `a vector_int is not made of a value
+  of the type void`, and as C++ clang++'s `no viable overloaded '='`; each is the file's now.
+Recorded, not mended: a refusal in a program's function template printed as its instance's, `instance_refused(...)`; a
+class member's initializer that no constructor takes, `member_not_constructed`; an untrusted void value as an
+unqualified call's argument, the parameter's words where clang++ says `no matching function`; `decltype(mm)(f())` not
+lowered; `::M` and a nested class named bare spelled by their own, beside the typedef's `(aka ...)`.
+
+THE SECOND RUN AND THE THIRD. The second run, 136 copies over the mended tree, caught 135. The one left was the block
+pointer's alternative of `ir_pointer_like/1`, which clang refuses: `*b` and `b[0]` over Apple's block pointer are
+`indirection requires pointer operand ('void (^)(void)' invalid)` and `subscripted value is not an array, pointer, or
+vector`, so the alternative is out, and a block pointer is spelled as clang spells it (`ck_c_ptr_glyph/4`), where its
+term was printed. The block's bodies found that clang names an operand read as a value by its unqualified type -- `!cs`
+over a `const struct S` is `'struct S'`, `*cx` over a `const int` `'int'`, a condition's, `?:`'s, a cast's and a
+switch's alike, `volatile` and `_Atomic` too -- where a binary operator's operands keep theirs; each kept its `const`
+here (`ir_rvalue_text/2`, the driver gate's twenty-two bodies of `cq`). In C++ the same operands are refused by name
+or, a plain struct in a condition, reach LLVM's parser, as before this step: recorded. The four guards that kept the
+desugaring's void refusals to the program's code (`'$cpp_in_lib'`) told nothing: the C++ pool's 379 lighter fixtures
+built and ran over a copy without them, and they are out. The third run, 146 copies over the final tree, the new rules'
+among them: each caught.
+
+THE PROOF. Of the 498 bodies, all but the 13 recorded limits give clang's words at clang's line. The fixtures:
+`test/c/run/voidvalues.c`, `test/cpp/run/throwarm.cpp` and `voidkept.cpp`, each as clang's, clang++'s (22, 21, 18) and
+GCC's builds; the link of `test/c/link/blockfn_main.c` with `blockfn_def.c`; `test/ccllib/safe/void_assign.c`; the
+driver gate's 35, 36 and 22 C bodies and the C++ gate's 63, 66 and 32 C++ bodies. The driver gate's check of 0.288
+named the old words of its two casts, `no conversion from`, which the nets found; it names clang's now, `pointer cannot
+be cast to type 'double'` and `operand of type 'double' cannot be cast to a pointer type`, and the rule of 0.288 says
+so. The nets over the final tree: the flow gate GREEN (525 s); over fresh HOMEs, the reader gate 173 ok (5 skipped),
+the compile gate 357, the objects gate 29, the cross gate 225 (1 skipped), the ccllib gate 623 -- its 36 programs in
+three runs, 188 refused, 21 alone -- and the driver gate 108, GREEN, run again after its check of 0.288 was mended (107
+and that check's failure before); the C++ pool of the 379 lighter run fixtures, 379 ok over each of libc++ 22, 21 and
+18; over libc++ 22's HOME, the 520 heavier, 506 ok and 14 skipped as before, and the C++ gate's later parts by hand,
+233 ok, run again after the container restarted. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_ir.pl` (the void value's checks, C's cast, the switch's, the subscript's and the indirection's operands,
+  the conditionals, a block's externs, the landing pad's line; the lowering 183), `library/ccl_cpp_expr.pl` (the void
+  arguments, the calls, the casts), `library/ccl_cpp_init.pl`, `library/ccl_cpp_overload.pl`,
+  `library/ccl_cpp_stmt.pl`, `library/ccl_cpp_virtual.pl` (`dynamic_cast`), `library/ccl_cpp_template.pl` (`decltype`
+  of a throw arm), `library/ccl_check.pl` (the type text, a local's name, a block pointer's spelling, a void value no
+  new memory), `library/ccl_infer.pl` (the conditional's type, `sizeof`, a call's value), `library/ccl_syntax.pl` (the
+  enumerator; the reader 208), `library/ccl_driver.pl` (the words), `test/driver.sh`, `test/cpp.sh`, the fixtures, the
+  module's version.
+- RULES.md (the void value, C's cast, the switch's, the subscript's and the indirection's operands, the conditionals, a
+  block's externs, the line after a landing pad, the type text in The lowering; the calls in Overload resolution;
+  `dynamic_cast`'s operands; the void value no new memory in The safe part; the enumerator in the reader's topic; the
+  record out of Not done, twelve records in), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.14, the reader 208 and the lowering 183.

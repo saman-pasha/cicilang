@@ -218,6 +218,202 @@ for pair in "cleanup_overload:'cleanup' argument 'bye' is not a single function"
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
+# A VOID VALUE IS NO VALUE (1.6.14; [basic.fundamental]/13, [expr.call]/7, [dcl.init.general]/16): sixty-three bodies, each
+# at line 3, refused in clang++'s words at clang++'s line -- a variable, a member, an element, a new value, a return object, a
+# parameter and a reference initialized by one, a call of a function, an overload, a template, a member and a constructor
+# given one, a qualified call of one function, an ellipsis, the casts by their spelling, the operators, the conditions of
+# if, for, while and do, a conditional of one void arm, sizeof, the deduced auto and its declarators. Through 1.6.13 each went
+# to LLVM's parser, `void type only allowed for function results', at no line of the program, or ran: `sizeof(void)' was 1
+# and `sizeof(f)' 8
+echo "-- and a void value where a value is taken is an error, in clang++'s words at its line (1.6.14)"
+vp_pre='void f() {} int g(int v) { return v; } void ov(int) {} void ov(double) {} template<class T> void tk(T) {} int vf(int, ...); struct S { int m; }; struct M { int v; M(int x) : v(x) {} void m(int) {} void o(int) {} void o(double) {} static void s(int) {} }; namespace ns { int h(int v) { return v; } } extern "C" int puts(const char *);\nint main(int argc, char **argv) { (void)argv; int z = 1, a[2] = {1, 2}; M mm(1); (void)a; (void)argc;'
+vp_got=$(n=0; for body in 'int x = f(); (void)x;' 'z = f();' 'g(f());' 'return f();' 'z = f() + 1;' 'if (f()) z = 2;' 'z = !f();' 'z = (int)f();' 'z = int(f());' 'z = static_cast<int>(f());' 'S s{f()}; (void)s;' 'int *q = new int(f()); delete q;' 'struct N { int m; N() : m(f()) {} }; N n; (void)n;' 'int b[2] = { f(), 1 }; (void)b;' 'z = f() == f();' 'bool b = f(); (void)b;' 'z = sizeof(f());' 'int &r = f(); (void)r;' 'const int &r = f(); (void)r;' 'tk(f());' 'z = z ? f() : 1;' 'z = z ? 1 : f();' 'S s = f(); (void)s;' 'mm.m(f());' 'mm.o(f());' 'M m2(f()); (void)m2;' 'M m2 = M(f()); (void)m2;' 'vf(1, f());' 'ov(f());' 'z = a[f()];' 'z = *f();' 'z = f()[0];' 'f()++;' 'z = sizeof(void);' 'auto &r = f(); (void)r;' 'auto *q = f(); (void)q;' 'z = reinterpret_cast<int>(f());' 'z = const_cast<int>(f());' 'int *q = const_cast<int *>(f()); (void)q;' 'z = sizeof(f);' 'auto x = f(); (void)x;' 'z = f() || true;' 'switch (f()) { default: break; }' 'M *pm = new M(f()); delete pm;' 'M m2{f()}; (void)m2;' 'M::s(f());' 'int (*fp)(int) = g; z = fp(f());' 'g(z ? f() : f());' 'g((z, f()));' 'g((void)z);' 'g(static_cast<void>(z));' 'ns::h(f());' 'vf(f());' 'struct N { int m = f(); }; N n; (void)n;' 'S s = { ({ int x = f(); x; }) }; (void)s;' 'for (; f(); ) break;' 'while (f()) break;' 'do { } while (f());' 'auto l = []() -> S { return f(); }; (void)l;' 'S *ps = dynamic_cast<S *>(f()); (void)ps;' 'puts(f());' 'z = (f(), f()) + 1;' 'z = -(void)z;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$vp_pre" "$body" > vp$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c vp$n.cpp -o vp.o 2>&1 | grep -m1 'error'; done)
+vp_want="vp1.cpp:3: error: cannot initialize a variable of type 'int' with an rvalue of type 'void'
+vp2.cpp:3: error: assigning to 'int' from incompatible type 'void'
+vp3.cpp:3: error: no matching function for call to 'g'
+vp4.cpp:3: error: cannot initialize return object of type 'int' with an rvalue of type 'void'
+vp5.cpp:3: error: invalid operands to binary expression ('void' and 'int')
+vp6.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vp7.cpp:3: error: invalid argument type 'void' to unary expression
+vp8.cpp:3: error: C-style cast from 'void' to 'int' is not allowed
+vp9.cpp:3: error: functional-style cast from 'void' to 'int' is not allowed
+vp10.cpp:3: error: static_cast from 'void' to 'int' is not allowed
+vp11.cpp:3: error: cannot initialize a member subobject of type 'int' with an rvalue of type 'void'
+vp12.cpp:3: error: cannot initialize a new value of type 'int' with an rvalue of type 'void'
+vp13.cpp:3: error: cannot initialize a member subobject of type 'int' with an rvalue of type 'void'
+vp14.cpp:3: error: cannot initialize an array element of type 'int' with an rvalue of type 'void'
+vp15.cpp:3: error: invalid operands to binary expression ('void' and 'void')
+vp16.cpp:3: error: cannot initialize a variable of type 'bool' with an rvalue of type 'void'
+vp17.cpp:3: error: invalid application of 'sizeof' to an incomplete type 'void'
+vp18.cpp:3: error: non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'
+vp19.cpp:3: error: reference to type 'const int' could not bind to an rvalue of type 'void'
+vp20.cpp:3: error: no matching function for call to 'tk'
+vp21.cpp:3: error: left operand to ? is void, but right operand is of type 'int'
+vp22.cpp:3: error: right operand to ? is void, but left operand is of type 'int'
+vp23.cpp:3: error: no viable conversion from 'void' to 'S'
+vp24.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vp25.cpp:3: error: no matching member function for call to 'o'
+vp26.cpp:3: error: no matching constructor for initialization of 'M'
+vp27.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'M'
+vp28.cpp:3: error: cannot pass expression of type 'void' to variadic function
+vp29.cpp:3: error: no matching function for call to 'ov'
+vp30.cpp:3: error: array subscript is not an integer
+vp31.cpp:3: error: indirection requires pointer operand ('void' invalid)
+vp32.cpp:3: error: subscripted value is not an array, pointer, or vector
+vp33.cpp:3: error: cannot increment value of type 'void'
+vp34.cpp:3: error: invalid application of 'sizeof' to an incomplete type 'void'
+vp35.cpp:3: error: cannot form a reference to 'void'
+vp36.cpp:3: error: variable 'q' with type 'auto *' has incompatible initializer of type 'void'
+vp37.cpp:3: error: reinterpret_cast from 'void' to 'int' is not allowed
+vp38.cpp:3: error: const_cast to 'int', which is not a reference, pointer-to-object, or pointer-to-data-member
+vp39.cpp:3: error: const_cast from 'void' to 'int *' is not allowed
+vp40.cpp:3: error: invalid application of 'sizeof' to a function type
+vp41.cpp:3: error: variable has incomplete type 'void'
+vp42.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vp43.cpp:3: error: statement requires expression of integer type ('void' invalid)
+vp44.cpp:3: error: no matching constructor for initialization of 'M'
+vp45.cpp:3: error: no matching constructor for initialization of 'M'
+vp46.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vp47.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vp48.cpp:3: error: no matching function for call to 'g'
+vp49.cpp:3: error: no matching function for call to 'g'
+vp50.cpp:3: error: no matching function for call to 'g'
+vp51.cpp:3: error: no matching function for call to 'g'
+vp52.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vp53.cpp:3: error: no matching function for call to 'vf'
+vp54.cpp:3: error: cannot initialize a member subobject of type 'int' with an rvalue of type 'void'
+vp55.cpp:3: error: cannot initialize a variable of type 'int' with an rvalue of type 'void'
+vp56.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vp57.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vp58.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vp59.cpp:3: error: no viable conversion from returned value of type 'void' to function return type 'S'
+vp60.cpp:3: error: cannot use dynamic_cast to convert from 'void' to 'S *'
+vp61.cpp:3: error: no matching function for call to 'puts'
+vp62.cpp:3: error: invalid operands to binary expression ('void' and 'int')
+vp63.cpp:3: error: invalid argument type 'void' to unary expression"
+if [ "$vp_got" = "$vp_want" ]; then echo "ok   63 void values and their forms refused as clang++ refuses them, at clang++'s line"
+else echo "FAIL the void values' refusals"; echo "$vp_got" > vp_got.txt; echo "$vp_want" > vp_want.txt; diff vp_want.txt vp_got.txt | head -8 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi
+# ... AND THE CASTS AND CALLS BESIDE IT (1.6.14): sixty-six bodies -- a void value cast to a pointer, a member pointer, a
+# reference and a class by each cast's spelling; a qualified call of one function and of an overload set, a call through a
+# using-declaration, a reference and a pointer to a function; a dynamic_cast's operand and target; a class, a plain struct and
+# a class template's instance called with one void value, a class with two values, a namespace's class spelled with its
+# namespace; and a refusal after an object with a destructor at its own line. Through 1.6.13 a cast to a reference reached
+# LLVM's parser, `alloca void', a class's cast was a constructor's words, a dynamic_cast's misfit `phase(desugaring)'
+echo "-- and the casts and calls beside a void value, in clang++'s words at their line (1.6.14)"
+vc_pre='void f() {} struct S { int m; virtual ~S() {} }; struct T : S {}; struct P { int m; }; int g(int v) { return v; } void ov(int) {} void ov(double) {} template<class T0> void tk(T0) {} template<class T0> struct TT { T0 v; }; struct M { int v; M(int x) : v(x) {} }; struct C { int v; }; struct Q { void m(int) {} void o(int) {} void o(double) {} static void s(int) {} }; struct P2 { int a, b; }; typedef int *IP; enum E { E0 }; namespace ns { int h(int v) { return v; } void k(int) {} void k(double) {} template<class T0> void t(T0) {} struct NC { int v; NC(int x) : v(x) {} }; struct A { int v; }; }\nint main() { int z = 1; (void)z; S s; S *sp = &s; int *ip = &z; P pv{1}; Q qq; (void)sp; (void)ip; (void)pv; (void)qq;'
+vc_got=$(n=0; for body in 'int *q = static_cast<int *>(f()); (void)q;' 'int *q = (int *)f(); (void)q;' 'int *q = reinterpret_cast<int *>(f()); (void)q;' 'S *q = static_cast<S *>(f()); (void)q;' 'E e = static_cast<E>(f()); (void)e;' 'double d = static_cast<double>(f()); (void)d;' 'bool b = static_cast<bool>(f()); (void)b;' 'C c = static_cast<C>(f()); (void)c;' 'C c = (C)f(); (void)c;' 'int &r = static_cast<int &>(f()); (void)r;' 'int &&r = static_cast<int &&>(f()); (void)r;' 'E e = (E)f(); (void)e;' 'double d = (double)f(); (void)d;' 'ns::k(f());' '::g(f());' 'ns::t(f());' 'int (S::*pm) = static_cast<int S::*>(f()); (void)pm;' 'long l = reinterpret_cast<long>(f()); (void)l;' 'int *q = const_cast<int *>(f()); (void)q;' 'int &r = const_cast<int &>(f()); (void)r;' 'char c = char(f()); (void)c;' 'int (S::*pm) = (int S::*)f(); (void)pm;' 'int (S::*pm) = reinterpret_cast<int S::*>(f()); (void)pm;' 'int &r = (int &)f(); (void)r;' 'const int &r = (const int &)f(); (void)r;' 'const int &r = static_cast<const int &>(f()); (void)r;' 'int &&r = (int &&)f(); (void)r;' 'using ns::h; h(f());' 'int x = z ? throw 1 : f(); (void)x;' 'z = f() , 1;' 'z = z ? (void)0 : throw 1, 2;' 'qq.s(f());' 'auto x = z ? f() : f(); (void)x;' '::ov(f());' 'int &r = reinterpret_cast<int &>(f()); (void)r;' 'ns::t<int>(f());' 'int (&rf)(int) = g; rf(f());' 'auto *fp = &ns::h; fp(f());' 'S *q = dynamic_cast<S *>(f()); (void)q;' 'S &q = dynamic_cast<S &>(f()); (void)q;' 'S *q = dynamic_cast<S *>(z); (void)q;' 'S *q = dynamic_cast<S *>(g(1)); (void)q;' 'S *q = dynamic_cast<S *>(ip); (void)q;' 'S *q = dynamic_cast<S *>(pv); (void)q;' 'int *q = dynamic_cast<int *>(sp); (void)q;' 'S q = dynamic_cast<S>(s); (void)q;' 'S &q = dynamic_cast<S &>(z); (void)q;' 'const S *q = dynamic_cast<const S *>(f()); (void)q;' 'S &&q = dynamic_cast<S &&>(f()); (void)q;' 'void *q = dynamic_cast<void *>(f()); (void)q;' 'void *q = dynamic_cast<void *>(z); (void)q;' 'ns::NC c = ns::NC(f()); (void)c;' 'ns::A a = ns::A(f()); (void)a;' 'TT<int> t = TT<int>(f()); (void)t;' 'ns::NC c = static_cast<ns::NC>(f()); (void)c;' 'TT<int> t = static_cast<TT<int>>(f()); (void)t;' 'TT<int> t{f()}; (void)t;' 'ns::A a = reinterpret_cast<ns::A>(f()); (void)a;' 'ns::A a = const_cast<ns::A>(f()); (void)a;' 'ns::A a = (ns::A)f(); (void)a;' 'TT<int> *p = static_cast<TT<int> *>(f()); (void)p;' 'tk<int>(f());' 'P p = P(f()); (void)p;' 'M m = M(f(), 1); (void)m;' 'P2 p = P2(f(), 1); (void)p;' 'int &r = static_cast<int &>(z ? f() : f()); (void)r;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$vc_pre" "$body" > vc$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c vc$n.cpp -o vc.o 2>&1 | grep -m1 'error'; done)
+vc_want="vc1.cpp:3: error: cannot cast from type 'void' to pointer type 'int *'
+vc2.cpp:3: error: cannot cast from type 'void' to pointer type 'int *'
+vc3.cpp:3: error: reinterpret_cast from 'void' to 'int *' is not allowed
+vc4.cpp:3: error: cannot cast from type 'void' to pointer type 'S *'
+vc5.cpp:3: error: static_cast from 'void' to 'E' is not allowed
+vc6.cpp:3: error: static_cast from 'void' to 'double' is not allowed
+vc7.cpp:3: error: static_cast from 'void' to 'bool' is not allowed
+vc8.cpp:3: error: no matching conversion for static_cast from 'void' to 'C'
+vc9.cpp:3: error: no matching conversion for C-style cast from 'void' to 'C'
+vc10.cpp:3: error: non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'
+vc11.cpp:3: error: reference to type 'int' could not bind to an rvalue of type 'void'
+vc12.cpp:3: error: C-style cast from 'void' to 'E' is not allowed
+vc13.cpp:3: error: C-style cast from 'void' to 'double' is not allowed
+vc14.cpp:3: error: no matching function for call to 'k'
+vc15.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vc16.cpp:3: error: no matching function for call to 't'
+vc17.cpp:3: error: cannot cast from type 'void' to member pointer type 'int S::*'
+vc18.cpp:3: error: reinterpret_cast from 'void' to 'long' is not allowed
+vc19.cpp:3: error: const_cast from 'void' to 'int *' is not allowed
+vc20.cpp:3: error: const_cast from rvalue to reference type 'int &'
+vc21.cpp:3: error: functional-style cast from 'void' to 'char' is not allowed
+vc22.cpp:3: error: cannot cast from type 'void' to member pointer type 'int S::*'
+vc23.cpp:3: error: reinterpret_cast from 'void' to 'int S::*' is not allowed
+vc24.cpp:3: error: C-style cast from rvalue to reference type 'int &'
+vc25.cpp:3: error: C-style cast from rvalue to reference type 'const int &'
+vc26.cpp:3: error: reference to type 'const int' could not bind to an rvalue of type 'void'
+vc27.cpp:3: error: C-style cast from rvalue to reference type 'int &&'
+vc28.cpp:3: error: no matching function for call to 'h'
+vc29.cpp:3: error: cannot initialize a variable of type 'int' with an rvalue of type 'void'
+vc30.cpp:3: error: assigning to 'int' from incompatible type 'void'
+vc31.cpp:3: error: assigning to 'int' from incompatible type 'void'
+vc32.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vc33.cpp:3: error: variable has incomplete type 'void'
+vc34.cpp:3: error: no matching function for call to 'ov'
+vc35.cpp:3: error: reinterpret_cast from rvalue to reference type 'int &'
+vc36.cpp:3: error: no matching function for call to 't'
+vc37.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vc38.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+vc39.cpp:3: error: cannot use dynamic_cast to convert from 'void' to 'S *'
+vc40.cpp:3: error: dynamic_cast from rvalue to reference type 'S &'
+vc41.cpp:3: error: cannot use dynamic_cast to convert from 'int' to 'S *'
+vc42.cpp:3: error: cannot use dynamic_cast to convert from 'int' to 'S *'
+vc43.cpp:3: error: 'int' is not a class type
+vc44.cpp:3: error: cannot use dynamic_cast to convert from 'P' to 'S *'
+vc45.cpp:3: error: 'int' is not a class type
+vc46.cpp:3: error: invalid target type 'S' for dynamic_cast; target type must be a reference or pointer type to a defined class
+vc47.cpp:3: error: 'int' is not a class type
+vc48.cpp:3: error: cannot use dynamic_cast to convert from 'void' to 'const S *'
+vc49.cpp:3: error: 'void' is not a class type
+vc50.cpp:3: error: cannot use dynamic_cast to convert from 'void' to 'void *'
+vc51.cpp:3: error: cannot use dynamic_cast to convert from 'int' to 'void *'
+vc52.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'ns::NC'
+vc53.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'ns::A'
+vc54.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'TT<int>'
+vc55.cpp:3: error: no matching conversion for static_cast from 'void' to 'ns::NC'
+vc56.cpp:3: error: no matching conversion for static_cast from 'void' to 'TT<int>'
+vc57.cpp:3: error: cannot initialize a member subobject of type 'int' with an rvalue of type 'void'
+vc58.cpp:3: error: reinterpret_cast from 'void' to 'ns::A' is not allowed
+vc59.cpp:3: error: const_cast to 'ns::A', which is not a reference, pointer-to-object, or pointer-to-data-member
+vc60.cpp:3: error: no matching conversion for C-style cast from 'void' to 'ns::A'
+vc61.cpp:3: error: cannot cast from type 'void' to pointer type 'TT<int> *'
+vc62.cpp:3: error: no matching function for call to 'tk'
+vc63.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'P'
+vc64.cpp:3: error: no matching constructor for initialization of 'M'
+vc65.cpp:3: error: cannot initialize a member subobject of type 'int' with an rvalue of type 'void'
+vc66.cpp:3: error: non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'"
+if [ "$vc_got" = "$vc_want" ]; then echo "ok   66 casts and calls beside a void value refused as clang++ refuses them, at clang++'s line"
+else echo "FAIL the casts and calls beside a void value"; echo "$vc_got" > vc_got.txt; echo "$vc_want" > vc_want.txt; diff vc_want.txt vc_got.txt | head -8 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi
+# ... AND WHAT THE DESUGARING DOES NOT TRUST, AND A CLASS COPY-INITIALIZED FROM ONE (1.6.14): thirty-two bodies -- a void
+# value through a pointer or a reference to a function, as a cast's operand, a reference's, a condition's, `&&''s and `||''s,
+# where the lowering refuses it; an overloaded call's as a conditional's place and object; a template declared and not
+# defined; a class template's own name and a nested class's qualified name called with one; a class copy-initialized from one
+# by `=', a default member initializer, an element, an aggregate's member, a static local and a qualified call's parameter;
+# a class assigned one; a local class and a local plain struct by their own names. Through the first form of 1.6.14 the copies
+# were `no matching constructor', a local's name its key `L.local_1_<tag>', a class's assignment C's words
+echo "-- and the void values that the desugaring does not trust, and the classes copy-initialized from one (1.6.14)"
+vu_pre='void f() {} int g(int v) { return v; } void ov(int) {} void ov(double) {} struct S { int m; }; struct M { int v; M(int x) : v(x) {} }; void tm(M) {} template<class T> void td(T); template<class T> struct Bx { T v; Bx(T x) : v(x) {} static Bx mk2() { return Bx(f()); } }; struct O { struct N { int v; N(int x) : v(x) {} }; }; void (*gfp)() = f;\nint main(int argc, char **argv) { (void)argv; (void)argc; int z = 1; M mm(1); void (*fp)() = f; void (&fr)() = f;'
+vu_got=$(n=0; for body in '(ov(1) ? z : z) = 3;' 'M m3 = ov(1) ? M(1) : M(2); (void)m3;' 'td(f());' 'Bx<int> b = Bx<int>::mk2(); (void)b;' 'z = O::N(f()).v;' 'z = static_cast<int>(fp());' 'z = (int)fp();' 'int &r = static_cast<int &>(fp()); (void)r;' 'int *q = static_cast<int *>(fp()); (void)q;' 'char *q = (char *)fp(); (void)q;' 'const int &r = static_cast<const int &>(fp()); (void)r;' 'z = fp() && z;' 'z = z || fp();' 'z = static_cast<int>(fr());' 'z = static_cast<int>((*fp)());' 'z = (int)gfp();' 'M m2 = f(); (void)m2;' 'M m2 = z ? f() : f(); (void)m2;' 'struct N2 { M m3 = f(); }; N2 n2; (void)n2;' 'M ma[1] = { f() }; (void)ma;' 'M m2 = (f(), f()); (void)m2;' 'struct L { int v; L(int x) : v(x) {} }; L l = f(); (void)l;' 'struct L { int v; }; L l = f(); (void)l;' 'struct L { int v; }; L l = L(f()); (void)l;' 'struct L { int v; }; L l = static_cast<L>(f()); (void)l;' 'struct N3 { M m; N3() : m(f()) {} }; N3 n3; (void)n3;' 'struct A2 { M m; }; A2 a2 = { f() }; (void)a2;' '::tm(f());' 'mm = f();' 'static M sm = f(); (void)sm;' 'S s = {1}; s = f();' 'struct L { int v; }; L l = {1}; l = f();'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$vu_pre" "$body" > vu$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c vu$n.cpp -o vu.o 2>&1 | grep -m1 'error'; done)
+vu_want="vu1.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vu2.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vu3.cpp:3: error: no matching function for call to 'td'
+vu4.cpp:1: error: no matching conversion for functional-style cast from 'void' to 'Bx<int>'
+vu5.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'O::N'
+vu6.cpp:3: error: static_cast from 'void' to 'int' is not allowed
+vu7.cpp:3: error: C-style cast from 'void' to 'int' is not allowed
+vu8.cpp:3: error: non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'
+vu9.cpp:3: error: cannot cast from type 'void' to pointer type 'int *'
+vu10.cpp:3: error: cannot cast from type 'void' to pointer type 'char *'
+vu11.cpp:3: error: reference to type 'const int' could not bind to an rvalue of type 'void'
+vu12.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vu13.cpp:3: error: value of type 'void' is not contextually convertible to 'bool'
+vu14.cpp:3: error: static_cast from 'void' to 'int' is not allowed
+vu15.cpp:3: error: static_cast from 'void' to 'int' is not allowed
+vu16.cpp:3: error: C-style cast from 'void' to 'int' is not allowed
+vu17.cpp:3: error: no viable conversion from 'void' to 'M'
+vu18.cpp:3: error: no viable conversion from 'void' to 'M'
+vu19.cpp:3: error: no viable conversion from 'void' to 'M'
+vu20.cpp:3: error: no viable conversion from 'void' to 'M'
+vu21.cpp:3: error: no viable conversion from 'void' to 'M'
+vu22.cpp:3: error: no viable conversion from 'void' to 'L'
+vu23.cpp:3: error: no viable conversion from 'void' to 'L'
+vu24.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'L'
+vu25.cpp:3: error: no matching conversion for static_cast from 'void' to 'L'
+vu26.cpp:3: error: no matching constructor for initialization of 'M'
+vu27.cpp:3: error: no viable conversion from 'void' to 'M'
+vu28.cpp:3: error: no viable conversion from 'void' to 'M'
+vu29.cpp:3: error: no viable overloaded '='
+vu30.cpp:3: error: no viable conversion from 'void' to 'M'
+vu31.cpp:3: error: no viable overloaded '='
+vu32.cpp:3: error: no viable overloaded '='"
+if [ "$vu_got" = "$vu_want" ]; then echo "ok   32 void values the desugaring does not trust and classes copy-initialized from one, refused as clang++ refuses them"
+else echo "FAIL the void values the desugaring does not trust and the copies"; echo "$vu_got" > vu_got.txt; echo "$vu_want" > vu_want.txt; diff vu_want.txt vu_got.txt | head -8 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi
 echo "-- and the safe part refuses what leaves its scope"
 for pair in "callborrow:a borrow handed to a call that may replace its owner" "callborrowptr:a borrow handed to a call that may replace its owner" "callborrowref:a borrow handed to a call that may replace its owner" "callreplaceptr:use of a borrow after a call that may replace its owner" "callreplaceref:use of a borrow after a call that may replace its owner" "escape:a borrow leaves the function" "thisunset:owner used before it was given anything" "gotopastdtor:goto over a defer" "tryowner:use after move of" "throwowner:owner live where a call may throw, and no defer frees it" "allocleak:plain pointer not consumed" "allocdouble:use after move of" "libvec:a borrow leaves the function" "libfn:a borrow leaves the function" "libview:a borrow leaves the function" "libiter:a borrow leaves the function" "libref:a borrow leaves the function" "libmap:a borrow leaves the function" "libstruct:a borrow leaves the function" "libbyval:a borrow leaves the function" "libassign:a borrow leaves the function" "libstored:a borrow stored where it cannot be followed" "libmember:a borrow stored where it cannot be followed" "libiterdangle:use of a borrow after its owner was consumed" "libptrdangle:use of a borrow after its owner was consumed" "libtwolocals:use of a borrow after its owner was consumed" "librowstore:a borrow leaves the function" "libmemberview:a borrow leaves the function" "byvalref:a borrow leaves the function" "flowmember:a borrow leaves the function" "flowfree:a borrow leaves the function" "flowwrap:a borrow leaves the function" "freeswap:a borrow leaves the function" "freefill:a borrow leaves the function" "freecopy:a borrow leaves the function" "flowview:a borrow leaves the function" "flowarith:a borrow leaves the function" "flowarith2:a borrow leaves the function" "addrview:a borrow leaves the function" "refparamfield:a borrow stored where it cannot be followed" "flowout:a borrow stored where it cannot be followed" "flowglobalvec:a borrow stored where it cannot be followed" "flowstaticlocal:a borrow stored where it cannot be followed" "callreplace:use of a borrow after a call that may replace its owner" "refreplace:use of a borrow after a call that may replace its owner" "localrefreplace:use of a borrow after a call that may replace its owner" "tiedrefreplace:use of a borrow after a call that may replace its owner" "constmethod:cannot assign to non-static data member within const member function 'bad'" "constrefslot:cannot assign to variable 'b' with const-qualified type 'const Buf &'" "nullfilledref:owner leaked" "staticns:an own array's element given to an owner with no move" "staticmember:an own array's element given to an owner with no move" "dropped_new:new memory given no owner (nothing frees it)" "dropped_new_array:new memory given no owner (nothing frees it)" "dropped_new_nothrow:new memory given no owner (nothing frees it)" "refvalue_move:use after move of 'p'" "refcond_move:use after move of 'p'" "refassign_escape:a borrow leaves the function: 'x'" "refstep_escape:a borrow leaves the function: 'x'" "callborrowcomma:a borrow handed to a call that may replace its owner" "callreplacecomma:use of a borrow after a call that may replace its owner" "callreplacerefcomma:use of a borrow after a call that may replace its owner" "itercomma:use of a borrow after its owner was consumed"; do   # a closure holding a reference to a local returned (0.100); `this' handed out of a constructor while an own field is unset (0.133); a goto over a local with a destructor (0.138); a handler that frees again an owner its try's body freed (0.193); a library object holding a local's borrow returned, or stored where it outlives the local (0.216); an iterator, a pointer or what a container holds used after its local ended, a store through a range-for's reference or into a view member, a reference to a parameter by value returned, what a function of the program or a free library function stores, the address of a local view (0.217); the safety rules of 0.265 to 0.267 in C++ (0.272): a borrow of an object's own field read after a call that may replace it -- a member function that is not const, a reference parameter that is not const, a local reference, a result tied to a reference parameter --, an own field assigned in a const member function and through a reference to const, in clang's words, and a null own field that a call may fill, leaked; an own array of a namespace and a class's static own array member, an element given to an owner with no move (0.307); a reference bound to a value whose initializer moves an owner, a call's and a conditional's, and a local returned through an assignment or a prefix ++ from a function that returns a reference, and callborrow.cpp's, callreplace.cpp's and an iterator's refusals through a comma (1.6.13)
   n=${pair%%:*}; what=${pair#*:}

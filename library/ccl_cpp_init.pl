@@ -723,7 +723,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- member
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- memberchk(init(N, Args), Inits), Args = [_|_], ccl_std_at_least(20), cpp_class_of_type(MT, _), cpp_paren_aggregate(MT, Args), !,   % AN AGGREGATE CLASS MEMBER FROM PARENTHESES (C++20; cpp_paren_aggregate/2, 0.197): `: q(3, P(4, 5))', and `: p(6)' of a struct a base clause promoted, which was ASSIGNED its one value (`sext i32 6 to %struct.P')
     findall(item([], A), member(A, Args), Items), cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1), cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- cpp_class_of_type(MT, MC), cpp_has_ctors(MC), !,   % a member of a class with constructors: constructed
-    ( memberchk(init(N, Args0), Inits) -> true ; memberchk(N-E, Defaults) -> Args0 = [E] ; Args0 = [] ),
+    ( memberchk(init(N, Args0), Inits) -> cpp_void_ctor_check(MC, Args0, L) ; memberchk(N-E, Defaults) -> cpp_copy_init_void(E, MT, [E], L), Args0 = [E] ; Args0 = [] ),   % a void value at the constructor's line; `M m = f();' copy-initializes (1.6.14)
     ( Args0 = [call(id(TN), TArgs)], atom(TN), cpp_class_of_type(base([], [typedef(TN)]), MC) -> Args = TArgs ; Args = Args0 ),   % A PRVALUE OF THE MEMBER'S OWN CLASS INITIALIZES THE MEMBER IN PLACE ([class.copy.elision]/1; 0.122): `H() : m_(S(5))' is `m_(5)', the S constructed once in the member -- no move constructor runs, and a class that holds its own address stays whole
     length(Args, NA),
     (   cpp_ctor(MC, Args, CName) -> cpp_fill_defaults(CName, Args, Args1),
@@ -754,7 +754,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- member
     findall(item([], A), member(A, Args), Items), cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1),
     cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :-
-    (   memberchk(init(N, [E]), Inits) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]
+    (   memberchk(init(N, [E]), Inits) -> cpp_void_init_check(member, MT, E, L), Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]   % a void value refused in clang++'s words (1.6.14)
     ;   memberchk(init(N, []), Inits)                                                        % `second()' -- an EMPTY initializer VALUE-INITIALIZES ([dcl.init]/8): a scalar's zero, a class without constructors zero-filled (libc++'s __map_value_compare writes `: __comp_()' over an empty less<int>); left alone it was the member's garbage (7 32759 for pair<int, int>(piecewise_construct, forward_as_tuple(7), forward_as_tuple()))
     ->  ( cpp_scalar_member_type(MT) -> cpp_zero_of(MT, Z), Pre = [expr(L, assign('=', arrow(this, N), Z))|Pre1]
         ; cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1) )
@@ -763,7 +763,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :-
         ; cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1) )
     ;   memberchk(N-init([item([], E)]), Defaults), cpp_scalar_member_type(MT) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]   % `int n{3};' on a scalar: its one item
     ;   memberchk(N-init(Items), Defaults), ( cpp_plain_aggregate(MT) ; cpp_vector_member(MT) ) -> cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1)   % a plain struct or union from its braced list (0.117), a vector from its lanes (0.162): a compound literal of its type
-    ;   memberchk(N-E, Defaults) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]
+    ;   memberchk(N-E, Defaults) -> cpp_void_init_check(member, MT, E, L), Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]
     ;   ccl_holds_instance(MT) -> cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1)   % A MEMBER THAT HOLDS AN INSTANCE'S OBJECT, named by no initializer, is born zero (0.297, ccl_holds_instance/1), as a block's object is: `H() : n(7) {}' over `vector<int> items;' left its garbage
     ;   Pre = Pre1 ),
     cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).

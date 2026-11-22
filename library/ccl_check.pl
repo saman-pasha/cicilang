@@ -885,7 +885,13 @@ ck_tie_kept(St, P, Key, Form) :- ( ck_tied_to(P, T) -> ( Key \== none, ck_within
 ck_no_owner_behind(N, T, V, Form) :-
     (   ck_carries_type(T), \+ ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(V) -> ck_fail(untied, N, Form)
     ;   true ).
-ck_fresh_value(V) :- V \== none, V \= init(_), \+ ck_null(V), \+ ck_static_value(V), \+ ck_ref_rooted(V), \+ ck_va_value(V), \+ ck_loaded_value(V).
+ck_fresh_value(V) :- V \== none, V \= init(_), \+ ck_null(V), \+ ck_static_value(V), \+ ck_ref_rooted(V), \+ ck_va_value(V), \+ ck_loaded_value(V), \+ ck_void_value(V).
+%% A VOID VALUE IS NO NEW MEMORY (1.6.14): `int *p = f();' and `char *p = (char *)f();' over `void f(void)' have no value,
+%% which the lowering refuses at the line in clang's words (ir_void_check/3, ir_void_cast/2); the local was loose, and the
+%% check's `plain pointer not consumed' at the function's end came first
+ck_void_value(V) :- catch(ccl_type_of(V, T), _, fail), ccl_void_typed(T), !.
+ck_void_value(cast(_, E)) :- ck_void_value(E), !.
+ck_void_value(ccast(_, _, E)) :- ck_void_value(E).
 %% A POINTER READ OUT OF A SLOT IS NO NEW MEMORY (0.290): `names[i]' over a table of string literals, `g.name', a
 %% global pointer's own value, `r->name' through a pointer that the check does not follow. New memory comes from a call;
 %% a read gives what a slot holds, and a plain slot holds no memory of nobody's -- a store of such a value into a
@@ -2450,18 +2456,26 @@ ck_const_type(T) :- ( T = base(Q, _), memberchk(const, Q) -> true ; catch(ccl_re
 %% or a function was its term in the message
 ck_c_type_text(T, Text) :- ck_c_decl_text(T, '', B, D),
     ( D == '' -> Text = B ; sub_atom(D, 0, 1, _, '[') -> atom_concat(B, D, Text) ; atomic_list_concat([B, ' ', D], Text) ).
-ck_c_decl_text(ptr(Q, T), D0, B, D) :- !, ( memberchk(const, Q) -> P = '*const' ; P = '*' ),
+ck_c_decl_text(T0, D0, B, D) :- ck_c_ptr_glyph(T0, Q, T, G), !, ( memberchk(const, Q) -> atom_concat(G, const, P) ; P = G ),   % a pointer's `*', Apple's block pointer's `^' (1.6.14)
     ( D0 == '' -> D1 = P ; memberchk(const, Q) -> atomic_list_concat([P, ' ', D0], D1) ; atom_concat(P, D0, D1) ),
     ck_c_decl_text(T, D1, B, D).
+ck_c_decl_text(ref(_, T), D0, B, D) :- !, atom_concat('&', D0, D1), ck_c_decl_text(T, D1, B, D).   % C++'s `int &', `int *&' (1.6.14)
+ck_c_decl_text(rref(_, T), D0, B, D) :- !, atom_concat('&&', D0, D1), ck_c_decl_text(T, D1, B, D).
+ck_c_decl_text(memptr(C, _, T), D0, B, D) :- !, ( atom(C), catch(ck_cpp_class_text(C, CN), _, fail) -> true ; term_to_atom(C, CN) ), atomic_list_concat([CN, '::*', D0], D1), ck_c_decl_text(T, D1, B, D).   % `int S::*'
 ck_c_decl_text(arr(N, T), D0, B, D) :- !, ck_c_bound_text(N, K),
-    ( sub_atom(D0, 0, 1, _, '*') -> atomic_list_concat(['(', D0, ')[', K, ']'], D1) ; atomic_list_concat([D0, '[', K, ']'], D1) ),
+    ( ck_c_ptr_decl(D0) -> atomic_list_concat(['(', D0, ')[', K, ']'], D1) ; atomic_list_concat([D0, '[', K, ']'], D1) ),
     ck_c_decl_text(T, D1, B, D).
 ck_c_decl_text(fn(R, Ps, V), D0, B, D) :- !, ck_c_params_text(Ps, V, PT),
-    ( sub_atom(D0, 0, 1, _, '*') -> atomic_list_concat(['(', D0, ')(', PT, ')'], D1) ; atomic_list_concat([D0, '(', PT, ')'], D1) ),
+    ( ck_c_ptr_decl(D0) -> atomic_list_concat(['(', D0, ')(', PT, ')'], D1) ; atomic_list_concat([D0, '(', PT, ')'], D1) ),
     ck_c_decl_text(R, D1, B, D).
-ck_c_decl_text(base(Q, S), D, B, D) :- ck_c_spec_text(S, B0), ( memberchk(const, Q) -> atom_concat('const ', B0, B) ; B = B0 ).
+ck_c_decl_text(base(Q, S), D, B, D) :- ck_c_spec_text(S, B0), ( memberchk('_Atomic', Q) -> atomic_list_concat(['_Atomic(', B0, ')'], B1) ; B1 = B0 ), ( memberchk(const, Q) -> atom_concat('const ', B1, B) ; B = B1 ).   % `_Atomic(int)', as clang spells it (1.6.14)
 ck_c_bound_text(int(K), K) :- !.
 ck_c_bound_text(_, '').
+%% ... a pointer's declarator and its glyph: `*', and `^' of Apple's block pointer, `void (^)(void)' as clang spells it (1.6.14),
+%% where its term was printed; an array or a function under one takes the parentheses, `int (*)[2]'
+ck_c_ptr_glyph(ptr(Q, T), Q, T, '*').
+ck_c_ptr_glyph(block(Q, T), Q, T, '^').
+ck_c_ptr_decl(D) :- ( sub_atom(D, 0, 1, _, '*') -> true ; sub_atom(D, 0, 1, _, '^') ).
 %% a function type's parameters: `void' where it has none and a prototype, nothing where it has none and no prototype
 %% (`int (*)()'), `...' after the last where it is variadic
 ck_c_params_text([], V, T) :- !, ( ck_c_noproto(V) -> T = '' ; ck_c_variadic(V) -> T = '...' ; T = void ).
@@ -2469,11 +2483,21 @@ ck_c_params_text(Ps, V, T) :- findall(PT, ( member(P, Ps), ( P = param(X, _) -> 
     length(Ps, N), length(Ts, N), ( ck_c_variadic(V) -> append(Ts, ['...'], Ts1) ; Ts1 = Ts ), atomic_list_concat(Ts1, ', ', T).
 ck_c_variadic(V) :- ( V == true -> true ; nonvar(V), V = q(W, _), W == true ).
 ck_c_noproto(V) :- nonvar(V), V = q(_, Ms), is_list(Ms), memberchk(noproto, Ms).
+ck_c_spec_text([typedef(N)], S) :- atom(N), ccl_lang(cpp), ck_cpp_record_name(N), ck_cpp_class_text(N, S0), !, S = S0.
 ck_c_spec_text([typedef(N)], N) :- atom(N), !.
 ck_c_spec_text([struct(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('struct ', Tag, T).
 ck_c_spec_text([union(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('union ', Tag, T).
 ck_c_spec_text([enum(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('enum ', Tag, T).   % `enum e', as clang spells it (0.302): its words were the raw term
 ck_c_spec_text(S, T) :- ck_all_atoms(S), atomic_list_concat(S, ' ', T).
+%% A C++ CLASS AS CLANG'S MESSAGES SPELL IT (1.6.14): its namespaces and an instance's arguments, `ns::C', `TT<int>' (the
+%% function's own name's spelling, cpp_pf_class/2), a local class by its own name; a closure keeps its key. A class's key
+%% was its spelling: `TT.int'
+ck_cpp_record_name(N) :- ( catch(cpp_class_l(N, _), _, fail) -> true ; ck_cpp_local_name(N, _) -> true ; catch(ccl_tag(N, _), _, fail), catch('$cpp_own_ns'(N, _), _, fail) ).   % a class, a local plain struct or union (1.6.14), or a plain struct of the program's in a namespace
+ck_cpp_class_text(C, S) :- ck_cpp_local_name(C, Src), !, S = Src.
+ck_cpp_class_text(C, S) :- \+ catch('$cpp_pf_closure'(C, _, _), _, fail), catch(cpp_pf_class(C, S0), _, fail), atom(S0), !, S = S0.
+%% ... a local class's, struct's or union's source name, as its function's local names hold it (cpp_local_note/3): `L', where
+%% the key `L.local_1_<tag>' was spelled
+ck_cpp_local_name(N, Src) :- atom(N), catch('$cpp_lname'(N, _, named(Src, _)), _, fail), !.
 ck_all_atoms([]).
 ck_all_atoms([A|As]) :- atom(A), ck_all_atoms(As).
 ck_replaced_base(addr(E), St, K) :- ck_effect_place(E, X), !, ck_replaced_base(addr(X), St, K).   % C++: the place an effect names, handed by its address (1.6.13)

@@ -150,7 +150,7 @@ ccl_const_eval(cast(T, F), V) :- ccl_float_operand(F, X), ccl_resolve_type(T, RT
 ccl_const_eval(ccast(_, T, F), V) :- ccl_float_operand(F, X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, _, _), !, ccl_w_cast(T, X, V).
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
-ccl_const_eval(sizeof_type(T), V) :- !, once(ccl_size_of(T, V)).   % A SIZE IS ONE ANSWER (0.117): the resolver leaves alternatives, and a test that backtracked into the fold (a static assertion) met a 0 after the right 16
+ccl_const_eval(sizeof_type(T), V) :- !, ccl_sizeof_value(T, V).   % A SIZE IS ONE ANSWER (0.117): the resolver leaves alternatives, and a test that backtracked into the fold (a static assertion) met a 0 after the right 16
 %% GCC'S `__atomic_always_lock_free(size, ptr)' (0.194), which libc++'s `is_always_lock_free' asks and libc++ 21's atomic_ref with
 %% an aligned pointer: 1 for a size of 1, 2, 4 or 8 bytes -- the default CPU's lock-free widths; 16 needs cmpxchg16b -- where
 %% the pointer is null or its pointee is aligned to the size at least, as clang answers; 0 else. It was no builtin at all
@@ -171,7 +171,7 @@ ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
 ccl_const_eval(member(O, F), V) :- atom(F), ccl_agg_member(O, F, MT, E), !, ( E == none -> V = 0 ; E = init(_) -> fail ; ccl_const_eval(cast(MT, E), V) ).
 ccl_const_eval(alignof_type(T), V) :- !, once(( ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
 ccl_const_eval(alignof_expr(E), V) :- !, once(( ccl_type_of(E, T), T \== unknown, ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % GNU's `__alignof__(e)' (0.205): the alignment of the object it names, its declared `_Alignas' with it, else its type's
-ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; once(( ccl_type_of(E, T), ccl_size_of(T, V) )) ).   % a string literal's bytes (0.103)
+ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; once(ccl_type_of(E, T)), ccl_sizeof_value(T, V) ).   % a string literal's bytes (0.103)
 ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_const_eval(A, V) ; ccl_const_eval(B, V) ).
 %% A LEFT SHIFT WRAPS IN THE PROMOTED TYPE OF ITS LEFT OPERAND ([expr.shift]/1, [expr.const]; 0.117): `intmax_t(1) << 63' is -2^63, which clang folds so,
 %% and libc++'s `-((intmax_t(1) << (sizeof(intmax_t) * CHAR_BIT - 1)) + 1)' is INTMAX_MAX -- it was +2^63 here, the sum 2^63 + 1, the negation
@@ -936,7 +936,9 @@ ccl_type_of(compound_lit(T, _), T) :- !.
 ccl_type_of(assign(_, L, _), T) :- !, ccl_type_of(L, T).
 ccl_type_of(comma(_, B), T) :- !, ccl_type_of(B, T).
 ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT0), ccl_type_of(B, BT0), ccl_cond_decay(AT0, BT0, AT, BT),
-    (   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_cond_arith(AT, BT, T)
+    (   ccl_lang(c), ( ccl_void_typed(AT) ; ccl_void_typed(BT) ) -> T = base([], [void])   % C: ONE VOID ARM MAKES IT VOID, GNU's, as clang has it (1.6.14)
+    ;   ccl_throw_arm(A), \+ ccl_throw_arm(B) -> T = BT   % C++: A THROW ARM TAKES THE OTHER'S TYPE ([expr.cond]/2.1; 1.6.14): a lambda's `return v ? throw 1 : v + 1;' deduced void; a third arm's is the last line's, the second arm's
+    ;   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_cond_arith(AT, BT, T)
     ;   A == nullptr -> T = BT          % a null pointer constant takes the OTHER arm's type ([expr.cond]), unknown included: typed `void *' by its
     ;   ccl_nullptr_type(AT), \+ ccl_nullptr_type(BT) -> T = BT   % ... and a value of `std::nullptr_t' that is no literal (0.206)
     ;   ccl_nullptr_type(BT), \+ ccl_nullptr_type(AT) -> T = AT
@@ -1144,6 +1146,10 @@ ccl_decay(T, D) :- ccl_resolve_type(T, T1), ( T1 = arr(_, E) -> D = ptr([], E) ;
 
 %% ---- sizes, LP64 ---------------------------------------------------------------------
 ccl_size_of(T, N) :- ccl_resolve_type(T, T1), ccl_size_align(T1, N, _).
+%% THE SIZE THAT `sizeof' GIVES (1.6.14): a function type's is GNU's 1 in C, as clang's (C17 6.5.3.4/1 forbids the operand,
+%% clang takes it as an extension), where the layout answers a pointer's 8 for a function type, and `sizeof(f)' was 8
+ccl_sizeof_value(T, V) :- ccl_lang(c), catch(once(ccl_resolve_type(T, R)), _, fail), R = fn(_, _, _), !, V = 1.
+ccl_sizeof_value(T, V) :- once(ccl_size_of(T, V)).
 ccl_size_align(ptr(Q, _), 8, A) :- memberchk(packed, Q), !, ccl_q_align(Q, 1, A).   % GCC's `packed' on a member (0.203): its alignment one, or what its own `aligned' says
 ccl_size_align(ptr(Q, _), 8, A) :- memberchk(taligned(E), Q), ccl_const_eval(E, A0), !, ccl_q_align(Q, A0, A).   % a TYPEDEF's own (0.203): the type's alignment, lower or higher, which an object's own may raise
 ccl_size_align(ptr(Q, _), 8, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, A is max(8, A0).   % ... and GCC's `aligned' on a pointer variable or member, `_Alignas' on a pointer object (0.203)
@@ -1465,8 +1471,15 @@ ccl_holds_pointer_(T) :- catch(ccl_members_of(T, Ms), _, fail), member(member(MT
 %% lowering's assignment and step (ir_c_assignable/1) and by the check's address (ck_expr/3). C++ takes three of them for
 %% lvalues, and a conditional of two (ir_effect_lvalue/1, ir_cond_arm/1). A MEMBER OF ONE IS NONE EITHER, nor a member
 %% of a call's value (C17 6.5.2.3/3: the member of an lvalue is one): `(g(), s).m', `(c ? s : t).m' and `f().m' are
-%% values, taken by the member's value road (ir_lval_/4), and an assignment to one is refused
+%% values, taken by the member's value road (ir_lval_/4), and an assignment to one is refused. NOR IS A CALL'S VALUE
+%% (C17 6.5.2.2/5, footnote; 1.6.14): `h() = 4' and `h()++' ran, the value stored into a temporary, and `&h()' was `plain
+%% pointer not consumed' at the function's end, where clang refuses each at its line
 ccl_c_no_lvalue(E) :- ccl_lang(c), ccl_c_rvalue_form(E), !.
+ccl_void_typed(T) :- nonvar(T), T \== unknown, catch(once(ccl_resolve_type(T, R)), _, fail), R = base(_, [void]), !.   % a void type (1.6.14), the resolver's first answer
+%% a throw-expression as an arm of a conditional, the desugaring's alone or the last of the statement expression that makes
+%% its object (1.6.14): no type is asked of the reader's
+ccl_throw_arm(E) :- ( E = eh_throw(_, _, _) ; E = eh_rethrow ), !.
+ccl_throw_arm(stmt_expr(block(Is))) :- is_list(Is), last(Is, expr(_, E)), ccl_throw_arm(E).
 ccl_c_rvalue_form(comma(_, _)).
 ccl_c_rvalue_form(cond(_, _, _)).
 ccl_c_rvalue_form(assign(_, _, _)).
@@ -1474,4 +1487,5 @@ ccl_c_rvalue_form(preinc(_)).
 ccl_c_rvalue_form(predec(_)).
 ccl_c_rvalue_form(postinc(_)).
 ccl_c_rvalue_form(postdec(_)).
-ccl_c_rvalue_form(member(E, _)) :- ( E = call(_, _) -> true ; ccl_c_rvalue_form(E) ).
+ccl_c_rvalue_form(call(_, _)).
+ccl_c_rvalue_form(member(E, _)) :- ccl_c_rvalue_form(E).

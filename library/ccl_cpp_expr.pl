@@ -127,7 +127,7 @@ cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_braced_class(F, T, C), findall
     cpp_init_list(Ctx, ET, Items, IL), cpp_temporary(T, C, [IL], E).
 cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_vector_named(F, T), !, findall(item([], V), member(V, Vs), Items), cpp_expr(Ctx, compound_lit(T, init(Items)), E).   % A BRACED VECTOR, `_VecT{x...}' (0.162): its lanes, the rest zero, as a C compound literal is
 cpp_expr(Ctx, braced_temp(X), E) :- !, cpp_expr(Ctx, X, E).
-cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_where(call(F), cpp_call_adl(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
+cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_void_args(F, As1), cpp_where(call(F), cpp_call_adl(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
 %% A MEMBER NAMED THROUGH AN OBJECT BY ITS QUALIFIED NAME ([expr.ref]/7, [class.qual]; 0.112): `b.A::v' is the member
 %% v of b's A sub-object -- a base's data member the derived class hides -- and `b.A::f()', `p->A::f()' call A's f
 %% over that sub-object and never virtually, which is 0.73's rule for a qualified call inside a class, through an
@@ -218,7 +218,7 @@ cpp_expr(_, coro_size, coro_size) :- !.                               % a corout
 cpp_expr(_, coro_mem, coro_mem) :- !.
 cpp_expr(_, alloc(M, T, C), alloc(M, T, C)) :- !.                    % the allocation and the deallocation the desugaring makes, whole where it makes them (0.202)
 cpp_expr(_, dealloc(D, F, X), dealloc(D, F, X)) :- !.
-cpp_expr(Ctx, cast(T0, X), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_cast_to(X1, T, X2), ( cpp_cast_made(T, X1, X2) -> E = X2 ; E = cast(T, X2) ).   % `(long) pos': a class value through its conversion operator, an explicit one too
+cpp_expr(Ctx, cast(T0, X), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_void_cast_check(cstyle, T, X1), cpp_cast_to(X1, T, X2), ( cpp_cast_made(T, X1, X2) -> E = X2 ; E = cast(T, X2) ).   % `(long) pos': a class value through its conversion operator, an explicit one too
 cpp_expr(_, tmpl(N, Args0), E) :- atom(N), cpp_variable_template(N), !, cpp_targ_values(Args0, Args), cpp_instantiate_variable(N, Args, E).   % A VARIABLE TEMPLATE'S ID AS A BARE EXPRESSION, `__is_tuple_v<_Tuple1>' in a conjunction (0.50 had the form read as a type): unevaluated it kept the whole `&&' from folding, and the enable_if behind libc++'s piecewise key extraction came out false for every string key
 cpp_expr(_, ccast(functional, base(_, [void]), none), cast(base([], [void]), int(0))) :- !.   % `void()', which the reader gives as a functional cast of nothing: the void value
 cpp_expr(_, ccast(functional, T0, none), ccast(functional, T, Z)) :- \+ T0 = base(_, [typedef(_)]), !, cpp_type(T0, T), cpp_zero_of(T, Z).   % `int()', `char{}' WRITTEN, value-initialization ([expr.type.conv]/2, [dcl.init]/8): the type's zero (0.201) -- the reader gives a functional cast of nothing, which reached the lowering (`expr(none)') wherever the program wrote one: `int k = int();', `std::string s(3, char());', libc++'s wstring_convert::to_bytes; a bound template parameter's `T()' was cpp_type_called/3's
@@ -237,8 +237,8 @@ cpp_expr(Ctx, compound_lit(T0, I), compound_lit(T, I1)) :- !, cpp_type(T0, T), c
 cpp_expr(Ctx, ccast(functional, T0, X), E) :- cpp_type(T0, T), ( cpp_class_of_type(T, C) -> true ; T = base(_, [typedef(C)]), atom(C), '$cpp_iname'(_, _, C) ),   % ... the instance still being registered, its nested class walked
     ( cpp_class_l(C, _) -> cpp_aggregate_class(C) ; true ),
     cpp_expr(Ctx, X, X1), cpp_class_of_type_of(X1, XC), XC \== C, !, cpp_expr(Ctx, compound_lit(T, init([item([], '$cpp_walked'(X1))])), E).
-cpp_expr(Ctx, ccast(functional, base(Q, [typedef(C)]), X), E) :- cpp_class_l(C, _), !, cpp_expr(Ctx, X, X1), cpp_temporary(base(Q, [typedef(C)]), C, [X1], E).
-cpp_expr(Ctx, ccast(K, T0, X), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_cast_to(X1, T, X2), ( cpp_cast_made(T, X1, X2) -> E = X2 ; E = ccast(K, T, X2) ).
+cpp_expr(Ctx, ccast(functional, base(Q, [typedef(C)]), X), E) :- cpp_class_l(C, _), !, cpp_expr(Ctx, X, X1), cpp_void_cast_check(functional, base(Q, [typedef(C)]), X1), cpp_temporary(base(Q, [typedef(C)]), C, [X1], E).
+cpp_expr(Ctx, ccast(K, T0, X), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_void_cast_check(K, T, X1), cpp_cast_to(X1, T, X2), ( cpp_cast_made(T, X1, X2) -> E = X2 ; E = ccast(K, T, X2) ).
 cpp_expr(Ctx, paren(X), E) :- !, cpp_expr(Ctx, X, E).   % a returned name's parentheses, which only decltype(auto)'s deduction reads (0.197)
 cpp_expr(Ctx, move(X), E) :- !, cpp_expr(Ctx, X, X1),
     (   ccl_type_of(X1, T), T \== unknown, ( cpp_holds_owners(T) ; ccl_unref(T, T1), cpp_class_of_type(T1, _) ) -> E = move(X1)
@@ -1020,6 +1020,68 @@ cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> 
 %% conversion from'; a library body's call goes on as it went
 cpp_no_overload_fits(F, As) :- nb_getval('$cpp_in_lib', no), atom(F), \+ cpp_local(F), catch('$cpp_fn'(F, _, _, _, _), _, fail), length(As, N),
     \+ ( catch('$cpp_fn'(F, _, Ps, _, O), _, fail), \+ cpp_fn_hidden(F, O, As), cpp_fn_arity_fits(Ps, O, N), \+ cpp_int_ptr_misfit(Ps, As) ), !.
+%% A VOID ARGUMENT FITS NO PARAMETER (1.6.14; [expr.call]/7, [over.match.viable]/3): a call of a function by its name, an
+%% overload or a template, whose argument is a void value is `no matching function for call to 'g'', clang++'s words, and a
+%% call of a class's name `no matching conversion for functional-style cast from 'void' to 'M''; an overloaded member function
+%% called so is `no matching member function for call to 'o''. A void value that an ellipsis takes is the lowering's (`cannot
+%% pass expression of type 'void' to variadic function', ir_void_vararg/1), and so is one for a member that has no overload,
+%% for a qualified name of one function and for a pointer to a function: `cannot initialize a parameter of type 'int' with an
+%% rvalue of type 'void''
+%% (ir_void_check/3). The void value is the desugared argument's, a call of a function whose declared result is void, a cast
+%% to void, a comma or a conditional over one (ccl_type_of/2 over the desugaring's own names). Through 1.6.13 the call went
+%% on, a template instantiated over void (`tk.void'), and LLVM's parser refused `void none'. A library body's call is a
+%% substitution's, which the refusal takes out as any refusal does: the guard that kept the rule to the program's code was
+%% taken out (1.6.14), since no build of the C++ pool, the library's 379 fixtures, told the rule from its absence
+cpp_void_args(F, As) :- ( nth1(K, As, A), cpp_void_value(A), cpp_void_call_refusal(F, As, K, W) -> cpp_refuse_prog(W) ; true ).
+%% ... a void value the desugaring trusts, raw or desugared: a call of a function of one declaration whose result is void (an
+%% overloaded name's raw call is no such call: its type is its chosen overload's), a cast to void, a comma or a conditional
+%% over one
+cpp_void_value(call(id(F), _)) :- atom(F), \+ cpp_local(F), catch(ccl_declared(F, fn(R, _, _)), _, fail), ccl_void_typed(R),
+    \+ findall(x, catch('$cpp_fn'(F, _, _, _, _), _, fail), [_, _|_]), !.
+cpp_void_value(cast(T, _)) :- ccl_void_typed(T), !.
+cpp_void_value(ccast(_, T, _)) :- ccl_void_typed(T), !.
+cpp_void_value(comma(_, X)) :- cpp_void_value(X), !.
+cpp_void_value(cond(_, A, B)) :- cpp_void_value(A), cpp_void_value(B).
+cpp_void_call_refusal(F, _, _, no_matching_call(N)) :- catch(cpp_fn_template_id(F, N, _), _, fail), !.   % `tk<int>(f())', `ns::t<int>(f())'
+cpp_void_call_refusal(id(N), _, K, no_matching_call(N)) :- atom(N), \+ cpp_local(N), \+ catch(cpp_class_l(N, _), _, fail), cpp_names_function(N), \+ cpp_void_to_ellipsis(N, K), !.
+cpp_void_call_refusal(scoped(P, N), _, K, no_matching_call(N)) :- atom(N), \+ catch(cpp_scope_class(P, _), _, fail), \+ catch(cpp_class_l(N, _), _, fail),
+    ( catch(cpp_ns_key(P, N, Key), _, fail) -> true ; Key = N ), cpp_names_overloads(Key), \+ cpp_void_to_ellipsis(Key, K), !.
+cpp_void_call_refusal(F, [_], _, W) :- cpp_void_called_type(F, T), !, ir_void_cast_word(functional, T, W).
+cpp_void_call_refusal(F, _, _, no_matching_member(M)) :- ( F = member(X, M) -> T1 = T0 ; F = arrow(X, M), T1 = ptr(_, T0) ), atom(M),
+    catch(ccl_type_of(X, T), _, fail), T \== unknown, catch(ccl_unref(T, TU), _, fail), catch(once(ccl_resolve_type(TU, T1)), _, fail),
+    catch(cpp_class_of_type(T0, C), _, fail), findall(Q, cpp_class_method(C, M, Q, _, _, _), Qs), Qs = [_, _|_], !.
+%% ... AND A VOID VALUE THAT INITIALIZES (1.6.14, [dcl.init.general]/16): a new value, `new int(f())', and a member by its
+%% initializer, `T() : m(f())', in clang++'s words, `cannot initialize a new value of type 'int' with an rvalue of type
+%% 'void'' and `a member subobject'; the desugaring makes each an assignment, whose words the lowering would give
+cpp_void_init_check(K, T, A) :- ( nb_current('$cpp_line', L) -> true ; L = 0 ), cpp_void_init_check(K, T, A, L).
+cpp_void_init_check(K, T, A, L) :- ( cpp_void_value(A) -> catch(ir_type_text(T, B), _, B = T), cpp_refuse(L, void_value(K, B)) ; true ).   % a member's at its constructor's line
+%% ... AND A CLASS OBJECT COPY-INITIALIZED FROM ONE ([dcl.init.general]/16.6.3, [over.match.copy]; 1.6.14): `M m = f();', a
+%% default member initializer so written, an element or an aggregate's member from a braced item -- `no viable conversion
+%% from 'void' to 'M'', clang++'s words, where the constructor road gave direct-initialization's, `no matching constructor
+%% for initialization of 'M''. An initializer by parentheses, `ctor(As)', or by braces, `init(Items)', is no copy's
+cpp_copy_init_void(I, T, Args, L) :- ( I \= ctor(_), I \= init(_), I \== none, Args = [A] -> cpp_void_init_check(conversion, T, A, L) ; true ).
+%% ... A TYPE'S NAME CALLED WITH ONE VOID VALUE IS A FUNCTIONAL CAST ([expr.type.conv]/2), whatever the type: a class, a plain
+%% struct or union (a tag, which the call made C's compound literal of, `cannot initialize a member subobject'), an enumeration,
+%% a class template's instance (`TT<int>(f())', where the template's arguments made it an overload set's call)
+cpp_void_called_type(id(N), base([], [typedef(N)])) :- atom(N), \+ cpp_local(N), cpp_void_type_name(N), !.
+cpp_void_called_type(scoped(P, N), base([], [typedef(C)])) :- atom(N), ( catch(cpp_ns_key(P, N, C), _, fail) -> true ; C = N ), cpp_void_type_name(C), !.
+cpp_void_called_type(F, T) :- ( F = tmpl(X, _) ; F = scoped(_, tmpl(X, _)) ), atom(X), \+ catch(cpp_fn_template_id(F, _, _), _, fail),
+    catch(cpp_type(base([], [typedef(F)]), T), _, fail), catch(cpp_class_of_type(T, _), _, fail), !.
+cpp_void_type_name(N) :- ( catch(cpp_class_l(N, _), _, fail) -> true ; catch(ccl_tag(N, _), _, fail) ).
+cpp_names_function(N) :- ( catch('$cpp_fn'(N, _, _, _, _), _, fail) -> true ; catch(cpp_template(N, _, _), _, fail) -> true ; catch(ccl_declared(N, fn(_, _, _)), _, fail) ).
+%% ... A QUALIFIED NAME IS NO UNQUALIFIED ONE ([basic.lookup.argdep]/1: no argument's namespace adds to it): clang++ resolves
+%% its call by overloading only where it names two functions or a template, `ns::k(f())' `no matching function for call to
+%% 'k'', and one function's call `ns::h(f())' is the initialization of its parameter, `cannot initialize a parameter of type
+%% 'int' with an rvalue of type 'void'', the lowering's words; `std::puts(f())' alike, and `std::abs(f())' is an overload set's
+%% A VOID VALUE CAST (1.6.14; [expr.static.cast]/1, /4, [expr.cast]/4) is refused before the desugaring takes the cast, in the
+%% lowering's words by the target's kind (ir_void_cast_word/3): to a class `no matching conversion for static_cast from 'void'
+%% to 'C'', where the cast was taken for a temporary's initialization, `no matching constructor', and to a reference a
+%% binding's words, where it reached LLVM's parser, `alloca void'; a void value the desugaring does not trust (an overloaded
+%% call's) is the lowering's (ir_void_cast/2). A type's name called with one void value is a functional cast (cpp_type_call/3)
+cpp_void_cast_check(K, T, X) :- ( cpp_void_value(X), \+ ccl_void_typed(T) -> ir_void_cast_word(K, T, W), cpp_refuse_prog(W) ; true ).
+cpp_names_overloads(N) :- ( catch(cpp_template(N, _, _), _, fail) -> true ; findall(K, catch('$cpp_fn'(N, K, _, _, _), _, fail), Ks0), sort(Ks0, [_, _|_]) ).
+cpp_void_to_ellipsis(N, K) :- ( catch('$cpp_fn'(N, _, Ps, _, O), _, fail), cpp_fn_variadic(O) ; catch(ccl_declared(N, fn(_, Ps, V)), _, fail), ( V == true ; nonvar(V), V = q(W, _), W == true ) ),
+    length(Ps, NP), NP < K, !.
 cpp_int_ptr_misfit([P|Ps], [A|As]) :-
     (   ( P = param(PT0, _) ; P = param(PT0, _, _) ), catch(cpp_int_ptr_pair(PT0, A), _, fail) -> true
     ;   cpp_int_ptr_misfit(Ps, As) ).
@@ -1468,7 +1530,7 @@ cpp_nttp_fn_name(F) :- catch(ccl_type_of(id(F), T), _, fail), nonvar(T), T = fn(
 %% A TYPE'S NAME CALLED: a temporary of the class it names, an aggregate of the items, the cast it looks like, or
 %% its zero -- written once for the three names a type has here (a class-scope typedef, a file-scope one, and an
 %% ALIAS TEMPLATE's template-id, `__make_unsigned_t<type>(0)', which libc++ takes a type's digits through)
-cpp_type_call(T, As, E) :-
+cpp_type_call(T, As, E) :- ( As = [X1] -> cpp_void_cast_check(functional, T, X1) ; true ),
     (   cpp_class_of_type(T, C1)
     ->  ( cpp_has_ctors(C1) -> cpp_temporary(T, C1, As, E) ; findall(item([], A), member(A, As), Items), E = compound_lit(T, init(Items)) )
     ;   As == [], cpp_record_type(T) -> E = compound_lit(T, init([]))                                  % VALUE-INITIALIZATION OF A PLAIN STRUCT OR UNION is every byte zero (0.122): libc++ 21's `__rep_ = __rep();' over `union __rep { __short __s; __long __l; }' was the scalar zero, an int stored into a union
@@ -1744,7 +1806,7 @@ cpp_new(Spec, T, As, E) :- \+ cpp_class_of_type(T, _), \+ ccl_resolve_type(T, ar
     cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), compound_lit(T, init(Items))))], E).
 cpp_new(Spec, T, As, E) :- cpp_class_of_type(T, C), cpp_has_ctors(C), !, ( As == [], cpp_value_zeroes(C) -> M = zeroed ; M = garbage ), cpp_new_ctor(Spec, M, T, C, As, E).
 cpp_new(Spec, T, [], E) :- !, cpp_new_zeroed(Spec, T, E).
-cpp_new(Spec, T, [A], E) :- !, cpp_plain_copy_check(T, A), ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), A))], E).   % `new T(v)' of a type with no constructor: v stored
+cpp_new(Spec, T, [A], E) :- !, cpp_void_init_check(new_value, T, A), cpp_plain_copy_check(T, A), ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), A))], E).   % `new T(v)' of a type with no constructor: v stored
 cpp_new(_, T, _, _) :- cpp_refuse(0, new_with_constructor(T)).
 %% `new T()' and `new T{}' VALUE-INITIALIZE (0.127; [expr.new]/24, [dcl.init]/8): a scalar is its zero and a type with nothing to
 %% construct every byte zero (the zeroed block, whose own fields the check takes as null), a class whose default constructor is not

@@ -202,10 +202,10 @@ check "... and in C++, where a class is named by its own name (0.286)" "$(printf
 check "a pointer where a struct is needed is refused by name at its line (0.291): a text and a struct's address handed to a struct parameter, and a pointer given back as a struct, where each went to LLVM's parser" "$(n=0; for body in 'static long f(void) { return use("abc"); }' 'static long f(struct A a) { return use(&a); }' 'static struct A f(const char *p) { return p; }'; do n=$((n + 1)); printf 'struct A { long w[1]; };\nstatic long use(struct A a) { return a.w[0]; }\n%s\nint main(void) { return 0; }\n' "$body" > ptrrec$n.c; "$CICILI" -fsyntax-only ptrrec$n.c 2>&1 | head -1; done)" "ptrrec1.c:3: error: no conversion from 'char *' to 'struct A'
 ptrrec2.c:3: error: no conversion from 'struct A *' to 'struct A'
 ptrrec3.c:3: error: no conversion from 'const char *' to 'struct A'"
-check "a floating value where a pointer is needed, and a pointer where a floating value is, are refused by name at the line (0.288): an argument each way and a cast each way" "$(n=0; for body in 'static void f(double d) { usep(d); }' 'static void f(char *q) { used(q); }' 'static double f(char *q) { return (double)q; }' 'static void f(double d) { usep((char *)d); }'; do n=$((n + 1)); printf 'static void usep(const char *p) { (void)p; }\nstatic void used(double d) { (void)d; }\n%s\nint main(void) { return 0; }\n' "$body" > fpp$n.c; "$CICILI" -fsyntax-only fpp$n.c 2>&1 | head -1; done)" "fpp1.c:3: error: no conversion from 'double' to 'const char *'
+check "a floating value where a pointer is needed, and a pointer where a floating value is, are refused by name at the line (0.288): an argument each way and a cast each way, the casts in clang's words (1.6.14)" "$(n=0; for body in 'static void f(double d) { usep(d); }' 'static void f(char *q) { used(q); }' 'static double f(char *q) { return (double)q; }' 'static void f(double d) { usep((char *)d); }'; do n=$((n + 1)); printf 'static void usep(const char *p) { (void)p; }\nstatic void used(double d) { (void)d; }\n%s\nint main(void) { return 0; }\n' "$body" > fpp$n.c; "$CICILI" -fsyntax-only fpp$n.c 2>&1 | head -1; done)" "fpp1.c:3: error: no conversion from 'double' to 'const char *'
 fpp2.c:3: error: no conversion from 'char *' to 'double'
-fpp3.c:3: error: no conversion from 'char *' to 'double'
-fpp4.c:3: error: no conversion from 'double' to 'char *'"
+fpp3.c:3: error: pointer cannot be cast to type 'double'
+fpp4.c:3: error: operand of type 'double' cannot be cast to a pointer type"
 # THE AMBITIOUS PROGRAM'S FINDINGS 33 AND 34 (0.302): an initializer that gives more than its object holds, a call of another count
 # of arguments than its prototype's, an integer and a pointer converted as if by assignment -- each refused in clang's words at its
 # line; and the command's verdict, which an error that cocolog reports past the inputs took for a success
@@ -351,6 +351,117 @@ nlv15.c:3: error: cannot take the address of an rvalue of type 'int'
 nlv16.c:3: error: cannot take the address of an rvalue of type 'int'
 nlv17.c:3: error: cannot take the address of an rvalue of type 'int'
 nlv18.c:3: error: cannot take the address of an rvalue of type 'int'"
+# A VOID VALUE IS NO VALUE (1.6.14; C17 6.3.2.2/1): an initializer, an assignment, an argument, a return, an operand, a
+# condition, a cast, an argument through an ellipsis, a member's item, a step, an indirection, an address, a subscript and
+# a switch over one are refused in clang's words at the line, and so are the operands beside them that C refuses: a switch
+# over a floating value, a pointer or a struct, a subscript of a double, of an int, an indirection of an int, a call's value
+# assigned, stepped or its address taken, an atomic's compound with one, and two structs compared. Through 1.6.13 each void
+# value went to LLVM's parser at no line of the program, `void type only allowed for function results', the forms beside
+# were lowered as their conversions' integers or refused by name, and `h() = 4' ran
+vv_pre='struct S { int m; }; void f(void) {} int g(int v) { return v; } int vf(int, ...); int h(void) { return 3; }\nint main(int argc, char **argv) { (void)argv; int z = 1, a[2] = { 1, 2 }; double d = 1.5; int *p = &z; struct S s = { 1 }; (void)a; (void)d; (void)p; (void)s; (void)argc;'
+check "a void value where a value is taken, and the operands beside it, are refused in clang's words at the line (1.6.14)" "$(n=0; for body in 'int x = f(); (void)x;' 'z = f();' 'g(f());' 'return f();' 'z = f() + 1;' 'z = f() == 0;' 'z += f();' 'z = !f();' 'z = -f();' 'if (f()) z = 2;' 'z = f() ? 1 : 2;' 'z = f() && 1;' 'z = (int)f();' 'vf(1, f());' 'struct S t = { f() }; (void)t;' 'void w;' 'f()++;' 'z = *f();' 'int *q = &f(); (void)q;' 'z = a[f()];' 'switch (f()) { default: break; }' 'int x = z ? f() : 1; (void)x;' 'int *q = f(); (void)q;' 'struct S t = f(); (void)t;' 'switch (d) { default: break; }' 'switch (p) { default: break; }' 'switch (s) { default: break; }' 'z = a[d];' 'z = z[0];' 'z = *z;' 'h() = 4;' 'h()++;' 'int *q = &h(); (void)q;' '_Atomic int at = 0; at += f();' 'z = s == s;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$vv_pre" "$body" > vv$n.c; "$CICILI" -std=c17 -fsyntax-only vv$n.c 2>&1 | head -1; done)" "vv1.c:3: error: initializing 'int' with an expression of incompatible type 'void'
+vv2.c:3: error: assigning to 'int' from incompatible type 'void'
+vv3.c:3: error: passing 'void' to parameter of incompatible type 'int'
+vv4.c:3: error: returning 'void' from a function with incompatible result type 'int'
+vv5.c:3: error: invalid operands to binary expression ('void' and 'int')
+vv6.c:3: error: invalid operands to binary expression ('void' and 'int')
+vv7.c:3: error: invalid operands to binary expression ('int' and 'void')
+vv8.c:3: error: invalid argument type 'void' to unary expression
+vv9.c:3: error: invalid argument type 'void' to unary expression
+vv10.c:3: error: statement requires expression of scalar type ('void' invalid)
+vv11.c:3: error: used type 'void' where arithmetic or pointer type is required
+vv12.c:3: error: invalid operands to binary expression ('void' and 'int')
+vv13.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+vv14.c:3: error: argument type 'void' is incomplete
+vv15.c:3: error: initializing 'int' with an expression of incompatible type 'void'
+vv16.c:3: error: variable has incomplete type 'void'
+vv17.c:3: error: cannot increment value of type 'void'
+vv18.c:3: error: indirection requires pointer operand ('void' invalid)
+vv19.c:3: error: cannot take the address of an rvalue of type 'void'
+vv20.c:3: error: array subscript is not an integer
+vv21.c:3: error: statement requires expression of integer type ('void' invalid)
+vv22.c:3: error: initializing 'int' with an expression of incompatible type 'void'
+vv23.c:3: error: initializing 'int *' with an expression of incompatible type 'void'
+vv24.c:3: error: initializing 'struct S' with an expression of incompatible type 'void'
+vv25.c:3: error: statement requires expression of integer type ('double' invalid)
+vv26.c:3: error: statement requires expression of integer type ('int *' invalid)
+vv27.c:3: error: statement requires expression of integer type ('struct S' invalid)
+vv28.c:3: error: array subscript is not an integer
+vv29.c:3: error: subscripted value is not an array, pointer, or vector
+vv30.c:3: error: indirection requires pointer operand ('int' invalid)
+vv31.c:3: error: expression is not assignable
+vv32.c:3: error: expression is not assignable
+vv33.c:3: error: cannot take the address of an rvalue of type 'int'
+vv34.c:3: error: invalid operands to binary expression ('_Atomic(int)' and 'void')
+vv35.c:3: error: invalid operands to binary expression ('struct S' and 'struct S')"
+# ... AND C'S CASTS AND CALLS BESIDE IT (1.6.14; C17 6.5.4/2, 6.5.2.2/6): thirty-six bodies -- a cast's type is void or a
+# scalar and its operand a scalar, in clang's order and words, GNU's union cast of a member's type; a pointer and a floating
+# value convert to neither; a void value to a function with no prototype; the conditions of for, while and do. Through 1.6.13
+# `(_Bool)s' and `(int)u' built, a void operand went to LLVM's parser, and the rest were `no conversion from'
+cc_pre='struct S { int m; }; union U { int i; }; void f(void) {} enum E { E0 }; typedef int *IP; typedef int I; int k(); int k2() { return 0; } int (*kp)();\nint main(void) { int z = 1; struct S s = { 1 }; union U u = { 1 }; int *p = &z; double d = 1.5; char c = 0; (void)z; (void)s; (void)u; (void)p; (void)d; (void)c;'
+check "C's casts and calls beside a void value are refused in clang's words at the line (1.6.14): a cast's type and operand by clang's order, GNU's union casts, a call with no prototype" "$(n=0; for body in 'int *q = (int *)f(); (void)q;' 'struct S t = (struct S)f(); (void)t;' '_Bool b = (_Bool)f(); (void)b;' 'double e = (double)f(); (void)e;' 'enum E e = (enum E)f(); (void)e;' 'int *q = (IP)f(); (void)q;' 'I i = (I)f(); (void)i;' 'for (; f(); ) break;' 'while (f()) break;' 'do { } while (f());' 'z = (f(), f()) + 1;' 'z = -(void)z;' 'z = (void)z ? 1 : 2;' 'z = f() || 1;' 'z = !(void)z;' 'z = ~f();' 'z = +f();' 'long l = (long)f(); (void)l;' 'z = (z ? f() : f()) + 1;' 'k(f());' 'z = k2(f());' 'z = kp(f());' 'k(1, f());' 'z = (int)s;' 'struct S t = (struct S)1; (void)t;' 'p = (int *)s;' 'd = (double)s;' 'z = (int)u;' 'enum E e = (enum E)s; (void)e;' '_Bool b = (_Bool)s; (void)b;' 'z = (int)(struct S){ 1 };' 'p = (int *)d;' 'd = (double)p;' 'union U v = (union U)c; (void)v;' 'union U v = (union U)f(); (void)v;' 'struct S t = (struct S)u; (void)t;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$cc_pre" "$body" > cc$n.c; "$CICILI" -std=c17 -fsyntax-only cc$n.c 2>&1 | head -1; done)" "cc1.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc2.c:3: error: used type 'struct S' where arithmetic or pointer type is required
+cc3.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc4.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc5.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc6.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc7.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc8.c:3: error: statement requires expression of scalar type ('void' invalid)
+cc9.c:3: error: statement requires expression of scalar type ('void' invalid)
+cc10.c:3: error: statement requires expression of scalar type ('void' invalid)
+cc11.c:3: error: invalid operands to binary expression ('void' and 'int')
+cc12.c:3: error: invalid argument type 'void' to unary expression
+cc13.c:3: error: used type 'void' where arithmetic or pointer type is required
+cc14.c:3: error: invalid operands to binary expression ('void' and 'int')
+cc15.c:3: error: invalid argument type 'void' to unary expression
+cc16.c:3: error: invalid argument type 'void' to unary expression
+cc17.c:3: error: invalid argument type 'void' to unary expression
+cc18.c:3: error: operand of type 'void' where arithmetic or pointer type is required
+cc19.c:3: error: invalid operands to binary expression ('void' and 'int')
+cc20.c:3: error: argument type 'void' is incomplete
+cc21.c:3: error: argument type 'void' is incomplete
+cc22.c:3: error: argument type 'void' is incomplete
+cc23.c:3: error: argument type 'void' is incomplete
+cc24.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cc25.c:3: error: used type 'struct S' where arithmetic or pointer type is required
+cc26.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cc27.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cc28.c:3: error: operand of type 'union U' where arithmetic or pointer type is required
+cc29.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cc30.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cc31.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cc32.c:3: error: operand of type 'double' cannot be cast to a pointer type
+cc33.c:3: error: pointer cannot be cast to type 'double'
+cc34.c:3: error: cast to union type from type 'char' not present in union
+cc35.c:3: error: cast to union type from type 'void' not present in union
+cc36.c:3: error: used type 'struct S' where arithmetic or pointer type is required"
+# ... AND AN OPERAND READ AS A VALUE IS NAMED BY ITS UNQUALIFIED TYPE (1.6.14; C17 6.3.2.1/2): twenty-two bodies -- a
+# condition's, `?:''s, a unary operator's, `*''s, a cast's and a switch's operand of a `const', `volatile' or `_Atomic' type,
+# named as clang names it, and a binary operator's, which keeps its qualifiers; Apple's block pointer under `*' and `[]',
+# spelled `void (^)(void)', no pointer to either. Through 1.6.13 a unary operator's and a condition's words kept `const'
+check "an operand read as a value is named by its unqualified type, a block pointer is no pointer (1.6.14)" "$(n=0; for body in 'const struct S cs = { 1 }; if (cs) z = 2;' 'const struct S cs = { 1 }; z = cs ? 1 : 2;' 'const struct S cs = { 1 }; z = cs && 1;' 'const struct S cs = { 1 }; z = -cs;' 'const struct S cs = { 1 }; z = ~cs;' 'const double cd = 1; switch (cd) { default: break; }' 'const struct S cs = { 1 }; while (cs) break;' 'const int cx = 1; z = *cx;' 'const struct S cs = { 1 }; z = !cs;' 'const struct S cs = { 1 }; z = (int)cs;' 'const double cd = 1; int *q = (int *)cd; (void)q;' 'const struct S cs = { 1 }; z = cs + 1;' 'const struct S cs = { 1 }; z = +cs;' 'const struct S cs = { 1 }; z = cs == cs;' 'const int *const cp = 0; z = cp * 2;' '_Atomic(int) ax = 1; z = *ax;' '_Atomic(double) ad = 1; switch (ad) { default: break; }' 'volatile struct S vs = { 1 }; z = -vs;' 'void (^b)(void) = 0; *b;' 'void (^b)(void) = 0; z = b[0] != 0;' 'int (^b)(int) = 0; z = 1[b];' 'void (^const b)(void) = 0; *b;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$cc_pre" "$body" > cq$n.c; "$CICILI" -std=c17 -fsyntax-only cq$n.c 2>&1 | head -1; done)" "cq1.c:3: error: statement requires expression of scalar type ('struct S' invalid)
+cq2.c:3: error: used type 'struct S' where arithmetic or pointer type is required
+cq3.c:3: error: invalid operands to binary expression ('const struct S' and 'int')
+cq4.c:3: error: invalid argument type 'struct S' to unary expression
+cq5.c:3: error: invalid argument type 'struct S' to unary expression
+cq6.c:3: error: statement requires expression of integer type ('double' invalid)
+cq7.c:3: error: statement requires expression of scalar type ('struct S' invalid)
+cq8.c:3: error: indirection requires pointer operand ('int' invalid)
+cq9.c:3: error: invalid argument type 'struct S' to unary expression
+cq10.c:3: error: operand of type 'struct S' where arithmetic or pointer type is required
+cq11.c:3: error: operand of type 'double' cannot be cast to a pointer type
+cq12.c:3: error: invalid operands to binary expression ('const struct S' and 'int')
+cq13.c:3: error: invalid argument type 'struct S' to unary expression
+cq14.c:3: error: invalid operands to binary expression ('const struct S' and 'const struct S')
+cq15.c:3: error: invalid operands to binary expression ('const int *const' and 'int')
+cq16.c:3: error: indirection requires pointer operand ('int' invalid)
+cq17.c:3: error: statement requires expression of integer type ('double' invalid)
+cq18.c:3: error: invalid argument type 'struct S' to unary expression
+cq19.c:3: error: indirection requires pointer operand ('void (^)(void)' invalid)
+cq20.c:3: error: subscripted value is not an array, pointer, or vector
+cq21.c:3: error: subscripted value is not an array, pointer, or vector
+cq22.c:3: error: indirection requires pointer operand ('void (^)(void)' invalid)"
+check "a function and an extern object that a block declares are in scope there, another unit defining them (1.6.14)" "$("$CICILI" "$R/link/blockfn_main.c" "$R/link/blockfn_def.c" -o blockfn 2>&1 && ./blockfn)" "42 7"
 check "a struct or a union where C takes a scalar is refused in clang's words at its line (1.6.1, the forms beside): after !, beside && and ||, as the condition of ?:, if, while, do and for, under ++ and --, and under a unary -" "$(n=0; for body in 'int x = !sp;' 'int x = sp ? 1 : 0;' 'sp++;' 'int x = sp && 1;' 'int x = 1 || sp;' 'if (sp) return 1;' 'while (sp) { }' 'do { } while (sp);' 'for (; sp; ) { }' '--sp;' 'union U { int i; } u = { 1 }; if (u) return 1;' 'int x = -sp;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$ops_pre" "$body" > opr$n.c; "$CICILI" -std=c17 -fsyntax-only opr$n.c 2>&1 | head -1; done)" "opr1.c:3: error: invalid argument type 'struct P' to unary expression
 opr2.c:3: error: used type 'struct P' where arithmetic or pointer type is required
 opr3.c:3: error: cannot increment value of type 'struct P'

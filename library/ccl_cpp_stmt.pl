@@ -848,7 +848,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, init(Items))|Vs], Pieces) :- Items \
     cpp_temporary(T, C, [id(Arr), int(K)], ILE), ccl_declare(N, T),
     append(P0, [declaration(L, Sto, B, [var(N, T, ILE)])|P1], Pieces), cpp_decl_pieces(Ctx, L, Sto, B, Vs, P1).
 cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I0)|Vs], Pieces) :- cpp_has_auto(T0), !,      % auto the reader could not infer: a lambda, a call of a method or a template
-    cpp_where(auto(N), cpp_expr(Ctx, I0, I)), ( ccl_type_of(I, IT0), IT0 \== unknown -> cpp_nx_init_type(I0, IT0, IT), cpp_trace(auto_type(N, I, IT)), cpp_auto_deduce(T0, IT, T2), cpp_fwd_auto(T0, I, T2, T) ; cpp_trace(auto_untyped(N, I)), cpp_refuse(L, auto(N)) ),   % ANY deduced type, not only a plain one: `auto p = q - n' is a pointer, and required a base before; a noexcept function's name or address a pointer to a noexcept function (0.205, cpp_nx_init_type/3)
+    cpp_where(auto(N), cpp_expr(Ctx, I0, I)), ( ccl_type_of(I, IT0), IT0 \== unknown -> cpp_nx_init_type(I0, IT0, IT), cpp_trace(auto_type(N, I, IT)), cpp_auto_deduce_or_refuse(L, N, T0, IT, T2), cpp_fwd_auto(T0, I, T2, T) ; cpp_trace(auto_untyped(N, I)), cpp_refuse(L, auto(N)) ),   % ANY deduced type, not only a plain one: `auto p = q - n' is a pointer, and required a base before; a noexcept function's name or address a pointer to a noexcept function (0.205, cpp_nx_init_type/3)
     ( cpp_has_auto(T) -> cpp_refuse(L, auto(N)) ; true ),                                  % an initializer whose type is still `auto' -- a call of a function whose result was never deduced -- is refused, where it was asked again without end (0.100)
     cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T, '$cpp_walked'(I))|Vs], Pieces).
 %% CLASS TEMPLATE ARGUMENT DEDUCTION IN A DECLARATION ([dcl.type.class.deduct]): `R s(x, 5ul)', `std::pair p(a, b)'
@@ -889,7 +889,7 @@ cpp_decl_pieces(Ctx, L, static, B, [var(N, T0, I)|Vs], Pieces) :-
         ->  cpp_temp_elide(E1, E2), InitS = expr(L, assign('=', id(N), E2))   % a prvalue of the class IS the object (C++17)
         ;   I = init(Items), cpp_aggregate_class(C), \+ cpp_il_ctor_for(C, Items, _)   % AN AGGREGATE CLASS FROM ITS BRACED LIST, or C++20's parentheses (0.197): member by member, as a local's (`static Q q{8, P(9, 10)};' was refused `no_constructor(Q, 2)' where its value does not fold)
         ->  cpp_class_l(C, cls(_, Data, _, _, _)), cpp_agg_values(Data, Items, Es), cpp_exprs(Ctx, Es, Es1), cpp_aggregate_inits(Data, Es1, id(N), L, InitSs), InitS = block(InitSs)
-        ;   cpp_ctor_args(Ctx, W, C, Args), length(Args, NA), ( cpp_ctor(C, Args, CName) -> true ; cpp_refuse(L, no_constructor(C, NA)) ),
+        ;   cpp_ctor_args(Ctx, W, C, Args), cpp_copy_init_void(I, T, Args, L), length(Args, NA), ( cpp_ctor(C, Args, CName) -> true ; cpp_refuse(L, no_constructor(C, NA)) ),
             cpp_fill_defaults(CName, Args, Args0), cpp_ref_args_of(CName, Args0, Args1), cpp_copies(call(id(CName), [addr(id(N))|Args1]), Call), InitS = expr(L, Call) ),
         cpp_static_guard(L, N, G, GT, Acq, Rel), cpp_guard_abort(L, G, GT, Abort),
         ( cpp_dtor(C, DName) -> cpp_cxa_atexit(L, N, DName, R1), Reg = [R1] ; Reg = [] ),
@@ -946,7 +946,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I0)|Vs], Pieces) :-
 cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
     cpp_type(T0, T1), cpp_size_by_init(T1, I, T),
     (   Sto \== static, Sto \== extern, cpp_class_of_type(T, C), cpp_has_ctors(C), cpp_ctor_args(Ctx, I, C, Args)
-    ->  cpp_check_access(Ctx, C, '$ctor'), length(Args, NA), ccl_declare(N, T),
+    ->  cpp_check_access(Ctx, C, '$ctor'), cpp_copy_init_void(I, T, Args, L), length(Args, NA), ccl_declare(N, T),
         %% C++17: A PRVALUE OF THE CLASS IS THE OBJECT, elided -- no constructor runs and none is looked for.
         %% `auto __guard = std::__make_scope_guard(f);' hands a `__scope_guard' to the only constructor
         %% `__scope_guard(_Func)' has, which takes the closure, and LLVM refused the store; the temporary that
@@ -1023,6 +1023,10 @@ cpp_auto_deduce(base(Q, [auto]), IT, T) :- !, cpp_decayed(IT, T1),              
 cpp_auto_deduce(ref(Q, X), IT, ref(Q, T)) :- !, ccl_unref(IT, IT1), cpp_auto_bind(X, IT1, T).             % `auto &r = e': the referent's type
 cpp_auto_deduce(rref(Q, X), IT, rref(Q, T)) :- !, ccl_unref(IT, IT1), cpp_auto_bind(X, IT1, T).
 cpp_auto_deduce(ptr(Q, X), IT, ptr(Q, T)) :- ccl_unref(IT, IT0), ccl_resolve_type(IT0, R), ( R = ptr(_, E) ; R = arr(_, E) ), !, cpp_auto_bind(X, E, T).   % `const auto *p = e': the pointee's
+%% ... AND A DECLARATOR THAT A VOID INITIALIZER CANNOT FIT (1.6.14; [dcl.type.auto.deduct]/4) is refused in clang++'s words:
+%% `auto *p = f();' is `variable 'p' with type 'auto *' has incompatible initializer of type 'void'', where the desugaring
+%% failed without a word, `phase(desugaring)'
+cpp_auto_deduce_or_refuse(L, N, T0, IT, T) :- ( cpp_auto_deduce(T0, IT, T) -> true ; ccl_void_typed(IT), T0 = ptr(_, _) -> cpp_refuse(L, void_auto(N, 'auto *')) ; fail ).
 cpp_auto_bind(base(Q, [auto]), IT, T) :- !, ( select(constrained(C, As), Q, Q1) -> cpp_constrained_ok(C, As, IT) ; Q1 = Q ), ccl_add_quals(Q1, IT, T).
 cpp_auto_bind(P, IT, T) :- cpp_auto_deduce(P, IT, T).
 cpp_constrained_ok(C, As, T) :- ( cpp_concept_holds(C, [T|As]) -> true ; cpp_refuse(0, constraint_not_satisfied(C)) ).
@@ -1224,7 +1228,7 @@ cpp_member_from(MT, Place, init(Items), L, [S|Rest], Rest) :- cpp_class_of_type(
 %% member and the temporary is no more (cpp_prvalue_in_place): the object is never moved, so a class that holds its own address (std::list's sentinel, std::function's small buffer) stays whole -- a bitwise copy of
 %% the temporary was this rule's first form, and `Wrap<std::list<int>>{std::list<int>{1, 2}}' freed an invalid pointer. A call that returns the class keeps the constructor road below.
 cpp_member_from(MT, Place, E, L, [S|Rest], Rest) :- E \= init(_), cpp_class_of_type(MT, MC), cpp_class_of_type_of(E, MC), cpp_prvalue_in_place(E, Place, S), !.   % an aggregate class's too (0.206)
-cpp_member_from(MT, Place, E, L, [S|Rest], Rest) :- cpp_class_of_type(MT, MC), cpp_has_ctors(MC), !,
+cpp_member_from(MT, Place, E, L, [S|Rest], Rest) :- cpp_class_of_type(MT, MC), cpp_has_ctors(MC), !, cpp_void_init_check(conversion, MT, E, L),   % an element's or a member's item is copy-initialization's (1.6.14)
     ( cpp_ctor(MC, [E], CName) -> true ; cpp_refuse(L, member_not_constructed(MC, 1)) ), cpp_fill_defaults(CName, [E], Args), S = expr(L, call(id(CName), [addr(Place)|Args])).
 cpp_member_from(MT, Place, E0, L, Inits, Rest) :- ccl_resolve_type(MT, arr(B, ET)), !, ( E0 = move(E) -> true ; E = E0 ),
     (   cpp_elem_class(ET, EC), cpp_has_ctors(EC)                                                   % an array of objects: element by element, through their constructors

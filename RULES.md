@@ -1230,6 +1230,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   here(F, L))` (`ccl_refuse/1`, 0.290), is printed as `M` at its line, with no `macro:` before it, under the name of its
   own file: a header's at the header's line (0.298), where the user's file's name stood with the header's line. (M1b,
   M4, 0.290, 0.298, 0.302)
+- CLANG'S WORDS ARE TABLES OF THE DRIVER, A TERM A ROW (`dr_call_text/2` for a call's count, an undeclared name, a trap,
+  0.302; `dr_value_text/2` for a void value and the operands beside it, 1.6.14), each asked by one clause of `dr_diag/3`
+  at the refusal's line; a term whose words differ by the language asks `ccl_lang/1` in its row (`void_vararg`). (0.302,
+  1.6.14)
 - **A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290;
   `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`): the include layer goes on over a file that it does not find
   (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
@@ -2671,7 +2675,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `ccl_declarator//4` and `ccl_abstract_or_declarator//4`), and the note asks those names too: `int x0 = 1, *px = &x0;`,
   `int a = 1, b = a + 1;`, `int n = 2, arr[n];`, `for (int i = 0, j = i; ...)`, `int z = sizeof z;` and `void g(int n,
   int a[n]);` were refused by the first form of the rule where a declaration at file scope named the name too
-  (`test/c/run/ptrglobal.c`'s `n1 = { 2, &n0, ... }`). A name that nothing declares is the lowering's, which knows the
+  (`test/c/run/ptrglobal.c`'s `n1 = { 2, &n0, ... }`). AN ENUMERATOR IS IN SCOPE JUST AFTER ITS OWN ENUMERATOR (C17
+  6.2.1/7; 1.6.14, `ccl_enumerator//1` over `ccl_use_pend/1`): `enum e { A, B } v = B;`, in a block and at file scope,
+  was refused, `use of undeclared identifier 'B'`, the enumerators declared at the declaration's end as its names are
+  (`test/c/run/voidvalues.c`; reader 208). A name that nothing declares is the lowering's, which knows the
   builtins (the lowering's topic of a name that nothing declares). The notes are backtrackable, so a parse that fails
   takes its notes with it, and an item's are kept at its end, since each item is read inside `\+ \+` (the item loop);
   the loop of a C text's items, or of a header's, inside an item of the file keeps none. The three backtrackable globals
@@ -2685,7 +2692,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   deque's, `<deque.pl>`), a header's enumerators (`declorder.h`), and the names of one declaration or one parameter list
   in their own initializer, a later declarator and a later parameter's bound; `test/c/run/textorder.c` over
   `textorder.pl`, a macro's C text whose first function calls the second. The driver gate holds twenty forms at C17,
-  among them a parameter's bound before the parameter, two at C23 and the store's round. Reader 201. (1.1.2, 1.6.9)
+  among them a parameter's bound before the parameter, two at C23 and the store's round. Reader 201. (1.1.2, 1.6.9,
+  1.6.14)
 ### C's language levels
 
 - C's level is its own global, `'$ccl_c_std'` (`ccl_c_std/1`, default 17), since 17 and 23 are both languages'. The
@@ -7059,6 +7067,41 @@ is in `test/cpp/run/`.
   (`cpp_defined_first/2`), then the most specialized (`cpp_most_special_fn/3`), then the first declared. The member and
   constructor template roads take the fewest conversions, then the first declared. (0.45, 0.84)
 - A static method named bare in its class takes a null `this` (`cpp_object_arg(Name, nullptr, Obj)`). (0.88)
+- **A VOID ARGUMENT FITS NO CANDIDATE, AND A VOID VALUE INITIALIZES NOTHING** (1.6.14; [expr.call]/7,
+  [over.match.viable]/3, [dcl.init.general]/16; `cpp_void_args/2`, `cpp_void_value/1`, `cpp_void_call_refusal/3`,
+  `cpp_void_ctor_check/2,3`, `cpp_void_init_check/3,4`, `cpp_copy_init_void/4`, `cpp_auto_deduce_or_refuse/5`), in
+  clang++'s words at the line: a call of a function by its name, an overload or a template, given a void value, is `no
+  matching function for call to 'g'` (the template deduced no `tk.void`); a class's name called so is `no matching
+  conversion for functional-style cast from 'void' to 'M'`; an overloaded member `no matching member function for call
+  to 'o'`; a constructor, by `M a(f())`, `M a{f()}` or `new M(f())`, `no matching constructor for initialization of
+  'M'`, and a class member's `T() : m(f())` so at its constructor's line (`cpp_void_ctor_check/3`); `new int(f())`
+  `cannot initialize a new value of type 'int' with an rvalue of type 'void'`, and a scalar member's initializer, `T() :
+  m(f())` or a default member initializer, `cannot initialize a member subobject of type 'int' ...` -- the desugaring
+  makes both an assignment, whose words the lowering would give; `auto *p = f();` is `variable 'p' with type 'auto *'
+  has incompatible initializer of type 'void'`, where the desugaring failed without a word. A CLASS COPY-INITIALIZED
+  FROM ONE ([dcl.init.general]/16.6.3, [over.match.copy]; `cpp_copy_init_void/4`) -- `M m = f();`, a static local so
+  written, a default member initializer `M m = f();`, an element and an aggregate's member from a braced item -- is `no
+  viable conversion from 'void' to 'M'`; by parentheses or braces it is direct-initialization's, above. A QUALIFIED NAME
+  IS NO UNQUALIFIED ONE ([basic.lookup.argdep]/1; `cpp_names_overloads/1`): its call is resolved by overloading only
+  where it names two functions or a template -- `ns::k(f())` and `std::abs(f())` are `no matching function for call to
+  'k'`, and one function's `ns::h(f())`, `::g(f())` and `std::puts(f())` the lowering's `cannot initialize a parameter
+  of type 'int' with an rvalue of type 'void'`, clang++'s words; a call with template arguments, `tk<int>(f())`, is an
+  overload set's, and so is one of a template that is declared and not defined, `td(f())`. A TYPE'S NAME CALLED WITH ONE
+  VOID VALUE IS A FUNCTIONAL CAST (`cpp_void_called_type/2`, `cpp_type_call/3`): a class, a plain struct (whose call was
+  C's compound literal, `cannot initialize a member subobject`), a typedef, a class template's instance, `no matching
+  conversion for functional-style cast from 'void' to 'TT<int>'`, a class template's own name in its member,
+  `'Bx<int>'`, and a nested class by its qualified name, `'O::N'`; with two values a class is its constructor's call,
+  `no matching constructor for initialization of 'M'`. A void value that an ellipsis takes, one for a member that has no
+  overload, for a qualified name of one function and for a pointer or a reference to a function is the lowering's
+  (`cannot pass expression of type 'void' to variadic function`, `cannot initialize a parameter of type 'int' with an
+  rvalue of type 'void'`, a class's parameter `no viable conversion from 'void' to 'M'`; the lowering's topic). The void
+  value is one the desugaring trusts, raw or desugared: a call of a function of ONE declaration whose result is void --
+  an overloaded name's raw call is no such call, its type its chosen overload's --, a cast to void, a comma or a
+  conditional over one; a call through a pointer or a reference to a function is the lowering's. A library body's call
+  is a substitution's, which the refusal takes out as any refusal does: no build of the C++ pool's 379 lighter fixtures
+  told the rule from one kept to the program's code, and the guard is out. Through 1.6.13 each call went on and LLVM's
+  parser refused `void none`. The C++ gate's sixty-three bodies, its sixty-six of the casts and calls beside, and its
+  thirty-two of the void values that the desugaring does not trust and the classes copy-initialized from one. (1.6.14)
 
 ### Where the parameters and the arguments are read
 
@@ -9639,7 +9682,14 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   which is no value of it). `rttiother.cpp` (C++20; its expect clang++'s, `_Float16`'s two symbols supplied).
 - `dynamic_cast` to a base is a plain conversion. A downcast or a cross-cast calls
   `__dynamic_cast(sub, &src, &dst, -1)`, and null gives null without the call; a failed reference cast calls `abort()`.
-  Another target refuses `dynamic_cast_to(T)`. `multibase3.cpp`, `vbasertti.cpp`. (0.108)
+  `multibase3.cpp`, `vbasertti.cpp`. (0.108) AN OPERAND OR A TARGET THAT DOES NOT FIT is refused in clang++'s words at the
+  statement's line ([expr.dynamic.cast]/1, /2; `cpp_dynamic_source/3`, `cpp_dynamic_glvalue/3`): to a pointer the operand is
+  a pointer, `cannot use dynamic_cast to convert from 'void' to 'S *'` (an integer's and a class value's alike), and a
+  pointer to a class, `'int' is not a class type`; to a reference a glvalue of a class, a void value to an lvalue reference
+  `dynamic_cast from rvalue to reference type 'S &'`; a target that is no pointer or reference to a class is `'int' is not a
+  class type` or `invalid target type 'S' for dynamic_cast; target type must be a reference or pointer type to a defined
+  class`. A plain struct's target is refused by name, `dynamic_cast_to(T)`, as before. Through 1.6.13 an operand that did not
+  fit failed the desugaring without a word, `phase(desugaring)`. The C++ gate's bodies. (1.6.14)
 - `dynamic_cast<void *>` of a pointer to a polymorphic class is the complete object ([expr.dynamic.cast]/7): the node
   `dyncast(X, void, void, T)`, which the check and the inference read as the other casts, lowered as the address plus
   the offset-to-top at `vptr[-2]`, null kept null. A pointer to a class without a table refuses
@@ -12061,7 +12111,10 @@ in the first topic (The ccllib gate).
   and `unconsumed` are errors (owner's decision). (M3, 0.14)
 - A plain pointer local given a fresh value is `N-loose`, a root for borrows (`ck_borrow_source/3`). A value is fresh
   when it is not none, an initializer list, null, static, rooted under an unfollowed reference, a `ck_va_value/1` form,
-  or a value read out of a plain slot (`ck_fresh_value/1`). A VALUE READ OUT OF A SLOT IS NO NEW MEMORY (0.290;
+  or a value read out of a plain slot (`ck_fresh_value/1`). A VOID VALUE IS NO NEW MEMORY (1.6.14; `ck_void_value/1`):
+  `int *p = f();` and `char *p = (char *)f();` over a void f have no value, which the lowering refuses at the line in
+  clang's words; the local was loose, and `plain pointer not consumed` at the function's end came first. A VALUE READ
+  OUT OF A SLOT IS NO NEW MEMORY (0.290;
   `ck_loaded_value/1`): an element (`a[i]`), a member (`s.m`, `p->m`), a dereference (`*p`) and a global's name, through
   a cast, pointer arithmetic (`x + n`, `x - n`), a comma's right side, and a conditional whose two sides are neither
   fresh. New memory comes from a call; a read gives what a slot holds, and a plain slot holds no memory of nobody's,
@@ -12305,7 +12358,9 @@ in the first topic (The ccllib gate).
   static storage, where it was a plain pointer never consumed. (1.6.13)
 - IN C THE ADDRESS OF A FORM THAT IS NO LVALUE IS REFUSED IN CLANG'S WORDS (1.6.13; `ccl_c_no_lvalue/1`, `ck_expr/3`):
   `cannot take the address of an rvalue of type 'int'`, at the line, before the lowering meets it -- `int *p = &(c ? a
-  : b);` was `plain pointer not consumed`. The driver gate's eighteen bodies. (1.6.13)
+  : b);` was `plain pointer not consumed`. A CALL'S VALUE IS ONE (1.6.14; C17 6.5.2.2/5): `int *p = &h();` was `plain
+  pointer not consumed` at the function's end, and `&f()` of a void f is `cannot take the address of an rvalue of type
+  'void'`. The driver gate's eighteen bodies, and two of the void values' thirty-five. (1.6.13, 1.6.14)
 - A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLEE'S OBJECT TO THE CHECK (0.207; `ck_param_dtors/3` in
   `ck_function/5`): the caller destroys it since 0.207 (the Classes topic), and the callee's code has no defer of its
   destructor; the walk takes one at the body's head all the same, as the desugaring's own defer was before, so its
@@ -12722,9 +12777,10 @@ in the first topic (The ccllib gate).
   `bitset<8>` and a `bitset<12>` met it, and `b == 5` over a bitset is refused by the same words. A UNARY `-` OR `~`
   OVER A RECORD (C17 6.5.3.3/1) is `invalid argument type 'struct P' to unary expression`, clang's words
   (`ir_unary_operand/3` since 1.6.1; it was `sub nsw %struct.P 0, ...`). A FLOATING VALUE WHERE A POINTER IS NEEDED, AND A POINTER
-  WHERE A FLOATING VALUE IS (0.288; C17 6.5.4/4), by an argument, an assignment or a cast, are refused by the same
-  words, `no conversion from 'double' to 'const char *'`: `fptoui double ... to ptr` and `uitofp ptr ... to double` went
-  to LLVM's parser (a clause of `ir_convert/6` after the records'). A struct with no tag, which a typedef names, is
+  WHERE A FLOATING VALUE IS (0.288; C17 6.5.4/4), by an argument or an assignment, are refused by the same
+  words, `no conversion from 'double' to 'const char *'`, and by a cast in clang's, `operand of type 'double' cannot be
+  cast to a pointer type` and `pointer cannot be cast to type 'double'` (`ir_c_cast_check/3`, 1.6.14): `fptoui double ...
+  to ptr` and `uitofp ptr ... to double` went to LLVM's parser (a clause of `ir_convert/6` after the records'). A struct with no tag, which a typedef names, is
   `struct <unnamed>` in the message, where its term was printed (0.288). A POINTER WHERE A RECORD IS NEEDED (0.291) went
   with no conversion to LLVM's parser by an argument and by a `return` -- `f("bob")` and `f(&t)` over a struct
   parameter, `return p;` from a function whose result is a struct (`global variable reference must have pointer type`)
@@ -12792,8 +12848,111 @@ in the first topic (The ccllib gate).
 - **A TYPE IN A MESSAGE IS SPELLED AS CLANG'S TYPE PRINTER SPELLS IT** (1.6.1; `ck_c_type_text/2` over
   `ck_c_decl_text/4`): its base, then its declarator read from the type outward -- `int **`, `int *const`, `int[3]`,
   `int *[2]`, `int (*)[2]`, `void (*)(void)`, `int (*)(int, ...)`, `int (*)()` with no prototype --, a declarator that
-  opens with `[` taking no space after the base. Through 1.6.0 `int **` was `int * *`, and an array or a function was
-  its term. (1.6.1)
+  opens with `[` taking no space after the base, and an atomic type `_Atomic(int)` (1.6.14). C++'s references, `int &`,
+  `int *&` and `int &&`, a pointer to a data member, `int S::*`, and a class by its namespaces and an instance's
+  arguments, `ns::C` and `TT<int>`, a local class, struct or union by its own name (`ck_cpp_class_text/2`,
+  `ck_cpp_local_name/2`, the function's local names) and a program's plain struct in a namespace alike (1.6.14). An
+  operand read as a value -- a condition's, `?:`'s, a unary operator's, `*`'s, a cast's, a switch's -- is named by its
+  unqualified type, as clang names it (C17 6.3.2.1/2; `ir_rvalue_text/2`): `'struct S'` for a `const struct S`, `'int'`
+  for a `volatile int` or an `_Atomic(int)`, where a binary operator's operands keep theirs, `('const struct S' and
+  'int')`; and Apple's block pointer is `void (^)(void)` (`ck_c_ptr_glyph/4`). Through 1.6.0 `int **` was `int * *`, and
+  an array or a function was its term; through 1.6.13 a reference and a pointer to member were their terms and a class
+  its key, `TT.int`, and a local one `L.local_1_<tag>`, a unary operator's and a condition's operand kept its `const`,
+  and a block pointer was its term. (1.6.1, 1.6.14)
+- **A VOID VALUE IS NO VALUE** (1.6.14; C17 6.3.2.2/1, "the (nonexistent) value of a void expression shall not be used
+  in any way", [basic.fundamental]/13; `ccl_void_typed/1`, `ir_void_check/3`, `ir_void_word/3`, `ir_void_vararg/1`,
+  `ir_void_scalar/1`, `ir_void_cast/2`, `ir_void_ref/2`, `dr_value_text/2`): a void value -- a call of a function that
+  returns void, a cast to void, a comma or a conditional over one -- is refused at its line in clang's words wherever a
+  value is taken. AS IF BY ASSIGNMENT, by the place in C: `initializing 'int' with an expression of incompatible type
+  'void'`, `assigning to 'int' from incompatible type 'void'`, `passing 'void' to parameter of incompatible type 'int'`,
+  `returning 'void' from a function with incompatible result type 'int'`; by the object in C++: `cannot initialize a
+  variable of type 'int' with an rvalue of type 'void'`, `a member subobject`, `an array element` (an aggregate's item,
+  `ir_init_as/2` naming its kind for the items' time), `return object`, `a parameter`, and a class's `no viable
+  conversion from 'void' to 'S'` (`... from returned value of type 'void' to function return type 'S'` for a return), a
+  class's parameter alike, and a class assigned one `no viable overloaded '='`, its operator='s. THROUGH AN ELLIPSIS:
+  `argument type 'void' is incomplete`, C++'s `cannot pass expression of type 'void' to variadic function`. AS AN
+  OPERAND, in both languages: `invalid operands to binary expression ('void' and 'int')` -- the arithmetic and bitwise
+  operators, the comparisons (`ir_cmp_values/8` asks the pair, and so C refuses two structs compared), a compound
+  assignment, an atomic's among them (`'_Atomic(int)' and 'void'`) -- and `invalid argument type 'void' to unary
+  expression`. AS A CONDITION: C's record words with `'void'` (`statement requires expression of scalar type ('void'
+  invalid)`, `used type 'void' where arithmetic or pointer type is required`, and `&&` and `||` C's binary words), C++'s
+  `value of type 'void' is not contextually convertible to 'bool'`; a condition's lowered value of LLVM type void that
+  no form asked before is refused too (`ir_cond_/2`): C++'s `&&` and `||`, a conditional's place and the object it
+  builds, over a void value that the desugaring does not trust. AS A CAST'S OPERAND: C's `operand of type 'void' where
+  arithmetic or pointer type is required` (C's cast, below), C++'s by the cast's spelling and its target's kind
+  (`ir_void_cast_kind/4`), refused before the desugaring takes the cast (`cpp_void_cast_check/3`) and kept to the
+  lowering as `ccast(K, T, E)` for a void value the desugaring does not trust -- `C-style cast from 'void' to 'int' is
+  not allowed`, `functional-style cast`, `static_cast`, `reinterpret_cast`, `const_cast from 'void' to 'int *'`; to a
+  pointer or a member pointer, but by a reinterpret_cast or a const_cast, `cannot cast from type 'void' to pointer type
+  'int *'` and `to member pointer type 'int S::*'`; to a reference, a static_cast's a binding's words (`non-const lvalue
+  reference to type 'int' cannot bind to a temporary of type 'void'`) and any other cast's `C-style cast from rvalue to
+  reference type 'int &'`; to a class by a static_cast, a C-style or a functional cast `no matching conversion for
+  static_cast from 'void' to 'ns::C'`; and a const_cast to a type that is no reference or pointer `const_cast to 'int',
+  which is not a reference, pointer-to-object, or pointer-to-data-member`. A reference's initializer that casts a void
+  value is the cast's refusal (`ir_void_ref/2`). A cast to a reference reached LLVM's parser, `alloca void`, and a
+  class's cast the constructor's words. AS AN OBJECT: `void x;` and `auto x = f();` are `variable has incomplete type
+  'void'`; a reference to void is `cannot form a reference to 'void'` (`auto &r = f();`); a reference bound to a void
+  value is `non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'` and, const or rvalue,
+  `reference to type 'const int' could not bind to an rvalue of type 'void'`. A STEP of one is `cannot increment value
+  of type 'void'`, before C's lvalue test. C++'S `sizeof` of void and of a function type is `invalid application of
+  'sizeof' to an incomplete type 'void'` and `to a function type` (`ir_cpp_sizeof_refused/1`), where C's is GNU's 1 for
+  both (`ccl_sizeof_value/2`, in a constant expression too, `char a[sizeof(f)]`; a function type's layout answers a
+  pointer's 8, which `sizeof(f)` gave). The desugaring refuses a C++ call's void argument and a void initializer that it
+  makes an assignment of (Overload resolution, the roads). Why: through 1.6.13 each went on as the value `none` of LLVM
+  type void, `%t2 = sext void none to i32`, which LLVM's parser refused at a line of the IR, none of the program's; `f()
+  + 1` was `not lowered yet: type(unknown)`, `void x;` was `alloca void`, C++'s `sizeof(void)` was 1. The driver gate
+  holds thirty-five C bodies and the C++ gate sixty-three, and thirty-six of C's casts and calls and sixty-six and
+  thirty-two of C++'s beside them, and twenty-two of the operands read as values, each in clang's words at clang's line;
+  `test/c/run/voidvalues.c` and `test/cpp/run/throwarm.cpp` hold the forms that stay -- a cast to void, a comma's left
+  operand, a conditional's arm, a void function's `return f();`, `sizeof(f())` and `sizeof(z ? 1 : f())` in C. Lowering
+  183. (1.6.14)
+- **A C CAST'S TYPE AND OPERAND ARE SCALARS** (1.6.14, the forms beside a void operand; C17 6.5.4/2, /3;
+  `ir_c_cast_check/3`), in clang's words and order: the type is void or a scalar -- a record is `used type 'struct S' where
+  arithmetic or pointer type is required`, but a record of the operand's own type and a union one of whose members has the
+  operand's type, GNU's casts, and a union of no such member `cast to union type from type 'char' not present in union` --,
+  then the operand, `operand of type 'struct S' where arithmetic or pointer type is required` and a void one's alike, and a
+  pointer and a floating value convert to neither, `operand of type 'double' cannot be cast to a pointer type` and `pointer
+  cannot be cast to type 'double'`. GNU's cast to a union is lowered as clang's build has it: the value, converted to the
+  member's type, stored at the union's start, and the union read (`ir_union_value/6`). Why: through 1.6.13 `(_Bool)s` over
+  a struct and `(int)u` over a union built, a void operand reached LLVM's parser, the rest were 0.286's and 0.288's `no
+  conversion from`, and `(union U)9` was `sext i32 9 to { i32 }`, which LLVM's parser refused. The driver gate's thirty-six
+  bodies; `test/c/run/voidvalues.c` builds GNU's casts that stay. Lowering 183. (1.6.14)
+- **THE OPERANDS OF A SWITCH, OF A SUBSCRIPT AND OF AN INDIRECTION** (1.6.14, the forms beside the void value; C17
+  6.8.4.2/1, 6.5.2.1/1, 6.5.3.2/2, [stmt.switch]/2, [expr.sub]/1; `ir_switch_operand/2`, `ir_subscript/10`,
+  `ir_index_operand/2`, `ir_pointer_operand/2`): a switch's controlling expression has an integer type -- a void value,
+  a floating one, a pointer, a record, a complex or a vector one is `statement requires expression of integer type
+  ('double' invalid)`; a subscript takes a pointer or an array and an integer in either order -- `2[a]` is `a[2]`, and a
+  base that is neither is `subscripted value is not an array, pointer, or vector`, an index that is no integer `array
+  subscript is not an integer`; `*` takes a pointer, `indirection requires pointer operand ('int' invalid)`; Apple's
+  block pointer is no pointer to either, `indirection requires pointer operand ('void (^)(void)' invalid)`, as clang has
+  it (`ir_pointer_like/1`). A class reaches none of them in C++: the desugaring converts it or calls its operator.
+  Through 1.6.13 a switch over a floating value or a pointer and a subscript of a double ran over their conversions'
+  integers, a record was `no conversion from`, `2[a]` and `*1` were `not lowered yet: not_a_pointer(...)`. Lowering 183.
+  (1.6.14)
+- **A CONDITIONAL OF ONE VOID ARM, AND ONE WITH A THROW ARM** (1.6.14; [expr.cond]/2; `ccl_throw_arm/1`, the inference's
+  `ccl_type_of/2` of a conditional, `ir_one_void_arm/4`, `cpp_decltype_of/2`): in C a conditional whose one arm is void
+  is void, GNU's as clang's -- both arms evaluated for their effects, `z ? f() : 1;` a statement, `int x = z ? f() : 1;`
+  the initializer's refusal, `sizeof(z ? 1 : f())` 1; in C++ one is refused, `left operand to ? is void, but right
+  operand is of type 'int'` and `right operand to ? is void, ...`, unless the other arm is a throw-expression: such a
+  conditional has the other arm's type, value and value category, the throw's arm ending at its unreachable -- a
+  lambda's `return v ? throw 1 : v + 1;` deduces int, a function's `auto` result alike, and `decltype(z ? z : throw 1)`
+  is `int &`. The throw is the desugaring's form, which the type is asked of, and a throw as the third arm takes the
+  second arm's type by the rule's last line. Through 1.6.13 the C++ form was void, its `none` converted to the other
+  arm's type, which LLVM's parser refused, the lambda deduced void, and the decltype was the prvalue's `int`, a store
+  through its name a copy's. `test/cpp/run/throwarm.cpp`. (1.6.14)
+- **A FUNCTION AND AN `extern` OBJECT THAT A BLOCK DECLARES ARE IN SCOPE THERE** (1.6.14; C17 6.2.1/4, 6.2.2/4, 6.7/7;
+  `ir_local_extern/2`): the block's frame holds the name over the file's own symbol, so `int twice(int); twice(21)` and
+  `extern int seen; seen` are the definitions of another unit -- they were `call to undeclared function 'twice'` and `use
+  of undeclared identifier 'seen'` where no declaration at file scope came after them. C alone: C++'s name is its
+  mangled one, the desugaring's. The driver gate links `test/c/link/blockfn_main.c` with `blockfn_def.c`. (1.6.14)
+- **A STATEMENT THAT THE DESUGARING MADE REFUSES AT THE LAST LINE SEEN** (1.6.14; `ir_where/1`, `'$ir_line_seen'`): its
+  line is 0, and a refusal in one -- `new int(f())`'s store, a temporary's construction -- named no line of the program.
+  (1.6.14)
+- **A CALL'S STATEMENT GOES ON AT ITS OWN LINE AFTER ITS LANDING PAD** (1.6.14; `ir_line_state/1`, `ir_landing_pad/1`): the
+  cleanups that the unwind edge runs are statements of their own, each setting its line and column, and the landing pad
+  sets the call's back -- a void value refused after a call under an object with a destructor was refused at the object's
+  line, and under -g the statement's instructions after the call took that line. The C++ gate's body after `S s;`.
+  Lowering 183. (1.6.14)
 
 - **A NAME THAT NOTHING DECLARES IS REFUSED IN CLANG'S WORDS IN C** (1.1.2; C17 6.5.1/2; `ir_undeclared/1`, the clause
   of `ir_call/4` for a name that no lookup finds, `dr_call_text/2`): a call is `call to undeclared function 'nowhere';
@@ -12859,11 +13018,12 @@ in the first topic (The ccllib gate).
   and an assignment to one was refused by name, `lvalue(comma(...))`. `test/cpp/run/lvalues.cpp`. (1.6.13)
 - IN C AN ASSIGNMENT TO A FORM THAT IS NO LVALUE, AND A STEP OF ONE, ARE REFUSED IN CLANG'S WORDS (1.6.13; C17
   6.5.2.3/3, 6.5.15, 6.5.16/3, 6.5.17, 6.5.2.4 and 6.5.3.1; `ccl_c_no_lvalue/1`, `ir_c_assignable/1`): a comma, a
-  conditional, an assignment, a step, and a member of one of them or of a call's value are `expression is not
-  assignable`, at the line; the check refuses the address of one first (The safe part). A member of a value is read
-  from the value's temporary (`ir_lval_/4` of a member): `(g(), s).m` was refused by name. Through 1.6.12 the lowering
-  took `(c ? a : b) = 5`, the conditional's place, which is C++'s. `test/c/run/cvalues.c`, the driver gate's eighteen
-  bodies. (1.6.13)
+  conditional, an assignment, a step, a call's value (1.6.14; 6.5.2.2/5), and a member of one of them are `expression
+  is not assignable`, at the line; the check refuses the address of one first (The safe part). A member of a value is
+  read from the value's temporary (`ir_lval_/4` of a member): `(g(), s).m` was refused by name. Through 1.6.12 the
+  lowering took `(c ? a : b) = 5`, the conditional's place, which is C++'s, and through 1.6.13 `h() = 4` and `h()++`
+  ran, the value stored into a temporary. `test/c/run/cvalues.c`, the driver gate's eighteen bodies and two of the void
+  values' thirty-five. (1.6.13, 1.6.14)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
@@ -16266,14 +16426,62 @@ Declarations topic of the C++ reader).
   owner behind: '*q'`, where clang's build stores into `arr[0]`, and so through an effect, `int *&q = (p += 1);`; a
   step of q and a read through p are taken (`q += 1;`, `*p`). The check models a reference as the pointer it is, and a
   store through the pointer the reference holds has no owner behind it.
-- A VOID EXPRESSION USED AS A VALUE IS NOT REFUSED AT ITS LINE (found at 1.6.10; C17 6.3.2.2/1: the nonexistent value of
-  a void expression is not used): `int z = f();`, `z = f();`, `g(f())` and `return f();` over `void f(void)` go to
-  LLVM's parser, which refuses the text `%t2 = sext void none to i32` (`void type only allowed for function results`) at
-  a line of the IR, none of the program's, and `f() + 1` is `not lowered yet: type(unknown)`, where clang refuses each
-  at its line (`initializing 'int' with an expression of incompatible type 'void'`, `assigning to 'int' from
-  incompatible type 'void'`, `passing 'void' to parameter of incompatible type 'int'`, `returning 'void' from a function
-  with incompatible result type 'int'`, `invalid operands to binary expression ('void' and 'int')`); a trap's call is
-  such an expression.
+- THE WORDS OF THREE VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14): a variable of a `typeof` or a `decltype` type
+  that is void is `variable has incomplete type 'void'`, where clang names the type written, `'typeof (f())' (aka
+  'void')`; a void value through `printf`'s ellipsis in C++ is `cannot pass expression of type 'void' to variadic
+  function`, where clang adds the format string's word, `; expected type from format string was 'int'`; and a closure
+  called with a void value is `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang
+  says `no matching function for call to object of type '(lambda at f.cpp:7:14)'`, the closure's column, which the reader
+  does not keep. Each is refused at clang's line.
+- GNU'S CONDITIONAL WITH NO MIDDLE OPERAND IS NOT READ (found at 1.6.14): `z = x ?: 5;`, C's and C++'s, is `syntax error:
+  could not read this item`, where clang reads it as `x ? x : 5` with x evaluated once.
+- C++: A FUNCTION THAT A BLOCK DECLARES DOES NOT HIDE THE NAME'S OUTER OVERLOADS (found at 1.6.14; [basic.lookup]/1,
+  [over.dcl]): `void ov(int); ov(2.5);` in a block calls the file's `ov(double)`, where clang++'s build calls `ov(int)`;
+  and overloads that only a block declares are `not lowered yet: undeclared(ov)`. C's block declarations are in scope
+  since 1.6.14 (the lowering's topic).
+- C++: A CALL'S PRVALUE IS TAKEN AS A PLACE (found at 1.6.14; [expr.ass]/1, [expr.unary.op]/3): `h() = 4;` over `int h()`
+  builds and runs, where clang++ says `expression is not assignable`; `int *p = &h();` is the safe part's `plain pointer
+  not consumed`, where clang++ says `cannot take the address of an rvalue of type 'int'`; and `int *p = &hr();` over
+  `int &hr()`, a reference's object, is `plain pointer not consumed` too, where it is valid. C's call is no lvalue since
+  1.6.14.
+- C++: A LOCAL CLASS DEFINED IN A DECLARATION OF ITS OBJECT, `struct S2 { int m(int v) { ... } } o;`, has no members to
+  a call (found at 1.6.14): `o.m(1)` is `not lowered yet: no_member(m, ...)`; the class defined alone and its object
+  declared after it build.
+- A TYPEDEF'S NAME IN A MESSAGE HAS NO `(aka ...)` (found at 1.6.14): `typedef int I; I i = f();` is `initializing 'I'
+  with an expression of incompatible type 'void'`, where clang says `'I' (aka 'int')`, and C++'s alias of a reference, a
+  pointer, a pointer to member or a class is spelled as its target, `'int &'` for clang++'s `'IR' (aka 'int &')`; a
+  functional cast of a typedef, `I(f())`, names its target alone. Every message that names a typedef's type is so. A
+  class named with its scope is spelled by its own: `::M(f())` is `'M'`, where clang++ spells the type as written,
+  `'::M'`, and a nested class named bare in its class `'O::N'` for clang++'s `'N'`.
+- C++: A PARENTHESIZED CALLEE IS CALLED AS ITS NAME (found at 1.6.14; [basic.lookup.argdep]/1): `(g)(f())` is `no matching
+  function for call to 'g'`, where clang++, which looks up no argument's namespace for a parenthesized name, initializes the
+  parameter, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`; the reader keeps no parentheses
+  around a callee.
+- A REFUSAL IN THE BODY OF A PROGRAM'S FUNCTION TEMPLATE IS PRINTED AS ITS INSTANCE'S (found at 1.6.14): `template<class
+  T0> T0 mk() { return T0(f()); }` called as `mk<M>()` is `not lowered yet: instance_refused('mk.M',
+  void_cast_class(functional, 'M'))`, where clang++ gives the body's words, `no matching conversion for functional-style
+  cast from 'void' to 'M'`; the line is clang++'s, the template's. A class template's member, `Bx<int>::mk2()`, gives
+  the body's words.
+- C++: A CLASS MEMBER'S INITIALIZER THAT NO CONSTRUCTOR TAKES HAS NO WORDS OF ITS OWN (found at 1.6.14): `struct N { M
+  m; N() : m(1, 2) {} };` is `not lowered yet: member_not_constructed(m, 'M', 2)`, where clang++ says `no matching
+  constructor for initialization of 'M'`, at clang++'s line.
+- C++: A VOID VALUE THAT THE DESUGARING DOES NOT TRUST HAS THE PARAMETER'S WORDS AS AN UNQUALIFIED CALL'S ARGUMENT
+  (found at 1.6.14): `g(fp())` over `void (*fp)()` is the lowering's `cannot initialize a parameter of type 'int' with
+  an rvalue of type 'void'`, where clang++, whose overloading takes no candidate, says `no matching function for call to
+  'g'`; the desugaring trusts no call through a pointer or a reference to a function, as it trusts no overloaded name's
+  raw call.
+- C++: A FUNCTIONAL CAST TO A `decltype` TYPE IS NOT LOWERED (found at 1.6.14): `decltype(mm)(f())` is `not lowered yet:
+  expr(decltype_expr(id(mm)))`, where clang++ says `no matching conversion for functional-style cast from 'void' to
+  'decltype(mm)' (aka 'M')`.
+- C++: A BUILT-IN OPERATOR'S OPERAND THAT C REFUSES IN CLANG'S WORDS IS REFUSED BY NAME, OR REACHES LLVM (found at
+  1.6.14): `*x` over an `int` is `not lowered yet: deref_of_arithmetic(...)`, where clang++ says `indirection requires
+  pointer operand ('int' invalid)`; `-s` and `s + 1` over a plain struct are `no_operator(-)` and `no_operator(+)`,
+  clang++'s `invalid argument type 'const S' to unary expression` and `invalid operands to binary expression ('const S'
+  and 'int')`; `(int *)d` over a double is `no conversion from 'const double' to 'int *'`, clang++'s `cannot cast from
+  type 'double' to pointer type 'int *'`; and `!s` and `if (s)` over a plain struct reach LLVM's parser, `icmp ne
+  %struct.S`, where clang++ says `invalid argument type 'const S' to unary expression` and `value of type 'const S' is
+  not contextually convertible to 'bool'`. C's are clang's (the lowering's topic); in C++ a class's operand keeps its
+  `const` in clang++'s words, a scalar's does not.
 - A LIBRARY HEADER'S `__FILE__` IS ITS PATH UNDER `$LLVM` (found at 1.6.10): clang++ finds libc++'s headers through its
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints

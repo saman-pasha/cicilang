@@ -98,6 +98,10 @@ cpp_deleted_ctor_check(C, Args) :-
     ->  cpp_refuse_prog(deleted_call(implicit_copy, C, none))   % ... AND AN XVALUE WHOSE MOVE IS NO CANDIDATE (0.258; [over.match.funcs]/8: a defaulted move defined as deleted is none), so that the copy it falls to is implicitly deleted: `S b = std::move(a)' over a member whose move is deleted -- the record dropped both, and the safe part refused a move of a non-owner, or the class's bytes were copied
     ;   true ).
 cpp_deleted_ctor_check(_, _).
+%% A VOID ARGUMENT FITS NO CONSTRUCTOR (1.6.14; [over.match.ctor]): `M a(f())', `M a{f()}' and `new M(f())' are `no matching
+%% constructor for initialization of 'M'', clang++'s words (cpp_void_value/1), at the constructor's line for a member's
+cpp_void_ctor_check(C, Args) :- cpp_void_ctor_check(C, Args, prog).
+cpp_void_ctor_check(C, Args, At) :- ( member(A, Args), cpp_void_value(A) -> ( At == prog -> cpp_refuse_prog(no_matching_ctor(C)) ; cpp_refuse(At, no_matching_ctor(C)) ) ; true ).   % a member's at its constructor's line
 %% A DELETED CONSTRUCTOR OF THE PROGRAM'S CLASS IS ASKED IN THE LIBRARY'S BODY TOO (0.258): `v.push_back(a)' over a std::vector<NC>
 %% whose element's copy is deleted copied a's bytes through std::__construct_at, where clang++ refuses the call (`no matching function
 %% for call to __construct_at', its SFINAE over the construction). A library class's own deleted members steer libc++'s lookups, and
@@ -264,7 +268,7 @@ cpp_base_ctor(B, BArgs, BName) :- nb_setval('$cpp_base_ctor', yes),
     ( catch(cpp_ctor(B, BArgs, BName), E, ( nb_setval('$cpp_base_ctor', no), throw(E) )) -> nb_setval('$cpp_base_ctor', no) ; nb_setval('$cpp_base_ctor', no), fail ).
 cpp_slot_pure(C, M, K) :- cpp_class(C, cls(B, _, Ms, _, _, _)),   % the slot's implementation is the PURE declaration itself ([class.abstract]; 0.99: cpp_slot_impl answered it as an implementation, so an abstract class was constructed and the link named nothing)
     ( cpp_slot_method(C, Ms, M, K, Qs, _) -> memberchk(pure, Qs) ; B \== none, cpp_slot_pure(B, M, K) ).
-cpp_ctor(C, Args, _) :- cpp_deleted_ctor_check(C, Args), fail.   % a deleted constructor the arguments choose, or a deleted copy, is refused first (0.257)
+cpp_ctor(C, Args, _) :- cpp_deleted_ctor_check(C, Args), cpp_void_ctor_check(C, Args), fail.   % a deleted constructor the arguments choose, or a deleted copy, is refused first (0.257); a void argument fits none (1.6.14)
 cpp_ctor(C, _, _) :- \+ nb_current('$cpp_base_ctor', yes), '$cpp_bad_layout'(C, V), !, cpp_refuse(0, empty_virtual_base_moved(C, V)).   % A COMPLETE OBJECT OF A CLASS THIS MODEL LAYS OTHERWISE than the ABI (0.235; cpp_empty_vbases_laid/3): refused by name where it is built
 cpp_ctor(C, [E0], Name) :- ( E0 = move(E) -> true ; E = E0 ), cpp_own_value(E, C, Cat), !,   % THE CLASS'S OWN VALUE takes its COPY or MOVE constructor, written or implicit, and never another constructor taking a class ([over.best.ics]): `ostreambuf_iterator(ostream_type &)' had taken an ostreambuf_iterator in the copy road's aggregate, and the stream buffer's pointer was the iterator's bytes
     cpp_not_abstract(C),

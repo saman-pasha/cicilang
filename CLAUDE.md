@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.13 the versions are: the module 1.6.13 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 182 (`ccl_lowering_version/1`,
+At 1.6.14 the versions are: the module 1.6.14 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 208 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 183 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -563,7 +563,9 @@ test/c/link/                two files linked into one program; the ABI against c
                             and layouts against clang's (abi_targets.c, 0.244); two units that both make vector<int>
                             (inst_a.c, inst_b.c over ../run/tvector.pl, 0.261); two units over <vector.pl>, each
                             with the functions that it calls (vec_a.c, vec_b.c, 0.274); two units over <memory.pl>
-                            that share a handle, over the program's one pool (sp_a.c, sp_b.c, 1.6.5)
+                            that share a handle, over the program's one pool (sp_a.c, sp_b.c, 1.6.5); a function and an
+                            extern object that a block declares, another unit defining them (blockfn_main.c,
+                            blockfn_def.c, 1.6.14)
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std, NAME.needs (0.224), NAME.ref
                             (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt;
                             ctext.pl, the macro file of ctext.c (0.260); tvector.pl, tvhdr.h and
@@ -615,7 +617,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             (1.6.8); ownglobal.c over ownglobal.h, a program's own format, print, println and clone
                             (1.6.9); traps.c, the three traps, each in a child of its own, and in the arms of the
                             conditionals (1.6.10); cvalues.c, members of C's values and the values of assignments,
-                            steps and commas (1.6.13)
+                            steps and commas (1.6.13); voidvalues.c, the forms that the void values' rules keep, GNU's
+                            casts among them (1.6.14)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -691,7 +694,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             hardening.cpp, libc++'s fast hardening mode over its three trees, and trapscpp.cpp, the
                             traps in C++ (1.6.10); lvalues.cpp, a comma, an assignment and a prefix step as lvalues,
                             and dropassignref.cpp over ../../c/run/autodrop.pl, an assignment over an object that
-                            its scope drops, as a place (1.6.13)
+                            its scope drops, as a place (1.6.13); throwarm.cpp, conditionals with a throw arm, their
+                            types, values and value categories, and voidkept.cpp, what the void values' rules keep in
+                            C++ (1.6.14)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
@@ -741,7 +746,8 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             mutex_of_int.c (1.6.0); sstream_str_write.c and sstream_str_free.c, a stringstream's str,
                             a borrow (1.6.3); ratio_zero_den.c, ratio_overflow.c, ratio_sum_overflow.c,
                             ratio_divide_zero.c, complex_of_int.c, charconv_bool.c and charconv_prec_int.c, what
-                            the numbers refuse (1.6.4)
+                            the numbers refuse (1.6.4); void_assign.c, a void value assigned over a vector, refused as
+                            C by its type macro and as C++ in clang++'s words (1.6.14)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;

@@ -321,7 +321,10 @@ cpp_decltype_of(comma(_, B), T) :- cpp_decltype_paren(B, T), !.   % A COMMA IS O
 cpp_decltype_of(E, ref([], T)) :- ( E = deref(_) ; E = index(_, _) ; E = assign(_, _, _) ; E = preinc(_) ; E = predec(_) ), ccl_type_of(E, T), T \== unknown, !.   % (an assignment and a prefix step are lvalues too, [expr.ass]/1 and [expr.pre.incr]/1; 1.6.13) AN LVALUE EXPRESSION IS `T &' ([dcl.type.decltype]): `using __reference = decltype(*__first)' is `const string &' for a `const string *', and read as the plain `string' the range insert's `forward<__reference>' handed an RVALUE on -- the MOVE constructor took each element out of the caller's range
 %% decltype OF A CONDITIONAL over two glvalues of one value category is a reference to their common type, the
 %% qualifiers of both ([expr.cond]/4; 0.109), and decltype OF A CALL through a function reference or pointer is its
-%% declared result: libc++'s common_reference is `decltype(false ? declval<X (&)()>()() : declval<Y (&)()>()())'
+%% declared result: libc++'s common_reference is `decltype(false ? declval<X (&)()>()() : declval<Y (&)()>()())'. A
+%% conditional with ONE THROW ARM is the other arm, its type and its value category ([expr.cond]/2.1; 1.6.14): `decltype(z ?
+%% z : throw 1)' is `int &', where it was the prvalue's `int' and a store through the name went to a copy
+cpp_decltype_of(cond(_, A, B), T) :- ( ccl_throw_arm(A), \+ ccl_throw_arm(B) -> X = B ; ccl_throw_arm(B), \+ ccl_throw_arm(A) -> X = A ), !, cpp_decltype_paren(X, T).
 cpp_decltype_of(cond(_, A, B), T) :- cpp_decltype_of(A, TA), cpp_decltype_of(B, TB), cpp_cond_glvalue(TA, TB, T), !.
 cpp_decltype_of(call(F, _), R) :- \+ F = id(_), ( cpp_decltype_of(F, FT) -> true ; ccl_type_of(F, FT) ), cpp_fn_result(FT, R), ( R = ref(_, _) ; R = rref(_, _) ), !.
 cpp_decltype_of(id(N), T) :- atom(N), cpp_nx_fn_name(N), ccl_declared(N, T0), ccl_resolve_type(T0, fn(R, Ps, V)), !, cpp_fn_nx_on(V, V1), T = fn(R, Ps, V1).   % A NOEXCEPT FUNCTION'S TYPE IS `R(Ps) noexcept' (C++17, [except.spec]/2; 0.198): the name keeps the mark the reader takes off the declared type (ccl_own_fn_nx)
