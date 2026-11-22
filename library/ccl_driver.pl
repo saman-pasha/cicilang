@@ -320,6 +320,8 @@ dr_diag(F, macro_error(N, As, E), _) :- !, dr_prolog_error(E, Text), dr_error(F,
 dr_diag(F, macro_failed(N, As), _) :- !, dr_error(F, 0, ['macro \'', N, '\' failed on ', As]).
 dr_diag(F, ownership(assign_to_const, N, const_type(T)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified type ''', T, '''']).   % clang's words (0.265)
 dr_diag(F, ownership(assign_to_const, _, const_method(M)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to non-static data member within const member function ''', M, '''']).   % C++: through a const member function's `this', clang's words (0.272)
+dr_diag(F, ownership(noreturn_returns, N, return), where(_, line(L))) :- !, dr_error(F, L, ['function ''', N, ''' declared ''noreturn'' should not return']).   % A FUNCTION DECLARED NOT TO RETURN THAT RETURNS (1.6.17), clang's words: its return
+dr_diag(F, ownership(noreturn_returns, _, function_end), where(_, line(L))) :- !, dr_error(F, L, ['function declared ''noreturn'' should not return']).   % ... and its end, which a path reaches
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
@@ -489,6 +491,10 @@ dr_kind(dropped_copied, 'an object that its scope drops, copied whole (move it):
 dr_kind(dropped_field, 'an owner inside an object that its scope drops, taken out:') :- !.
 dr_kind(dropped_temporary, 'a value that has a drop, given no name (nothing drops it):') :- !.
 dr_kind(dropped_memory, 'new memory given no owner (nothing frees it):') :- !.   % (0.309)
+dr_kind(changed_across_setjmp, 'a pointer that changed between a setjmp and a longjmp to it, its state or its value, which the jump does not bring back:') :- !.   % (1.6.17)
+dr_kind(longjmp_over_defer, 'a longjmp over a defer, a destructor or a drop, which it does not run:') :- !.
+dr_kind(longjmp_into_ended, 'a longjmp to a setjmp whose block has ended, with an owner in it:') :- !.
+dr_kind(longjmp_fn_value, 'a function that may longjmp, taken as a value (only a call of it by name is followed):') :- !.
 dr_kind(K, K).
 %% the user's file's `#warning' lines, printed after its read in clang's shape (they count as no error)
 dr_pp_warnings :-

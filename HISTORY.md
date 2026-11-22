@@ -333,6 +333,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.14 | A void value used as a value, refused at its line in clang's words | the second item of the user's "do some not done items": a void value where a value is taken is refused at its line in clang's words, C's by the place and C++'s by the object, in the lowering and in the desugaring; 498 bodies over the forms beside it found and mended the operands of a switch, a subscript and an indirection, C's call value as no lvalue, a conditional with a throw arm, a block's function and `extern` object, `sizeof` of a function, C's cast by clang's order and GNU's cast to a union, C++'s casts of a void value by their target's kind, the qualified call of one function, `dynamic_cast`'s operands, the type text of C++'s types and the line after a landing pad; the broken copies took four rules out, and their new bodies found six more forms -- a class copy-initialized from a void value, a class's parameter and assignment, a member's line in a local class, a local struct's name and `decltype` of a throw arm -- and C's operand read as a value named by its unqualified type, a block pointer no pointer, the library guards out | the 498 bodies as clang's and clang++'s words but 13 recorded limits, and 32 more; 124 broken copies over the first tree, 104 caught, four rules out and fifteen caught by 32 new bodies; 136 over the mended tree, 135 caught, the block pointer's alternative out; 146 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 357, driver 108, objects 29, cross 225, ccllib 623; the C++ pools 379 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 | 1.6.15 | Paths end at calls that do not return and loops that do not end | the third item of the user's "do some not done items", the record of 1.6.10: a block that ends in `exit()`, `abort()` or a trap with new memory live in it was refused, `plain pointer not consumed`; a call of a function declared not to return -- `_Noreturn`, `[[noreturn]]`, GCC's `noreturn`, glibc's and libc++'s so declared -- a trap that ends and `__builtin_unreachable()` end their path now, a cast of one to void, a comma and a conditional of two such arms too, and a loop whose condition is left out or a nonzero constant ends by its breaks alone; the reader keeps the mark on the result (reader 209), a C++ member's leading attribute its notes, the lowering ends the block in `unreachable` (lowering 184); a function's marks are no part of its type, a constructor's neither, which `_Generic` took for one since 1.6.8 | 34 forms as clang's and clang++'s builds but two that the safe part refuses by its own rules; 28 broken copies over the first tree, 25 caught, two rules out and a body for the third; 26 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 381 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 | 1.6.16 | The safe part walks the functions of a namespace and of an `extern "C"` block | found by the probes of the user's "Fix these points", before their step: the desugaring keeps a namespace and an `extern "C"` block as items, which the table's noter and the lowering open, and the check's walk and its three passes before the walk took the units' top level alone -- a namespace's function, a member of a namespace's class, an anonymous namespace's and an `extern "C"` block's were compiled and never walked, their leaks unrefused, a static result freed, a local's address kept in a namespace's vector and a borrow read after a namespace's function stored into a static own array; `ck_item_container/2` and `ck_unit_item/2` open them (lowering 185) | 84 namespace fixtures, 83 as before and one skipped by its `.needs`; 7 broken copies, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 382 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 240 |
+| 1.6.17 | A body that returns never, a noreturn function that returns, and longjmp | the user's "Fix these points", the three records of 1.6.15: a function whose body returns never ends its caller's path, found by a least fixpoint before the walk, and a throw ends its path; a function declared not to return that returns is refused in clang's words, a return at its line and an end at the body's last statement; a longjmp is followed -- the frames that it leaves hold no live memory and no defer, the frames that it lands in hold each pointer as the setjmp saw it and given no value since, a function that sets a global buffer itself catches its own jumps, and a function that may longjmp is called by its name alone; a loop's body walked once, found and recorded (lowering 186) | 42 fixtures; 85 broken copies over the final tree, each caught, three after a body for them, and two rules out; the nets: the flow gate GREEN; reader 173, compile 392, driver 110, objects 29, cross 229, ccllib 623; the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 250 |
 
 ## M5 — the C++ mode
 
@@ -24544,3 +24545,101 @@ run, by the owner's rule of 0.271. No CI job ran.
 - RULES.md (the rule in The safe part), HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.16, the reader 209 and the lowering 185.
+
+
+## 1.6.17 — A body that returns never, a noreturn function that returns, and longjmp
+
+The user's "Fix these points": the three records of 1.6.15 (`WHAT A CALL THAT DOES NOT RETURN LEAVES`). Each was a hole
+of the safe part or a difference from clang: the check read no function's body for the mark, so a call of `static void
+die(int c) { exit(c); }` went on and new memory live after it was refused; a `_Noreturn` function whose end or `return`
+a path reached was not refused, where clang warns; and `longjmp`'s jump was not followed, so a free between a setjmp and
+a jump to it and a free after the jump freed the memory twice, and memory live where a jump left its frame was never
+refused. A probe of the first point found first that the check walked no function of a namespace: 1.6.16.
+
+A BODY THAT RETURNS NEVER (`ck_noreturn_fns/1`, `ck_never/1`, `ck_free_jump/2`). Before the walk, a least fixpoint over
+the program's functions: one whose body holds no `return` and no label (a goto's target or an `asm goto`'s), and whose
+end no path reaches -- a call that does not return or a throw, an `if` whose two branches end so, a loop that does not
+end and that no break leaves, a `do` whose body ends so, a noexcept guard whose body ends so, a block one of whose
+statements ends so with no `break` or `continue` before it that leaves it -- is noted, and its calls end their path as a
+declared one's do. A recursion alone proves nothing, and a `switch` or another `try` is not followed. A THROW ENDS ITS
+PATH: `throw x;` and `throw;` went on in the walk, so a `[[noreturn]]` function that throws had a reachable end. The
+lowering ends no block after an inferred call, as clang's does not.
+
+A FUNCTION DECLARED NOT TO RETURN THAT RETURNS (`ck_declared_noreturn/2`, `ck_noreturn_no_return/2`,
+`ck_body_end_line/3`, `ck_display_name/2`), in clang's words: its first `return`, a dead one too, at its line --
+`function 'f' declared 'noreturn' should not return` -- and its end that the walk reaches, `function declared 'noreturn'
+should not return`, at the line of the body's last statement, clang's being the closing brace's, which the reader keeps
+under -g alone. The mark is the definition's or an earlier declaration's. In C++ the function is named as clang++ names
+it, its class's and an anonymous namespace's prefix and its parameters' keys off the desugaring's name. A `_Noreturn`
+function that ends in a call of a function whose body returns never is not refused, where clang, which reads no body,
+warns.
+
+LONGJMP (`ck_jump_call/3`, `ck_jump_point/3`, `ck_jump_to/5`, `ck_jump_same/4`, `ck_jump_out/2`; `ck_longjmp_fns/1`).
+A setjmp notes its buffer, its state, the depth of its frames and its number in the walk. A jump to a buffer that the
+function set leaves the frames deeper than the setjmp's, which hold no live owner, no new memory and no defer, and lands
+in frames that hold each key as the setjmp saw it, since the second return is walked from that state; a key declared
+since holds no live memory, and a defer pushed since is refused. A jump to a buffer that the function did not set
+leaves every frame, as a return does, with no defer run. The functions that may longjmp are a least fixpoint over the
+calls, with the buffers in each callee's terms -- a global's name, a parameter's place, or any -- and a call of one is a
+jump point; such a function's name as a value is refused, in a body and in a file-scope initializer, since a jump
+through a pointer, a signal or a callback would leave frames whose call no walk followed.
+
+A KEY GIVEN A VALUE SINCE THE SETJMP (`ck_sj_write/1`, `ck_sj_walk/3`, `ck_sj_loop/1`, `ck_sj_dead_block/3`,
+`ck_written_since/2`). The state alone, the rule's first form, missed two forms that the probes beside it found:
+`free(p); p = malloc(4);` between the setjmp and the jump gave p the state that the setjmp saw, and a pointer stepped in
+a loop after a call that may jump the same -- clang -O2's build of the loop reads it at its old place, `stop at 0` where
+clang -O0's prints `stop at 2`. An assignment or a step of a local's path is noted once its walk is done, so that a call
+of its right side that jumps comes before it; a loop's at the loop's entry, since a jump in a later pass comes after
+them; a block that ends every path, in C and with no `goto`, label, `break` or `continue` in it, takes its writes back,
+so the second return's `if (setjmp(e)) { p = NULL; return -1; }` leaves none; and a jump refuses a key of its landing
+frames given a value since its setjmp. A FUNCTION THAT SETS A GLOBAL BUFFER ITSELF CATCHES ITS OWN JUMPS
+(`ck_lj_catches/3`): the run fixture's first form refused the usual pattern, a function whose first statement is `if
+(setjmp(err)) return -1;` being a jump point for its callers; a function whose block sets the buffer in a statement's
+head -- an `if`'s, a `switch`'s or a `while`'s condition, an expression statement, a declaration -- with no call of
+`longjmp` or of a function with a body before it is no jump point for that buffer.
+
+A LOOP'S BODY IS WALKED ONCE (found, recorded): the probes of the jumps in loops found that the check walks a loop's
+body once, since M3 -- `char *p = NULL; for (int i = 0; i < 3; i++) p = malloc(4); free(p);` leaks in the second pass
+and is taken, and a jump that a later pass makes to an earlier pass's setjmp is held to none and taken as a jump out:
+`for (...) { if (i == 2) longjmp(e, 1); if (setjmp(e) != 0) { free(p); return 0; } free(p); p = malloc(4); }` frees
+memory twice under clang -O2 and is taken. It is the next step's.
+
+THE FORMS. 54 forms against clang's and clang++'s builds: 18 C and 14 C++ forms of a function declared not to return, 10
+forms of a body that returns never, 12 forms of a longjmp. Each of clang's warnings is a refusal at its line but four
+ends, at the body's last statement, and one: `a08.c`, a `_Noreturn` function that ends in a call of `g()`, whose body
+calls `exit` -- clang warns, reading no body, and the check finds that the end is never reached. Each form that clang's
+build runs to its end runs so here, or is refused by the safe part's rules: the four bodies whose end the inference does
+not follow (a `return` on one path, a `switch`, a recursion, a loop's `break`), the double free of `e01.c`, memory left
+by a jump, a handler that may longjmp handed to `signal()`, a file-scope pointer to such a function, a longjmp over a
+destructor, a pointer changed between the setjmp and the jump, and the volatile idiom (`lj_volatile.c`, recorded). The
+fixtures of the write rule and of the catching function were built by clang at -O0 and -O2: `lj_stepped.c`,
+`lj_loop_step.c`, `lj_switch_write.c` and `lj_throw_write.cpp` print another value at -O2 than at -O0, and each run
+fixture prints its `.expect` at both.
+
+THE BROKEN COPIES. The first run, 59 copies over the first tree: 56 caught. Not caught: the `goto` form of the bodies
+that leave by name, which no copy can tell from the label's -- every goto names a label of its function, or it is
+refused (C17 6.8.6.1/1) --, out; a setjmp noted again at its site replacing its first note, which only a setjmp in a
+loop's condition reaches, walked twice, out, a jump held to each note; a `while` that catches a break, given a body
+(`nestwhile`). The second run, 85 copies over the final tree -- the 57 of the first run that stay, three of their texts
+changed, and 28 for the rules that the first run left without a copy and for the rules of the writes and of the
+catching function: 82 caught. Not caught, each given a body, and each caught after it: the base of a C++ name with no
+class prefix (`noreturnoverload.cpp`, an overload's return); the rule of a function's own buffer, which the catching
+function covers where the setjmp heads the body (`nested_own` in `longjmps.c`, its setjmp in a branch); and a write
+noted before its right side is walked, which `timed` could not show -- a pointer that holds `NULL` is no key of the
+check, so `NULL` given again changes nothing that it follows -- (`first_word`, a borrow that takes a call's value, the
+call able to jump before the store).
+
+THE PROOF. The nets over the main tree: the flow gate GREEN (783 s); the reader 173 ok (5 skipped), the compiler 392,
+the driver 110 (1 skipped), the objects 29, the cross gate 229 (1 skipped), ccllib 623 (36 programs in three runs, 188
+refused, 21 alone); the C++ pool of the 383 lighter run fixtures, 383 ok over libc++ 22, 21 and 18; the 520 heavier
+ones over 22, 506 ok and 14 skipped by their `.needs`; the C++ gate's later parts by hand, 250 ok. The chain did not
+run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_check.pl` (the inference, the throw, the refusal of a function declared not to return, the jumps, the
+  writes since a setjmp, the functions that catch their own jumps), `library/ccl_driver.pl` (clang's words; the new
+  kinds' texts), `library/ccl_ir.pl` (the lowering 186), `test/driver.sh`, `test/cpp.sh`, the fixtures (`test/c/safe/
+  noreturn_unmarked.c`, whose form now builds, out), the module's version.
+- RULES.md (six rules in The safe part, the rule of 1.6.15 narrowed; the record of 1.6.15 out of Not done, three records
+  in), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.17, the reader 209 and the lowering 186.

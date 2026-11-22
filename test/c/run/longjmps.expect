@@ -1,0 +1,16 @@
+error: unbalanced
+-1 -1 b
+7
+7 3 2 9 1 1 b
+error: unbalanced
+error: bad line
+error: bang
+error: unbalanced
+-1 -2924 290 -5
+error: unbalanced
+error: unbalanced
+error: unbalanced
+error: unbalanced
+error: unbalanced
+-29
+exit 0

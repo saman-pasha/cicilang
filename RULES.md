@@ -11745,13 +11745,97 @@ in the first topic (The ccllib gate).
   (`__builtin_trap()`, `__builtin_verbose_trap`) or `__builtin_unreachable()`; a cast of such a call to void, a comma
   with one on either side, a conditional whose two arms are such calls. Its arguments are walked as any call's; then no
   owner is asked and no defer runs, as the program ends there -- or goes on where `longjmp` leads, a jump that the check
-  follows no more than before. The path went on to the block's end, and new memory still live there was refused, `plain
+  follows since 1.6.17 (below). The path went on to the block's end, and new memory still live there was refused, `plain
   pointer not consumed`, where clang builds the program. A call through a pointer goes on, the pointer's type naming no
-  mark, as clang has it, and the check reads no function's body for the mark: a function that calls `exit` on every path
-  and says nothing of it is a call that returns. `test/c/run/noreturn.c` (each case in a child of its own),
-  `noreturn23.c` (C23's spellings and `unreachable()`), `test/cpp/run/noreturncpp.cpp` (`std::exit`, `std::abort`,
-  `std::_Exit`, `std::quick_exit`, `std::terminate`, a member function in its class and a static one defined after it, a
-  `[[noreturn]]` function that throws, caught); `test/c/safe/noreturn_unmarked.c`, `noreturn_ptr.c`. (1.6.15)
+  mark, as clang has it; a function's body is read for the mark since 1.6.17 (below). `test/c/run/noreturn.c` (each case
+  in a child of its own), `noreturn23.c` (C23's spellings and `unreachable()`), `test/cpp/run/noreturncpp.cpp`
+  (`std::exit`, `std::abort`, `std::_Exit`, `std::quick_exit`, `std::terminate`, a member function in its class and a
+  static one defined after it, a `[[noreturn]]` function that throws, caught); `test/c/safe/noreturn_ptr.c`. (1.6.15,
+  1.6.17)
+- A FUNCTION WHOSE BODY RETURNS NEVER IS A FUNCTION THAT DOES NOT RETURN (1.6.17; `ck_noreturn_fns/1`, `ck_never/1`,
+  `ck_free_jump/2`): before the walk, a function of the program's units -- not the library's -- whose body holds no
+  `return` and no label -- a `goto`'s target, which is in the function or the goto is refused (C17 6.8.6.1/1), or an
+  `asm goto`'s (`ck_leaves_by_name/1`) --, and whose end no path reaches by these rules, is noted
+  (`'$ck_noreturn_fns'`), and a call of it ends its path as a declared one's does (`ck_noreturn_call/1`): a statement
+  that calls a function that does not return, these among them, or throws; an `if` whose two branches end so; a `while`
+  or a `for` whose condition is left out or an integer constant other than zero, and a `do` whose body ends so or whose
+  condition is such a constant, which no break leaves; a `try` that is a noexcept function's guard, whose body ends so;
+  a block one of whose statements ends so, and none before it leaves by a `break` or a `continue` -- one that a loop of
+  it catches (a `while`, a `do`, a `for`, a range-for), or a `break` that a `switch` of it catches, leaves nothing. A
+  least fixpoint: a function that ends in a call of one found already is found in a later round, and a recursion alone
+  proves nothing. The lowering ends no block after such a call, as clang's does not. Until 1.6.17 the check read no
+  body: `static void die(int c) { exit(c); }` was a call that goes on, and new memory live after `die(9);` was refused,
+  `plain pointer not consumed`. A `switch` and any other `try` are not followed: a function that ends in one is not
+  found, and its call goes on. `test/c/run/noreturnbody.c` (each case in a child of its own); refused,
+  `test/c/safe/noreturn_partial.c`, `noreturn_value.c`, `noreturn_switch.c`, `noreturn_loopbreak.c` (a `while` and a
+  `for`), `noreturn_goto.c`, `noreturn_dobreak.c` (two `do`s), `noreturn_docontinue.c`, `noreturn_asmgoto.c`. (1.6.17)
+- A THROW ENDS ITS PATH (1.6.17; `ck_noreturn_call/1`): `throw x;` -- the desugaring's block that ends in the throw --
+  and `throw;`; the walk goes on in a handler, from the try's notes (`ck_try_note/1`), and the throw point's unwinding
+  asks what is live as before (the defer rule). The path went on after the throw: a `[[noreturn]]` function that throws
+  had a reachable end. `test/cpp/run/noreturnthrow.cpp`. (1.6.17)
+- A FUNCTION DECLARED NOT TO RETURN THAT RETURNS IS REFUSED (1.6.17; C17 6.7.4/8, C23 6.7.12.7, [dcl.attr.noreturn]/2:
+  it shall not return to its caller; `ck_declared_noreturn/2`, `ck_noreturn_no_return/2`, `ck_body_end_line/3`,
+  `ck_display_name/2`), in clang's words: its first `return` at its line, a dead one too, as clang warns at each --
+  `function 'f' declared 'noreturn' should not return` --, and its end, where the walk reaches it, `function declared
+  'noreturn' should not return`, at the line of the body's last statement (a noexcept function's guard looked through):
+  clang's is the closing brace's, which the reader keeps under `-g` alone. The mark is the definition's or an earlier
+  declaration's, the table's. A path ends where a call does not return, a loop does not end or a throw leaves, so a
+  `_Noreturn` function that ends in a call of a function whose body returns never is not refused, where clang, which
+  reads no body, warns. In C++ the function is named as clang++ names it: its class's prefix, an anonymous namespace's
+  and its parameters' keys off the desugaring's name. Until 1.6.17 it was not refused: the path after its call was
+  walked by no rule. Refused, `test/c/safe/noreturn_return.c`, `noreturn_end.c`, `noreturn_decl_end.c`,
+  `noreturn_def_end.c`; `test/cpp/noreturnreturn.cpp`, `noreturnmember.cpp`, `noreturnend.cpp`, `noreturnnxend.cpp`,
+  `noreturnanon.cpp`, `noreturnoverload.cpp`; the driver gate holds the lines. (1.6.17)
+- A LONGJMP IS FOLLOWED (1.6.17; C17 7.13.1.1, 7.13.2.1/3; [csetjmp.syn]/4; `ck_jump_call/3`, `ck_jump_point/3`,
+  `ck_jump_to/5`, `ck_jump_same/4`, `ck_jump_out/2`): a call of `setjmp` (glibc's macro is `_setjmp`) or `sigsetjmp`
+  (`__sigsetjmp`) notes its buffer -- the name of its argument, or any --, the state there, the depth of its frames and
+  its number in the walk (`'$ck_setjmps'`, `'$ck_sj_seq'`, reset at each walk of a body; each setjmp is noted, and a
+  jump is held to each of its buffer). A jump point is a call of `longjmp`, `_longjmp`, `siglongjmp` or `__longjmp_chk`,
+  or of a function that may longjmp (below), its buffer named in the caller's terms. A JUMP TO A BUFFER THAT THE
+  FUNCTION SET: the frames that it leaves, deeper than the setjmp's, hold no owner still live, no new memory and no
+  defer -- a `defer`, a destructor, an object's drop: the jump runs none --, and the frames that it lands in hold each
+  key in the state that the setjmp saw and given no value since (below), since the second return is walked from that
+  state: a key whose state changed is `changed_across_setjmp`, a key declared since holds no live owner and no new
+  memory, and a defer pushed since is refused. A JUMP TO A BUFFER THAT IT DID NOT SET -- a caller's, a parameter's, any
+  -- leaves every frame: none holds a live owner, new memory or a defer, and a borrowed struct's own fields are whole,
+  as at a return. A setjmp whose block has ended is no target for a frame that held an owner there
+  (`longjmp_into_ended`). The path was a plain call's: a `longjmp` ended it and asked nothing, and a call that jumped
+  went on -- `char *p = malloc(4); if (setjmp(e) == 0) { free(p); longjmp(e, 1); } free(p);` freed p twice, and memory
+  live where a jump left its frame was never refused. `test/c/run/longjmps.c`; refused,
+  `test/c/safe/lj_freed_between.c`, `lj_changed_borrow.c`, `lj_volatile.c`, `lj_leak_block.c`, `lj_leak_callee.c`,
+  `lj_leak_since.c`, `lj_leak_deep.c`, `lj_into_ended.c`, `lj_incomplete.c`; `test/cpp/lj_dtor.cpp`,
+  `lj_dtor_block.cpp`, `lj_dtor_out.cpp`. (1.6.17)
+- A KEY GIVEN A VALUE SINCE A SETJMP (1.6.17; C17 7.13.2.1/3: its value after the jump is not known; `ck_sj_write/1`,
+  `ck_sj_walk/3`, `ck_sj_loop/1`, `ck_sj_dead_block/3`, `ck_written_since/2`): a local's path that an assignment or a
+  step gives a value while a setjmp is noted is noted with the number of the last setjmp (`'$ck_sj_writes'`), once the
+  walk of the assignment is done, so that a call of its right side that jumps comes before it; a path that a loop gives
+  a value anywhere is noted at the loop's entry, since a jump in a later pass comes after it; a write through a pointer
+  is no local's value, and a pointer that holds no memory that the check follows -- a null, a plain value -- is no key,
+  and a write to it changes nothing that the check follows; and a block that ends every path it walks -- in C, with no
+  `goto`, label, `break` or `continue` in it -- takes its writes back, so `if (setjmp(e)) { p = NULL; return -1; }`
+  leaves none. A jump refuses such a key of the frames that it lands in, whatever its state, `changed_across_setjmp`. By
+  the state alone, `free(p); p = malloc(4);` between the setjmp and the jump gave p the state that the setjmp saw, and a
+  pointer stepped in a loop after a call that may jump the same, where clang -O2's build of the loop prints another
+  place than clang -O0's. Refused, `test/c/safe/lj_renewed.c`, `lj_stepped.c`, `lj_loop_step.c`, `lj_switch_write.c`;
+  `test/cpp/lj_throw_write.cpp`; `test/c/run/longjmps.c` (a write on a path that returns, a call's value that may jump
+  before the store, into a pointer that holds no memory and into a borrow, an own field given new memory through a
+  pointer). (1.6.17)
+- THE FUNCTIONS THAT MAY LONGJMP (1.6.17; `ck_longjmp_fns/1`, `ck_lj_own_key/4`, `ck_lj_close/4`): before the walk, a
+  function of the units -- a library's too, which reaches a program's function through a callback -- whose body calls
+  `longjmp`, or calls a function that may, the buffer carried through the call's arguments, with the buffers it may jump
+  to in its own terms: a global's name, a parameter's place, or any; a buffer of its own is its own setjmp's, no
+  caller's (`'$ck_lj_fns'`, a least fixpoint over the calls). A unit that declares no longjmp has none. A FUNCTION THAT
+  SETS A GLOBAL BUFFER ITSELF CATCHES ITS OWN JUMPS TO IT (`ck_lj_catches/3`): a statement of its body's block holds a
+  setjmp of the buffer in its head -- an `if`'s, a `switch`'s or a `while`'s condition, an expression statement, a
+  declaration's initializers --, and no call of `longjmp` or of a function with a body comes before the setjmp, in the
+  statements before it or in its head; every jump to the buffer while it runs lands in its own setjmp, and its callers
+  are no jump points for it -- they were, and a caller that held memory and set no buffer was refused at the call. AND
+  IS CALLED BY ITS NAME ALONE (`ck_jumping_fn_value/1`, `ck_lj_globals/2`): through a pointer, a signal or a library's
+  callback, its jump would leave frames whose call of it no walk followed, so its name -- `longjmp`'s too -- as a value
+  is refused, `longjmp_fn_value`, in a function's body and in a file-scope initializer; a local of the name is no
+  function. `test/c/run/longjmps.c` (functions that catch their own jumps, by each head, and one whose setjmp of its own
+  buffer is in a branch); refused, `test/c/safe/lj_fn_value.c` (a signal's handler), `lj_fn_global.c`,
+  `lj_late_setjmp.c`, `lj_head_call.c`. (1.6.17)
 - A `goto` IS AN EDGE OF THE FLOW (0.133; `ck_walk_body`, `'$ck_bpath'`, `'$ck_fwd'`, `'$ck_back'`, `'$ck_seed'`): every
   frame the check pushes has an id, and a label is where a goto's state -- the frames it leaves closed, their defers run,
   their owners consumed or leaked, their borrows dangling, as a `break` closes them -- joins the state that falls
@@ -16538,13 +16622,32 @@ Declarations topic of the C++ reader).
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints
   the name differs, the debug hardening mode's of a failed assertion among them.
-- WHAT A CALL THAT DOES NOT RETURN LEAVES (found at 1.6.15; the safe part's topic): the check reads no function's body
-  for the mark, so a function that calls `exit` on every path and is not declared so is a call that returns
-  (`test/c/safe/noreturn_unmarked.c`), as clang's own analysis has it but for `-Wmissing-noreturn`'s hint; a call
-  through a pointer goes on, and GCC's `noreturn` on a pointer's type is dropped; a `_Noreturn` function whose end or
-  `return` is reached is not refused, where clang warns (`function declared 'noreturn' should not return`), and the path
-  after its call is walked by no rule; `longjmp`'s jump is followed no more than before, and the state where `setjmp`
-  returns again is the state before it; a conditional with one such arm goes on.
+- WHAT A CALL THAT DOES NOT RETURN LEAVES (found at 1.6.15, narrowed at 1.6.17; the safe part's topic): a call through a
+  pointer goes on, and GCC's `noreturn` on a pointer's type is dropped; a function not declared not to return whose
+  every path ends through a `switch`, a `try` other than a noexcept function's guard, a `goto` or a label is not found,
+  nor one whose recursion alone never returns, and the library's functions are read for none of it; the end of a
+  function declared not to return is refused at the line of its body's last statement, not of its closing brace, which
+  the reader keeps under `-g` alone; a conditional with one such arm goes on.
+- WHAT A LONGJMP LEAVES (found at 1.6.17; the safe part's topic): the second return of a setjmp is walked from the state
+  that the setjmp saw, so a pointer whose state changed or that was given a value between the setjmp and a jump to it is
+  refused, volatile or not, where C keeps a volatile one's value (C17 7.13.2.1/3) -- `char *volatile buf` given memory
+  after the setjmp and freed after the jump, the cleanup idiom, is refused (`test/c/safe/lj_volatile.c`); a write since
+  the setjmp is noted in the walk's order, not on its path, so a write on an earlier branch, in a block that a `break`,
+  a `continue` or a `goto` leaves, and in C++ in any block is held to a later jump; a jump is held to every setjmp of
+  its buffer that the function walked before it, the earlier ones too, where the last that ran is its target; a buffer
+  is named by its argument's name alone -- a pointer to one, a member, an element are any, and a local that hides a
+  global buffer of its name is the global; a longjmp to a setjmp of a function that has returned is not refused
+  (undefined), and a callee that sets its caller's global buffer again leaves it at the callee's ended frame for the
+  caller's later jumps; a function that may longjmp is refused as a value, not followed through a pointer, a signal or a
+  library's callback; a setjmp outside the contexts that 7.13.1.1/4 allows (`int r = setjmp(e);`) is taken, as clang
+  takes it.
+- A LOOP'S BODY IS WALKED ONCE (found at 1.6.17; the safe part's topic), and a cycle of a backward goto in the order of
+  its first pass: what a pass leaves to the next is not walked again -- `char *p = NULL; for (int i = 0; i < 3; i++) p =
+  malloc(4); free(p);` leaks in the second pass and is taken, where the loop rule asks only that an owner from outside
+  be owned again by the body's end; and a jump that a later pass makes to a setjmp of an earlier pass, which the walk
+  meets before the setjmp, is held to none and taken as a jump out, its landing unchecked -- `for (int i = 0; i < 3;
+  i++) { if (i == 2) longjmp(e, 1); if (setjmp(e) != 0) { free(p); return 0; } free(p); p = malloc(4); }` frees memory
+  twice under clang -O2 and is taken; a write in a goto's cycle after the jump is not noted for its next pass.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and

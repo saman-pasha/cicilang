@@ -1,0 +1,17 @@
+case 0: exit 40
+case 1: exit 41
+case 2: signal abort
+case 3: exit 43
+case 4: exit 44
+case 5: exit 45
+case 6: exit 46
+case 7: exit 44
+case 8: exit 48
+case 9: exit 49
+case 10: exit 50
+case 11: exit 3
+case 12: exit 53
+case 13: exit 101
+case 14: exit 51
+7
+exit 0

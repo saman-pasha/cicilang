@@ -1,0 +1,11 @@
+/* noreturn_value.c (1.6.17): a function that returns a value on one path returns: its call goes on, and new memory still
+   live at main's return is refused */
+#include <stdlib.h>
+static int pick(int c) { if (c) return c; exit(1); }
+int main(void) {
+    char *p = malloc(4);
+    if (!p) return 1;
+    p[0] = 1;
+    pick(1);
+    return 0;
+}

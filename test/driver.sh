@@ -188,6 +188,29 @@ check "a trap's call ends its block in unreachable, a verbose trap's too; a debu
 # program's `_Noreturn' one -- is called, and the block ends in `unreachable' after the call, as clang's does; the safe part
 # ends the path there too (the lowering's topic), so an owner still live at the call is no leak
 check "a call of a function that does not return ends its block in unreachable, as clang's (1.6.15)" "$(printf '#include <stdlib.h>\n_Noreturn static void die(int c) { exit(c); }\nint f(int x) { if (x > 0) return x; if (x < -5) abort(); if (x == -1) die(2); exit(3); }\nint main(void) { return f(1) - 1; }\n' > nr.c && "$CICILI" -S -emit-llvm nr.c -o nr.ll && clang -S -emit-llvm -O0 nr.c -o nrc.ll && for f in nr nrc; do awk '/call void @(exit|abort|die)/ { getline n; if (n ~ /unreachable/) u++ } END { printf "%d ", u + 0 }' $f.ll; done)" "4 4 "
+# A FUNCTION DECLARED NOT TO RETURN THAT RETURNS (1.6.17; C17 6.7.4/8): a return of it is refused at its line, a dead one too,
+# in clang's words, and its end that a path reaches at the line of the body's last statement -- clang's is the closing
+# brace's, which the reader keeps under -g alone; a switch whose cases end, a goto, a longjmp, a call of a function whose
+# body returns never (clang warns there, reading no body), an if and a conditional whose two arms end, and the loops that do
+# not end leave no path to the end. Through 1.6.16 none was refused
+nr_pre='#include <stdlib.h>\n#include <setjmp.h>\nstatic jmp_buf env;'
+check "a function declared not to return that returns is refused in clang's words: a return at its line, an end at its body's last statement (1.6.17)" "$(n=0; for body in '_Noreturn void a(void) { exit(1); return; }' '_Noreturn void a(void) { while (1) { } return; }' '_Noreturn int a(void) { return 1; }' '_Noreturn void a(int x) { if (x) { return; } exit(0); }' '_Noreturn void a(void) { for (;;) { break; } }' '_Noreturn void a(void);\nvoid a(void) { }' '__attribute__((noreturn)) void a(int x) {\n    if (x)\n        exit(1);\n}' '_Noreturn void a(int x) {\n    char *p = malloc(4);\n    if (!p) exit(1);\n    p[0] = (char)x;\n    free(p);\n}' '_Noreturn void a(int x) {\n    while (x > 0) {\n        x--;\n    }\n}' '_Noreturn int a(void) { exit(1); }' '_Noreturn void a(int x) { switch (x) { case 0: exit(0); default: abort(); } }' '_Noreturn void a(void) { goto x; x: exit(0); }' '_Noreturn void a(void) { longjmp(env, 1); }' 'static void g(void) { exit(3); }\n_Noreturn void a(void) { g(); }' '_Noreturn void a(int x) { if (x) exit(1); else abort(); }' '_Noreturn void a(int x) { do { } while (1); }' '_Noreturn void a(int x) { x ? exit(1) : abort(); }'; do n=$((n + 1)); printf '%b\n%b\nint main(void) { return 0; }\n' "$nr_pre" "$body" > nr$n.c; o=$("$CICILI" -std=c17 -fsyntax-only nr$n.c 2>&1 | head -1); if [ -n "$o" ]; then echo "$o"; else echo "nr$n.c: ok"; fi; done)" "nr1.c:4: error: function 'a' declared 'noreturn' should not return
+nr2.c:4: error: function 'a' declared 'noreturn' should not return
+nr3.c:4: error: function 'a' declared 'noreturn' should not return
+nr4.c:4: error: function 'a' declared 'noreturn' should not return
+nr5.c:4: error: function declared 'noreturn' should not return
+nr6.c:5: error: function declared 'noreturn' should not return
+nr7.c:5: error: function declared 'noreturn' should not return
+nr8.c:8: error: function declared 'noreturn' should not return
+nr9.c:5: error: function declared 'noreturn' should not return
+nr10.c: ok
+nr11.c: ok
+nr12.c: ok
+nr13.c: ok
+nr14.c: ok
+nr15.c: ok
+nr16.c: ok
+nr17.c: ok"
 check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cicilang: error: unknown argument: '--frobnicate'"
 check "no input files is an error" "$("$CICILI" -c 2>&1)" "cicilang: error: no input files"
 check "the tie: a broken tie is refused in clang's shape" "$("$CICILI" -fsyntax-only "$R/safe/tie_arg.c" 2>&1 | head -1 | sed "s|$R/||")" "safe/tie_arg.c:4: error: value not within its tie: 'b' in call(id(gap),[id(a),id(b)]) (function main)"

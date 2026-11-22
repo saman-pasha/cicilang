@@ -139,8 +139,8 @@
 
 :- use_module(library(ccl_infer)).
 
-ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_units(Units).   % no lowering's library functions (0.212)
-ccl_check_noted(Units) :- ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_units(Units).   % on the table the caller built
+ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_noreturn_fns(Units), ck_longjmp_fns(Units), ck_units(Units).   % no lowering's library functions (0.212)
+ccl_check_noted(Units) :- ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_noreturn_fns(Units), ck_longjmp_fns(Units), ck_units(Units).   % on the table the caller built
 ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note_program(Is), ck_note_units(Us).
 ck_units([]).
@@ -187,9 +187,31 @@ ck_function(L, Ret, Name, Params0, Body) :-
     ck_param_selves(Names, Selves), append(Owners, Selves, Owners0), ck_static_array_frame(Names, SAs), append(Owners0, SAs, Owners1),
     ck_param_ties(Params, [], st([fr(Owners1, [])]), St0),
     ck_param_dtors(Params, Body, Body1),
+    ( ck_declared_noreturn(Name, Ret) -> NR = yes, ck_noreturn_no_return(Name, Body1) ; NR = no ),
     ck_walk_body(Body1, St0, St1),
-    ( St1 == dead -> true ; St1 = st([fr(Os, _)]), ck_complete_owners(Os, function_end), ck_leaks_all(St1, function_end) ),
+    (   St1 == dead -> true
+    ;   NR == yes -> ck_body_end_line(L, Body1, EL), nb_setval('$ck_line', EL), ck_display_name(Name, DN), ck_fail(noreturn_returns, DN, function_end)
+    ;   St1 = st([fr(Os, _)]), ck_complete_owners(Os, function_end), ck_leaks_all(St1, function_end) ),
     ccl_scope_pop.
+%% A FUNCTION DECLARED NOT TO RETURN THAT RETURNS (1.6.17; C17 6.7.4/8, [dcl.attr.noreturn]/2: it shall not return to its
+%% caller): its first `return' is refused at its line, a dead one too, as clang warns at each -- `function 'f' declared
+%% 'noreturn' should not return' --, and its end, where the walk reaches it, at the line of the body's last statement --
+%% clang's is the closing brace's, which the reader keeps under -g alone --, `function declared 'noreturn' should not
+%% return'. The mark is the definition's or an earlier declaration's, the table's (ck_declared_noreturn/2); a path ends where
+%% a call does not return, a loop does not end or a throw leaves (ck_noreturn_call/1). In C++ the name is the function's own:
+%% its class's prefix, an anonymous namespace's and its parameters' keys are off (ck_display_name/2)
+ck_declared_noreturn(_, Ret) :- ccl_noreturn_type(fn(Ret, [], false)), !.
+ck_declared_noreturn(Name, _) :- catch(ccl_type_of(id(Name), T), _, fail), T \== unknown, ccl_resolve_type(T, R), ccl_noreturn_type(R), !.
+ck_noreturn_no_return(Name, Body) :-
+    ( ck_sub_term(R, Body), ( R = return(L) ; R = return(L, _) ), integer(L) -> nb_setval('$ck_line', L), ck_display_name(Name, DN), ck_fail(noreturn_returns, DN, return) ; true ).
+ck_body_end_line(_, block(Is), L) :- reverse(Is, Rs), member(I, Rs), compound(I), arg(1, I, L1), integer(L1), L1 > 0, !,
+    ( I = try(_, B, [catch(terminate, _)]) -> ck_body_end_line(L1, B, L) ; L = L1 ).
+ck_body_end_line(L, _, L).
+ck_display_name(N, D) :- ccl_lang(cpp), atom(N), atomic_list_concat(Cs, '.', N), Cs = [_, _|_], !, length(Cs, Len), K is Len - 1, ck_display_scoped(K, Cs, D).
+ck_display_name(N, N).
+ck_display_scoped(0, [D|_], D) :- !.
+ck_display_scoped(K, Cs, D) :- length(Pre, K), append(Pre, [D0|_], Cs), atomic_list_concat(Pre, '.', P),
+    ( ( catch('$cpp_cls'(P, _), _, fail) ; sub_atom(P, 0, _, _, '_GLOBAL__N') ) -> D = D0 ; K1 is K - 1, ck_display_scoped(K1, Cs, D) ).
 %% A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS DESTROYED BY THE CALLER (0.207; the Itanium C++ ABI's 3.1.2.3, the
 %% desugaring's cpp_byval_arg/3), and the callee's code destroys no parameter; to the check it is the callee's object all the
 %% same, moved from or not, and its destructor runs at every exit: the walk takes a defer of it at the body's head, as the
@@ -1530,7 +1552,7 @@ ck_merge_state(_, _, partial).
 
 %% ---- statements: ck_stmt(+S, +St0, -St), St dead when the path ends here --------------
 ck_stmt(S, dead, dead) :- S \= label(_, _, _), !.   % dead code is not walked -- but a LABEL is, the gotos to it may bring a state (0.133)
-ck_stmt(block(Is), St0, St) :- !, ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop.
+ck_stmt(block(Is), St0, St) :- !, ck_sj_mark(M), ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop, ck_sj_dead_block(St, Is, M).
 ck_stmt('$splice'(Is), St0, St) :- !, ck_stmts(Is, St0, St).
 ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( memberchk(Sto, [static, extern]) -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St), ccl_note_block_constants(Base, Vs).   % a C23 `constexpr' local is a constant of its block (0.195)
 ck_stmt(typedef(_, Vs), St, St) :- !, ( ccl_lang(c) -> ccl_block_typedefs(Vs) ; true ).   % a C block's typedef is its block's (1.6.2)
@@ -1563,12 +1585,12 @@ ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L),
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
-ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St1, St2), ck_expr(C, St2, St).
-ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St0, St1), ck_expr(C, St1, St).
+ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St1, St2), ck_expr(C, St2, St).
+ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_sj_loop(do(L, S, C)), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St0, St1), ck_expr(C, St1, St).
 ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        % C++: a range-for over an array is the for it stands for
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
 ck_stmt(using(_, _), St, St) :- !.
-ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L),
+ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L), ck_sj_loop(for(L, none, C, Step, S)),
     ( member(X, [Init, Step]), X \= decl(_, _), X \== none, ck_dropped_memory(X, D) -> ck_dropped_name(D, N), ck_fail(dropped_memory, N, D) ; true ),
     ccl_scope_push, ck_bpath_push, ck_push(St0, St1),
     ( Init = decl(_, Vs) -> ck_decls(Vs, St1, St2) ; Init == none -> St2 = St1 ; ck_anchor_addrs(Init, St1, St1a), ck_expr(Init, St1a, St2) ),
@@ -1619,6 +1641,49 @@ ck_noreturn_call(call(id(F), _)) :- atom(F), catch(ccl_type_of(id(F), T), _, fai
 ck_noreturn_call(cast(T, E)) :- ccl_void_typed(T), !, ck_noreturn_call(E).                 % `(void)exit(1);'
 ck_noreturn_call(comma(A, B)) :- ( ck_noreturn_call(A) -> true ; ck_noreturn_call(B) ), !.   % `(free(p), exit(1));': a comma evaluates both
 ck_noreturn_call(cond(_, A, B)) :- ck_noreturn_call(A), ck_noreturn_call(B), !.             % `c ? exit(1) : abort();': both arms end
+ck_noreturn_call(call(id(F), _)) :- atom(F), nb_current('$ck_noreturn_fns', Fs), memberchk(F, Fs), !.   % a function whose body returns never (1.6.17, below)
+ck_noreturn_call(eh_throw(_, _, _)) :- !.   % A THROW ENDS ITS PATH (1.6.17): the walk goes on in a handler, from the try's notes (ck_try_note/1), never after it
+ck_noreturn_call(eh_rethrow) :- !.          % ... and `throw;'
+ck_noreturn_call(stmt_expr(block(Is))) :- ck_never_list(Is), !.   % `throw x;', the desugaring's block that throws at its end
+%% A FUNCTION WHOSE BODY RETURNS NEVER (1.6.17): a function of the program's units, not the library's, whose body holds no
+%% `return' and no label -- a `goto''s target, which is in the function or the goto is refused (C17 6.8.6.1/1), or an
+%% `asm goto''s (ck_leaves_by_name/1) --, and whose end no path reaches by these rules (ck_never/1): a call that does not
+%% return, these functions' among them, or a throw; an `if' whose two branches end so; a loop whose condition is left out or an integer
+%% constant other than zero, which no break leaves; a block one of whose statements ends so, none before it leaving by a
+%% break or a continue (ck_free_jump/2). A least fixpoint: a function that ends in a call of one already found is found in
+%% a later round, and a recursion alone proves nothing. Its calls end the caller's path as a declared one's do
+%% ('$ck_noreturn_fns'); the lowering ends no block after them, as clang's does not. A switch and a try other than a
+%% noexcept function's guard are not followed: a function that ends in one is not found, and its calls go on as before.
+%% `static void die(int c) { exit(c); }' was a call that goes on, and new memory live after `die(9);' was refused
+ck_noreturn_fns(Units) :- nb_setval('$ck_noreturn_fns', []),
+    findall(F-B, ( ck_unit_item(Units, function(_, _, _, F, _, _, B)), atom(F), B \== none, \+ ck_library_fn(F), \+ ck_leaves_by_name(B) ), Cs),
+    ck_noreturn_rounds(Cs).
+ck_noreturn_rounds(Cs) :- ck_noreturn_round(Cs, Rest, Found), ( Found == no -> true ; ck_noreturn_rounds(Rest) ).
+ck_noreturn_round([], [], no).
+ck_noreturn_round([F-B|Cs], Rest, Found) :-
+    (   ck_never(B) -> nb_getval('$ck_noreturn_fns', Fs), nb_setval('$ck_noreturn_fns', [F|Fs]), Found = yes, ck_noreturn_round(Cs, Rest, _)
+    ;   Rest = [F-B|Rest1], ck_noreturn_round(Cs, Rest1, Found) ).
+ck_leaves_by_name(B) :- ck_sub_term(T, B), compound(T), functor(T, Fn, Ar), ck_leaving_form(Fn, Ar), !.
+ck_leaving_form(return, 1).
+ck_leaving_form(return, 2).
+ck_leaving_form(label, 3).   % a goto's target, or an `asm goto''s
+ck_never(expr(_, E)) :- !, ck_noreturn_call(E).
+ck_never(block(Is)) :- !, ck_never_list(Is).
+ck_never(if(_, _, T, E)) :- !, ck_never(T), ck_never(E).   % an `if' with no `else' has `none', which ends no path
+ck_never(while(_, C, S)) :- !, ck_loop_ends(C, never), \+ ck_free_jump(S, break).
+ck_never(do(_, S, C)) :- !, ( ck_never(S) -> true ; ck_loop_ends(C, never), \+ ck_free_jump(S, break) ).
+ck_never(for(_, _, C, _, S)) :- !, ck_loop_ends(C, never), \+ ck_free_jump(S, break).
+ck_never(try(_, B, [catch(terminate, _)])) :- !, ck_never(B).
+ck_never_list([S|Ss]) :- ( ck_never(S) -> true ; \+ ck_free_jump(S, break), \+ ck_free_jump(S, continue), ck_never_list(Ss) ).
+%% a break or a continue in S that leaves S: none that a loop of S catches, nor a break that a switch of S catches
+ck_free_jump(break(_), break) :- !.
+ck_free_jump(continue(_), continue) :- !.
+ck_free_jump(T, J) :- compound(T), \+ ck_jump_catcher(T, J), T =.. [_|As], member(A, As), ck_free_jump(A, J), !.
+ck_jump_catcher(while(_, _, _), _).
+ck_jump_catcher(do(_, _, _), _).
+ck_jump_catcher(for(_, _, _, _, _), _).
+ck_jump_catcher(for_each(_, _, _, _), _).
+ck_jump_catcher(switch(_, _, _), break).
 %% AN OBJECT'S DROP AT AN EXIT (0.262; library(ccl_syntax)'s ccl_autodrop_decl/2): the drop of V ran, so V's own fields
 %% are gone, each live, null, moved or partial -- a move left it null behind (the lowering's `move'), and the drop frees
 %% what is there -- and what borrowed them dangles; an unset one is garbage, refused
@@ -2094,7 +2159,7 @@ ck_skipped_owner(S0, K, L) :- ( memberchk(S0, [loose, array]) -> ck_fail(goto_wi
 %% the walk of a function's body, again while a back edge changes a label's state
 ck_walk_body(Body, St0, St) :- ck_walk_snapshot(Snap), nb_setval('$ck_seed', []), ck_walk_iter(Body, St0, Snap, 1, St).
 ck_walk_iter(Body, St0, Snap, I, St) :-
-    ck_walk_restore(Snap), nb_setval('$ck_bpath', []), nb_setval('$ck_labels', []), nb_setval('$ck_fwd', []), nb_setval('$ck_back', []),
+    ck_walk_restore(Snap), nb_setval('$ck_bpath', []), nb_setval('$ck_labels', []), nb_setval('$ck_fwd', []), nb_setval('$ck_back', []), nb_setval('$ck_setjmps', []), nb_setval('$ck_sj_seq', 0), nb_setval('$ck_sj_writes', []), nb_setval('$ck_sj_walking', []),
     ck_stmt(Body, St0, St1),
     nb_getval('$ck_fwd', Pend), ( Pend = [g(PL, _, _, PLn)|_] -> ck_line(PLn), ck_fail(not_checked, goto, goto(PL)) ; true ),
     nb_getval('$ck_back', Back), nb_getval('$ck_seed', Seed0), ck_seed_merge(Back, Seed0, Seed1),
@@ -2240,6 +2305,7 @@ ck_expr(member(C, F), _, _) :- ck_dropped_value(C), !, ck_fail(dropped_temporary
 ck_expr(comma(A, _), _, _) :- ck_dropped_memory(A, D), !, ck_dropped_name(D, N), ck_fail(dropped_memory, N, D).   % a comma's left operand is thrown away wherever it stands (0.309)
 ck_expr(addr(E), _, _) :- ccl_c_no_lvalue(E), !, ( catch(ccl_type_of(E, T0), _, fail), T0 \== unknown, catch(ck_c_type_text(T0, A0), _, fail) -> A = A0 ; A = '?' ), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(address_of_rvalue(A)), where(Fn, line(L)))).   % C: THE ADDRESS OF A FORM THAT IS NO LVALUE (1.6.13, ccl_c_no_lvalue/1), in clang's words, before the lowering meets it: `int *p = &(c ? a : b);' was `plain pointer not consumed'
 ck_expr(list_lit(L, _, _), _, _) :- !, nb_getval('$ck_fn', Fn), throw(error(not_lowered(list_literal_with_no_type_given), where(Fn, line(L)))).   % a literal where no place gives it a type (0.263)
+ck_expr(id(F), _, _) :- ck_jumping_fn_value(F), !, ck_fail(longjmp_fn_value, F, id(F)).   % a function that may longjmp, as a value (1.6.17, ck_jump_call/3)
 ck_expr(id(N), St, St) :- !, ( ck_state(St, N, S) -> ck_read(N, S) ; true ), ck_held_read(St, N).   % what a holder's storage holds is read with it (0.217)
 ck_expr(int(_), St, St) :- !.
 ck_expr(uint(_), St, St) :- !.
@@ -2267,6 +2333,7 @@ ck_expr(arrow(E, F), St0, St) :- ck_path(arrow(E, F), K), ck_state(St0, K, S), !
 ck_expr(arrow(E, _), St0, St) :- !, ck_expr(E, St0, St).
 ck_expr(index(A, I), St0, St) :- !, ck_expr(A, St0, St1), ck_expr(I, St1, St).
 ck_expr(bin(Op, A, B), St0, St) :- Op \== '&&', Op \== '||', !, ck_expr(A, St0, St1), ck_expr(B, St1, St).
+ck_expr(E, St0, St) :- ck_sj_written(E, _), nb_current('$ck_setjmps', [_|_]), \+ ck_sj_walking(E), !, ck_sj_walk(E, St0, St).   % A KEY GIVEN A VALUE SINCE A SETJMP (1.6.17): walked by the clauses below, then noted (ck_sj_write/1)
 ck_expr(E, St0, St) :- ck_unary_shape(E, A), !, ck_expr(A, St0, St).           % a wrapper around one expression: its child
 ck_expr(move(E), St0, St) :- ck_own_elem(E, K), !, ck_expr(E, St0, St1), ck_dangle(St1, K, St).   % an element out: the array's borrows dangle
 ck_expr(move(E), St0, St) :- ck_path(E, K), ck_by_value(E), ck_own_under(St0, K, Fs), Fs \== [], !, ck_expr(E, St0, St1), ck_move_out(St1, Fs, move(E), St).   % a struct with owners moved whole: its fields go
@@ -2285,7 +2352,7 @@ ck_expr(call(id(memset), [addr(P), V, N]), St0, St) :- ck_path(P, K), ck_fill_ke
 ck_expr(call(id(F), [addr(_)]), St, St) :- ck_lib_dtor(F), !.   % a library object's destructor reads nothing it holds (0.216)
 ck_expr(call(id(F), [A0|As]), St0, St) :- ck_lib_replacing(F, A0, St0, Obj), !,   % what it held replaced: not read (0.216)
     ( A0 = addr(P0), ck_path(P0, _) -> St0a = St0 ; ck_expr(A0, St0, St0a) ), ck_args_(As, id(F), 2, St0a, St1), ck_throw_point(id(F), St1), ck_lib_replace(Obj, F, [A0|As], St0, St1, St).
-ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St1), ck_throw_point(id(F), Args, St0, St1), ck_lib_store(F, Args, St1, St2), ck_flow_store(F, Args, St2, St3), ck_lib_free_store(F, Args, St3, St).   % what a library object is handed it holds (0.216), what a function of the program or a free library function stores (0.217)
+ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St1), ck_throw_point(id(F), Args, St0, St1), ck_jump_call(F, Args, St1), ck_lib_store(F, Args, St1, St2), ck_flow_store(F, Args, St2, St3), ck_lib_free_store(F, Args, St3, St).   % what a library object is handed it holds (0.216), what a function of the program or a free library function stores (0.217)
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),
     ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St1b), ck_static_replaced(none, St1b, St) ), ck_throw_point(F, St).
@@ -2368,6 +2435,124 @@ ck_expr(compound_lit(T, init(Items)), St0, St) :- ck_view_type(T), !, ck_view_it
 ck_expr(compound_lit(T, init(Items)), St0, St) :- !, ck_init_slots(Items, T, none, St0, St).
 ck_expr(E, St0, St) :- compound(E), !, E =.. [_|Args], ck_exprs(Args, St0, St).
 ck_expr(_, St, St).
+%% A LONGJMP AND WHERE IT LANDS (1.6.17; C17 7.13.1.1, 7.13.2.1): a call of `setjmp' (glibc's macro is `_setjmp') or
+%% `sigsetjmp' (`__sigsetjmp') notes its buffer -- a name, or any -- with the state there, the depth of its frames and its
+%% number in the walk ('$ck_setjmps', '$ck_sj_seq', reset at each walk of a body; each setjmp is noted, and a jump is held
+%% to each of its buffer). A jump point is a call of `longjmp', `_longjmp', `siglongjmp' or `__longjmp_chk', or of a
+%% function that may longjmp ('$ck_lj_fns', ck_longjmp_fns/1), its buffer named in the caller's terms. A jump to a buffer
+%% that the function set: the frames it leaves, deeper than the setjmp's, hold no owner still live, no new memory and no
+%% defer -- a destructor, an object's drop, a `defer': the jump runs none --, and the frames it lands in hold each key in
+%% the state that the setjmp saw, and given no value since (ck_sj_write/1), since the second return is walked from that
+%% state; a key declared since holds no live owner, and a defer pushed since is refused. A jump to a buffer that it did not
+%% set -- a caller's, a parameter's, any -- leaves every frame: none holds a live owner, new memory or a defer, and a
+%% borrowed struct's own fields are whole, as at a return. A setjmp whose block has ended is no target for a frame that
+%% held an owner. The path was a plain call's: a longjmp ended it and asked nothing, and a call that jumped went on --
+%% `char *p = malloc(4); if (setjmp(e) == 0) { free(p); longjmp(e, 1); } free(p);' freed p twice, and memory live at a
+%% jump that left its frame was never refused
+ck_setjmp_fn(F) :- memberchk(F, [setjmp, '_setjmp', sigsetjmp, '__sigsetjmp']).
+ck_longjmp_fn(F) :- memberchk(F, [longjmp, '_longjmp', siglongjmp, '__longjmp_chk']).
+ck_jump_call(_, _, dead) :- !.
+ck_jump_call(F, [E|_], St) :- ck_setjmp_fn(F), !, ck_env_key(E, K), St = st(Frs), length(Frs, D),
+    ( nb_current('$ck_setjmps', Rs0) -> true ; Rs0 = [] ), ( nb_current('$ck_sj_seq', N0) -> true ; N0 = 0 ), N is N0 + 1,
+    nb_setval('$ck_sj_seq', N), nb_setval('$ck_setjmps', [sj(K, D, St, N)|Rs0]).
+ck_jump_call(F, [E|_], St) :- ck_longjmp_fn(F), !, ck_env_key(E, K), ck_jump_point(K, F, St).
+ck_jump_call(F, Args, St) :- nb_current('$ck_lj_fns', Ls), memberchk(F-Ks, Ls), !, forall(member(K0, Ks), ( ck_lj_key_at(K0, Args, K), ck_jump_point(K, F, St) )).
+ck_jump_call(_, _, _).
+%% the buffer that an argument names: its name, or any
+ck_env_key(E, K) :- ( E = id(X), atom(X) -> K = X ; K = any ).
+%% a callee's buffer in the caller's terms: a global's name, the argument at a parameter's place, or any
+ck_lj_key_at(g(X), _, X) :- !.
+ck_lj_key_at(p(I), Args, K) :- nth1(I, Args, A), !, ck_env_key(A, K).
+ck_lj_key_at(_, _, any).
+ck_jump_point(K, F, St) :- ( nb_current('$ck_setjmps', Rs) -> true ; Rs = [] ),
+    ( K == any -> Ts = Rs ; findall(R, ( member(R, Rs), R = sj(K1, _, _, _), K1 == K ), Ts) ),
+    forall(member(sj(_, D, StS, N), Ts), ck_jump_to(F, D, StS, N, St)),
+    ( ( Ts == [] ; K == any ) -> ck_jump_out(F, St) ; true ).
+ck_jump_to(F, D, st(FrsS), Seq, st(Frs)) :- length(Frs, N),
+    (   N < D -> K is D - N, length(Closed, K), append(Closed, _, FrsS),
+        ( member(fr(Os, _), Closed), member(V-S, Os), ( ck_owner_state(S) ; S == loose ) -> ck_fail(longjmp_into_ended, V, longjmp) ; true )
+    ;   K is N - D, length(Deeper, K), append(Deeper, Outer, Frs),
+        ( member(fr(_, Ds), Deeper), Ds \== [] -> ck_fail(longjmp_over_defer, F, longjmp) ; true ),
+        ck_leaks_frames(Deeper, longjmp), ck_jump_same(F, Seq, Outer, FrsS) ).
+ck_jump_same(_, _, [], []).
+ck_jump_same(F, Seq, [fr(Os, Ds)|T], [fr(OsS, DsS)|TS]) :- ( Ds == DsS -> true ; ck_fail(longjmp_over_defer, F, longjmp) ),
+    forall(member(V-S, Os), ( memberchk(V-SS, OsS) -> ( S == SS, \+ ck_written_since(V, Seq) -> true ; ck_fail(changed_across_setjmp, V, longjmp) ) ; ck_leaks([V-S], longjmp) )),
+    ck_jump_same(F, Seq, T, TS).
+%% A KEY GIVEN A VALUE SINCE A SETJMP (1.6.17; C17 7.13.2.1/3: its value after the jump is not known): a local's path that
+%% an assignment or a step gives a value while a setjmp is noted, once its walk is done ('$ck_sj_writes', with the number
+%% of the last setjmp noted), or that a loop gives a value anywhere, at the loop's entry, since a jump in a later pass
+%% comes after it (ck_sj_loop/1); a write through a pointer is no local's value, and a block that ends every path it walks
+%% -- in C, and with no goto, label, break or continue in it -- takes its writes back (ck_sj_dead_block/3). A jump refuses
+%% such a key whatever its state, as `changed_across_setjmp': `free(p); p = malloc(4);' between the setjmp and the jump
+%% gave p the state that the setjmp saw, and a pointer stepped in a loop the same
+ck_sj_write(E) :- ck_sj_written(E, L), ck_sj_local_path(L, K), !, ck_sj_note_write(K).
+ck_sj_write(_).
+ck_sj_note_write(K) :- nb_getval('$ck_sj_seq', N), ( nb_current('$ck_sj_writes', W0) -> true ; W0 = [] ), nb_setval('$ck_sj_writes', [w(K, N)|W0]).
+ck_sj_written(assign(_, L, _), L).
+ck_sj_written(E, L) :- compound(E), E =.. [F, L], memberchk(F, [preinc, predec, postinc, postdec]).
+ck_sj_local_path(L, K) :- ck_path(L, K), \+ sub_atom(K, _, _, _, '->').
+ck_sj_loop(Loop) :- ( nb_current('$ck_setjmps', [_|_]) -> forall(( ck_sub_term(T, Loop), ck_sj_written(T, L), ck_sj_local_path(L, K) ), ck_sj_note_write(K)) ; true ).
+ck_sj_mark(M) :- ( nb_current('$ck_sj_writes', M) -> true ; M = [] ).
+ck_sj_dead_block(dead, Is, M) :- \+ ccl_lang(cpp), \+ ( ck_sub_term(T, Is), compound(T), functor(T, F, _), memberchk(F, [goto, label, break, continue]) ), !, nb_setval('$ck_sj_writes', M).
+ck_sj_dead_block(_, _, _).
+ck_written_since(V, Seq) :- nb_current('$ck_sj_writes', Ws), member(w(K, S), Ws), S >= Seq,
+    ( K == V -> true ; atom_concat(K, Rest, V), ( sub_atom(Rest, 0, _, _, '.') ; sub_atom(Rest, 0, _, _, '->') ) ), !.
+%% the walk of an assignment or a step while a setjmp is noted: the clauses below walk it, then its write is noted
+%% ('$ck_sj_walking' holds the forms whose walks the clauses below do)
+ck_sj_walking(E) :- nb_current('$ck_sj_walking', Ws), member(W, Ws), W == E, !.
+ck_sj_walk(E, St0, St) :- ( nb_current('$ck_sj_walking', W0) -> true ; W0 = [] ), nb_setval('$ck_sj_walking', [E|W0]),
+    (   catch(ck_expr(E, St0, St1), X, ( nb_setval('$ck_sj_walking', W0), throw(X) ))
+    ->  nb_setval('$ck_sj_walking', W0), ck_sj_write(E), St = St1
+    ;   nb_setval('$ck_sj_walking', W0), fail ).
+ck_jump_out(F, st(Frs)) :- ( member(fr(_, Ds), Frs), Ds \== [] -> ck_fail(longjmp_over_defer, F, longjmp) ; true ),
+    ck_leaks_frames(Frs, longjmp), ( last(Frs, fr(Os, _)) -> ck_complete_owners(Os, longjmp) ; true ).
+%% A FUNCTION THAT MAY LONGJMP IS CALLED BY ITS NAME ALONE (1.6.17): through a pointer, a signal or a library's callback its
+%% jump would leave frames whose call of it no walk followed, so its name -- `longjmp''s too -- as a value is refused, in
+%% a function's body and in a file-scope initializer (ck_lj_globals/2)
+ck_jumping_fn_value(F) :- atom(F), ( ck_longjmp_fn(F) -> true ; nb_current('$ck_lj_fns', Ls), memberchk(F-_, Ls) ),
+    catch(ccl_type_of(id(F), T), _, fail), T \== unknown, catch(ccl_resolve_type(T, fn(_, _, _)), _, fail).
+%% THE FUNCTIONS THAT MAY LONGJMP (1.6.17), each with the buffers it may jump to in its own terms: a global's name g(X), a
+%% parameter's place p(I), or any; a buffer of its own is its own setjmp's, no caller's. A function of the units -- a
+%% library's too, which reaches a program's function through a callback -- whose body calls longjmp, or calls a function
+%% that may, the buffer carried through the call's arguments: a least fixpoint over the calls ('$ck_lj_fns'). A unit that
+%% declares no longjmp has none
+ck_longjmp_fns(Units) :- nb_setval('$ck_lj_fns', []),
+    (   \+ ( ck_longjmp_fn(J0), catch(ccl_type_of(id(J0), T0), _, fail), T0 \== unknown ) -> true
+    ;   findall(f(F, Ps, B), ( ck_unit_item(Units, function(_, _, _, F, Ps, _, B)), atom(F), B \== none ), Fns),
+        findall(F-K, ( member(f(F, Ps, B), Fns), ck_sub_term(call(id(J), [E|_]), B), atom(J), ck_longjmp_fn(J), ck_env_key(E, X), ck_lj_own_key(X, Ps, B, K), ck_lj_keeps(B, Fns, K) ), P0),
+        sort(P0, P1), ck_lj_close(Fns, P1, 64, P), ck_lj_group(P, L), nb_setval('$ck_lj_fns', L), ck_lj_globals(Units, L) ).
+ck_lj_own_key(any, _, _, any) :- !.
+ck_lj_own_key(X, Ps, _, p(I)) :- nth1(I, Ps, P), arg(2, P, X), !.
+ck_lj_own_key(X, _, B, _) :- ck_sub_term(declaration(_, _, _, Vs), B), memberchk(var(X, _, _), Vs), !, fail.   % its own buffer
+ck_lj_own_key(X, _, _, g(X)).
+ck_lj_close(_, P, 0, P) :- !.
+ck_lj_close(Fns, P0, N, P) :- ck_lj_group(P0, L0),
+    findall(F-K, ( member(f(F, Ps, B), Fns), ck_sub_term(call(id(G), Args), B), atom(G), memberchk(G-KsG, L0), member(KG, KsG), ck_lj_caller_key(KG, Args, Ps, B, K), ck_lj_keeps(B, Fns, K) ), New),
+    append(P0, New, P1), sort(P1, P2), ( P2 == P0 -> P = P0 ; N1 is N - 1, ck_lj_close(Fns, P2, N1, P) ).
+ck_lj_caller_key(g(X), _, _, _, g(X)) :- !.
+ck_lj_caller_key(p(I), Args, Ps, B, K) :- nth1(I, Args, A), !, ck_env_key(A, X), ck_lj_own_key(X, Ps, B, K).
+ck_lj_caller_key(_, _, _, _, any).
+%% A FUNCTION THAT SETS A GLOBAL BUFFER ITSELF CATCHES ITS OWN JUMPS TO IT: a statement of its body's block holds a setjmp
+%% of the buffer in its head -- an `if''s, a `switch''s or a `while''s condition, an expression statement, a declaration's
+%% initializers --, and no call of `longjmp' or of a function with a body comes before the setjmp, in the statements
+%% before it or in its head; every jump to the buffer while the function runs lands in its own setjmp, and its callers
+%% are no jump points for it
+ck_lj_keeps(B, Fns, K) :- \+ ( K = g(X), ck_lj_catches(B, Fns, X) ).
+ck_lj_catches(block(Is), Fns, X) :- append(Pre, [S|_], Is), ck_sj_head(S, H), ck_sub_term(call(id(SJ), [id(X0)|_]), H), ck_setjmp_fn(SJ), X0 == X, !,
+    \+ ck_lj_candidate_call(H, Fns), \+ ( member(T, Pre), ck_lj_candidate_call(T, Fns) ).
+ck_sj_head(if(_, C, _, _), C).
+ck_sj_head(switch(_, C, _), C).
+ck_sj_head(while(_, C, _), C).
+ck_sj_head(expr(_, E), E).
+ck_sj_head(declaration(_, _, _, Vs), Vs).
+ck_lj_candidate_call(T, Fns) :- ck_sub_term(call(id(G), _), T), atom(G), ( ck_longjmp_fn(G) ; memberchk(f(G, _, _), Fns) ), !.
+ck_lj_group([], []).
+ck_lj_group([F-K|T], [F-[K|Ks]|G]) :- ck_lj_same(F, T, Ks, Rest), ck_lj_group(Rest, G).
+ck_lj_same(F, [F1-K|T], [K|Ks], Rest) :- F1 == F, !, ck_lj_same(F, T, Ks, Rest).
+ck_lj_same(_, T, [], T).
+ck_lj_globals(Units, L) :-
+    forall(( ck_unit_item(Units, declaration(GL, _, _, Vs)), member(var(_, _, I), Vs), I \== none, ck_sub_term(id(F), I), atom(F), ( ck_longjmp_fn(F) ; memberchk(F-_, L) ) ),
+           ( nb_setval('$ck_fn', file), nb_setval('$ck_line', GL), ck_fail(longjmp_fn_value, F, id(F)) )).
 %% A PLAIN SLOT THROUGH A REFERENCE (0.217): `s.p = &x' over a reference parameter s lands outside -- `borrow_stored' for a
 %% local's address; what else such a slot is given stays unchecked, as before
 ck_ref_slot(L, R, Form, St0, St) :- ( ck_kind(R, St0, borrow(P)), ck_state(St0, P, anchor) -> ck_where(L, St0, W), ck_expr(R, St0, St1), ck_anchor_stored(W, P, Form, St1, St) ; ck_expr(R, St0, St) ).

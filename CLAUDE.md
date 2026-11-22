@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.16 the versions are: the module 1.6.16 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 185 (`ccl_lowering_version/1`,
+At 1.6.17 the versions are: the module 1.6.17 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 186 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -619,7 +619,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             conditionals (1.6.10); cvalues.c, members of C's values and the values of assignments,
                             steps and commas (1.6.13); voidvalues.c, the forms that the void values' rules keep, GNU's
                             casts among them (1.6.14); noreturn.c and noreturn23.c, calls that do not return and loops
-                            that do not end, each such call in a child of its own (1.6.15)
+                            that do not end, each such call in a child of its own (1.6.15); noreturnbody.c, functions
+                            whose body returns never, each case in a child of its own, and longjmps.c, the longjmps that
+                            the safe part follows (1.6.17)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -648,8 +650,13 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             array of static storage used after a store or a call that may store into it, and
                             static_result_untied.c, one returned with no tie (0.307); dropped_*.c, new memory
                             thrown away (0.309); blocktypedef_leak.c, a block's typedef of a pointer whose new memory
-                            a local holds (1.6.2); noreturn_unmarked.c, noreturn_ptr.c and loop_break_leak.c, a call
-                            that returns by its declaration and a loop's break, which end no path (1.6.15)
+                            a local holds (1.6.2); noreturn_ptr.c and loop_break_leak.c, a call through a pointer and a
+                            loop's break, which end no path (1.6.15); noreturn_partial.c, noreturn_value.c,
+                            noreturn_switch.c, noreturn_loopbreak.c, noreturn_goto.c, noreturn_dobreak.c,
+                            noreturn_docontinue.c and noreturn_asmgoto.c, bodies that a path leaves, which return, and
+                            noreturn_return.c, noreturn_end.c, noreturn_decl_end.c and noreturn_def_end.c, a function
+                            declared not to return that returns; lj_*.c, what a longjmp leaves, the pointers that it
+                            finds changed and the functions that may jump (1.6.17)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -673,8 +680,12 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             callreplacerefcomma.cpp and itercomma.cpp, the borrow rules through a comma, and
                             refownelem.cpp, an own array's element assigned as a place, refused by name (1.6.13);
                             nsleak.cpp, nsleakclass.cpp, nsleakanon.cpp, nsleakextc.cpp, nsflow.cpp, nsstatret.cpp
-                            and nsstaticwrite.cpp, a namespace's and an `extern "C"' block's functions, which the
-                            check never walked (1.6.16)
+                            and nsstaticwrite.cpp, a namespace's and an `extern "C"' block's functions, which the check
+                            never walked (1.6.16); noreturnreturn.cpp, noreturnmember.cpp, noreturnend.cpp,
+                            noreturnnxend.cpp, noreturnanon.cpp and noreturnoverload.cpp, a function declared
+                            [[noreturn]] that returns, in clang++'s words, lj_dtor.cpp, lj_dtor_block.cpp and
+                            lj_dtor_out.cpp, a longjmp over a destructor, and lj_throw_write.cpp, a pointer stepped
+                            before a throw whose handler jumps (1.6.17)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -703,7 +714,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             types, values and value categories, and voidkept.cpp, what the void values' rules keep in
                             C++ (1.6.14); noreturncpp.cpp, calls that do not return and loops that do not end in C++
                             (1.6.15); nsfunctions.cpp, what is right in a namespace's and an `extern "C"' block's
-                            functions (1.6.16)
+                            functions (1.6.16); noreturnthrow.cpp, a throw that ends its path, and [[noreturn]]
+                            functions that throw, rethrow, abort or loop (1.6.17)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
