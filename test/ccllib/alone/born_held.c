@@ -2,7 +2,8 @@
 // finding 20: `holder h; push_back(h.items, k);' wrote through its garbage), a struct of such in an array member of
 // another, a struct with a string member, an array of such structs and a for's declaration, declared with no
 // initializer, are each empty at their first use over storage written with garbage first; a designated initializer
-// and a memset of zero leave the same, as C has them
+// and a memset of zero leave the same, as C has them. The for breaks after its drop (1.6.19): a next pass would push
+// into the dropped vector, which the safe part refuses since it walks a loop's next pass (safe/drop_in_loop.c)
 #include <stdio.h>
 #include <string.h>
 #include <vector.pl>
@@ -30,7 +31,7 @@ static int many(void) {
     vector_int_drop(&hs[1].items);
     return n;
 }
-static int loop(void) { int t = 0; for (holder h; t < 1; t++) { push_back(h.items, 4); t += (int)len(h.items); vector_int_drop(&h.items); } return t; }
+static int loop(void) { int t = 0; for (holder h; t < 1; t++) { push_back(h.items, 4); t += 1 + (int)len(h.items); vector_int_drop(&h.items); break; } return t; }
 static int designated(void) { holder h = { .n = 3 }; push_back(h.items, 4); int n = (int)len(h.items) * 10 + h.n; vector_int_drop(&h.items); return n; }
 static int filled(void) { holder h; memset(&h, 0, sizeof h); push_back(h.items, 1); int n = (int)len(h.items); vector_int_drop(&h.items); return n; }
 int main(void) {

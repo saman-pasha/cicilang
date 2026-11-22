@@ -334,7 +334,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.15 | Paths end at calls that do not return and loops that do not end | the third item of the user's "do some not done items", the record of 1.6.10: a block that ends in `exit()`, `abort()` or a trap with new memory live in it was refused, `plain pointer not consumed`; a call of a function declared not to return -- `_Noreturn`, `[[noreturn]]`, GCC's `noreturn`, glibc's and libc++'s so declared -- a trap that ends and `__builtin_unreachable()` end their path now, a cast of one to void, a comma and a conditional of two such arms too, and a loop whose condition is left out or a nonzero constant ends by its breaks alone; the reader keeps the mark on the result (reader 209), a C++ member's leading attribute its notes, the lowering ends the block in `unreachable` (lowering 184); a function's marks are no part of its type, a constructor's neither, which `_Generic` took for one since 1.6.8 | 34 forms as clang's and clang++'s builds but two that the safe part refuses by its own rules; 28 broken copies over the first tree, 25 caught, two rules out and a body for the third; 26 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 381 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 | 1.6.16 | The safe part walks the functions of a namespace and of an `extern "C"` block | found by the probes of the user's "Fix these points", before their step: the desugaring keeps a namespace and an `extern "C"` block as items, which the table's noter and the lowering open, and the check's walk and its three passes before the walk took the units' top level alone -- a namespace's function, a member of a namespace's class, an anonymous namespace's and an `extern "C"` block's were compiled and never walked, their leaks unrefused, a static result freed, a local's address kept in a namespace's vector and a borrow read after a namespace's function stored into a static own array; `ck_item_container/2` and `ck_unit_item/2` open them (lowering 185) | 84 namespace fixtures, 83 as before and one skipped by its `.needs`; 7 broken copies, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 382 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 240 |
 | 1.6.17 | A body that returns never, a noreturn function that returns, and longjmp | the user's "Fix these points", the three records of 1.6.15: a function whose body returns never ends its caller's path, found by a least fixpoint before the walk, and a throw ends its path; a function declared not to return that returns is refused in clang's words, a return at its line and an end at the body's last statement; a longjmp is followed -- the frames that it leaves hold no live memory and no defer, the frames that it lands in hold each pointer as the setjmp saw it and given no value since, a function that sets a global buffer itself catches its own jumps, and a function that may longjmp is called by its name alone; a loop's body walked once, found and recorded (lowering 186) | 42 fixtures; 85 broken copies over the final tree, each caught, three after a body for them, and two rules out; the nets: the flow gate GREEN; reader 173, compile 392, driver 110, objects 29, cross 229, ccllib 623; the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 250 |
-| 1.6.18 | The false refusals of loops and joins | five false refusals of the safe part that the probes of the next step met, each old: a loop's condition refines what it tests, as an `if`'s does; a do's body runs once at least, and `do ... while (0)` once; an owner that a loop's body leaves null is kept; a loose pointer found null is no owner; a join takes a field from the side whose owner is not null; a copy of what the test found null is null and its address anchors it, the step's own regression repaired before its commit -- the loop that frees a list, the do-while(0) of a macro and a null test that gives new memory again were refused; two old holes found and recorded, a plain pointer's freed memory and a join of new memory and a borrow (lowering 187) | nets: flow, reader 173, compile 402, driver 110, objects 29, cross 232 GREEN; ccllib and the C++ nets running at the commit, their numbers the next commit's |
+| 1.6.18 | The false refusals of loops and joins | five false refusals of the safe part that the probes of the next step met, each old: a loop's condition refines what it tests, as an `if`'s does; a do's body runs once at least, and `do ... while (0)` once; an owner that a loop's body leaves null is kept; a loose pointer found null is no owner; a join takes a field from the side whose owner is not null; a copy of what the test found null is null and its address anchors it, the step's own regression repaired before its commit -- the loop that frees a list, the do-while(0) of a macro and a null test that gives new memory again were refused; two old holes found and recorded, a plain pointer's freed memory and a join of new memory and a borrow (lowering 187) | nets GREEN: flow, reader 173, compile 402, driver 110, objects 29, cross 232; after the commit, carried by 1.6.19's: ccllib 623, the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 252 |
+| 1.6.19 | A loop's body walked again until its state settles | the record of 1.6.17 closed for the loops: each pass starts from the join of the last one's start and its end, until the join is the start, eight passes at most and a loop that does not settle refused by name; each pass starts with the labels noted at the loop's start; a setjmp that a later pass reaches again replaces its note -- a leak in a later pass, an owner written over, a goto over a free and a jump to an earlier pass's setjmp were taken; a plain pointer declared null, in no frame, recorded (lowering 188) | nets GREEN: flow, reader 173, compile 412, driver 111, objects 29, cross 233, ccllib 625 (621 and two failures at first, born_held.c), the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 253 |
 
 ## M5 — the C++ mode
 
@@ -24727,8 +24728,10 @@ since and calls a copy that does not load so; the five, run again, each caught. 
 THE PROOF. The nets over the tree with both repairs: the flow gate GREEN (669 s, 0 findings), the reader gate 173 ok,
 compile 402, driver 110, objects 29 and cross 232, each GREEN. The ccllib gate, the C++ pools of the lighter run
 fixtures over libc++ 22, 21 and 18, the heavier C++ run fixtures over 22 and the C++ gate's later parts were still
-running when the step was committed, at the stop hook's word: the next commit carries their numbers. The first run's
-compile gate gave 397 and one failure -- loopjoins.c read argc, which the gate gives two arguments -- and 398 over the
+running when the step was committed, at the stop hook's word; they ended GREEN after the commit, and 1.6.19's commit
+carries their numbers: ccllib 623 (36 programs in three runs, 188 refused, 21 alone), the C++ pools 383 over each of
+libc++ 22, 21 and 18, the heavier 506 (14 skipped) over 22, and the C++ gate's later parts 252. The first run's compile
+gate gave 397 and one failure -- loopjoins.c read argc, which the gate gives two arguments -- and 398 over the
 corrected fixture; that run and the second were stopped, each where its tree changed. The chain did not run, by the
 owner's rule of 0.271. No CI job ran.
 
@@ -24741,3 +24744,78 @@ owner's rule of 0.271. No CI job ran.
   and the loop's record narrowed), HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.18, the reader 209 and the lowering 187.
+
+## 1.6.19 — A loop's body walked again until its state settles
+
+The record of 1.6.17, A LOOP'S BODY IS WALKED ONCE, closed for the loops. The safe part walked a loop's body once, from
+the state before it, so what a pass left to the next was never asked: `char *p = NULL; for (int i = 0; i < 3; i++) p =
+malloc(4); free(p);` leaked in the second pass and was taken, and so were an own pointer written over in the third
+pass, a goto that skipped the free of what an earlier pass gave, and a jump of a later pass to an earlier pass's
+setjmp, which was held to no note and taken as a jump out. GCC's LeakSanitizer finds each leak, and the jump frees
+memory twice under clang -O2.
+
+THE NEXT PASS STARTS FROM THE JOIN OF THE LAST ONE'S START AND ITS END (`ck_loop_passes/8`, `ck_do_passes/8`,
+`ck_loop_pass/6`): the body's end and its continues, through the step, or a do's where its condition holds; the passes
+end where the join is the start, and the path after the loop leaves from each pass's test where it fails and from each
+pass's breaks. A continue's state joins its pass's end (`ck_continue_to/3`), where it was one of the loop's exits: a
+continue reaches the step, the test after it and the next pass. The loop rule asks the first pass alone
+(`ck_no_moves_across/3`): a later pass that consumes an owner of the loop's start leaves it moved, or partial, to the
+next, whose walk refuses its use. A LOOP THAT DOES NOT SETTLE IN EIGHT PASSES is refused by name at its line, `not
+lowered yet: loop_state_unsettled` (`ck_loop_more/2`): eight own pointers that pass memory on need nine passes, and
+seven settle in the eighth. Over the compile gate's 412 fixtures, 82 loops take a second pass, 5 of them a third and
+none a fourth, counted by a copy of the check that notes each pass.
+
+EACH PASS STARTS WITH THE LABELS NOTED AT THE LOOP'S START (`ck_loop_at/1`): the gotos' walk notes a label where it
+meets it, and a later pass that found the first pass's note took a goto before the label for a backward one, closed to
+the frames that it shares with that pass's label -- a pointer of the body's own, live across the goto, was `plain
+pointer not consumed`, a false refusal of the prototype that the probes of the labels met. A SETJMP THAT A LATER PASS
+REACHES AGAIN REPLACES ITS NOTE (`ck_sj_at/3`): a note is held by its buffer and its line, so a jump of a later pass is
+held to the earlier pass's note while the jump comes before the setjmp, and to its own pass's after it.
+
+THE PROBES OF THE LABELS. Eight forms of a label in a loop's body and beside it, over 1.6.18 and the prototype, each in
+a HOME of its own: a forward goto past a pointer of the body's own, taken by 1.6.18 and refused by the prototype until
+each pass started with the loop's labels; a goto back in a pass's body, taken by both; a goto that skips the free of
+what an earlier pass gave, taken by 1.6.18 and refused since, where GCC's LeakSanitizer finds the leak; a goto out of a
+loop from a later pass, refused by both in the words of a goto over a declaration, which is the old finding below; and
+four forms of the same join with no loop. The probes beside 1.6.18's null test met a regression of 1.6.18 itself, which
+it repaired before its commit (1.6.18's entry).
+
+FOUND, RECORDED. A PLAIN POINTER DECLARED NULL IS IN NO FRAME, an old hole: `char *q = NULL;` puts no key of q in its
+frame, and a label's join takes a key that a goto's state has not for a declaration that the goto jumps over, so `char
+*q = NULL; if (c) goto out; q = malloc(4); out: free(q);` is refused by 1.6.17 too, `goto over the declaration of fresh
+memory or of an own array`, where each path frees what it holds. A key in its frame from its declaration, in the state
+`none`, would close it, and reaches every `T *p = NULL;`: a record of Not done, the next step's. The record of 1.6.17
+is narrowed to a backward goto's cycle, which the function's walks follow in the order of its first pass.
+
+THE NETS' FINDING. The ccllib gate's first run gave 621 and two failures, `test/ccllib/alone/born_held.c` (0.297) as C
+and as C++: its `for (holder h; t < 1; t++)` dropped the vector at the end of its body, and a next pass would push into
+the freed buffer -- ccllib's drop frees it and leaves the pointer --, which the second pass refuses since, `use after
+move of 'h.items.data'`. The loop ran once by its count, which the check does not know. The fixture breaks after its
+drop, so its form is right for any number of passes and prints as before, and `test/ccllib/safe/drop_in_loop.c` holds
+the form over three passes, where the push into the freed buffer runs. The gate, run again over them, gave 625, GREEN.
+
+THE BROKEN COPIES. 14 copies, each caught. Two of them, which start the next pass from the last one's end and not from
+the join, a for's and a do's (`PS12`, `PS11`), were caught by no fixture at first: two own pointers swapped in each
+pass of a for and of a do-while catch them since -- from the end alone their states change places in each pass until
+the cap refuses the loop. The copy that asks the loop rule in no pass of a do (`PS14`) was caught by no fixture at
+first, and `move_loop_do.c` catches it; the copy whose passes start with the first pass's labels (`PS15`) is caught by
+`looppasses.c`, as C and as C++. Two rules of the prototype that no copy caught are out: a body that holds a label
+walked once, which each pass's labels replace, and the loop rule asked in every pass, which the next pass's walk
+replaces, as it refuses the use of a moved owner. Each copy ran the batteries of 1.6.19 and of 1.6.18.
+
+THE PROOF. The nets over the tree: the flow gate GREEN (500 s, 0 findings); the reader gate 173 ok, compile 412, driver
+111, objects 29 and cross 233, each GREEN; the ccllib gate's first run 621 and the two failures above, and its run
+again over the corrected fixtures 625, GREEN (36 programs in three runs, 189 refused, 21 alone); the C++ pools of the
+lighter run fixtures 383 over each of libc++ 22, 21 and 18; the heavier 506 (14 skipped) over 22; the C++ gate's later
+parts 253. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_check.pl` (`ck_loop_with_step/6`, `ck_loop_passes/8`, `ck_loop_more/2`, `ck_loop_at/1`, `ck_loop_pass/6`,
+  `ck_refine_falses/3`, `ck_do_loop/5`, `ck_do_passes/8`, `ck_loop_leave/2`, `ck_continue_to/3`, `ck_jump_call/3`,
+  `ck_sj_at/3`, `ck_jump_point/3`), `library/ccl_ir.pl` (the lowering 188), `test/driver.sh` (the cap's two forms),
+  `test/cpp.sh` (`looppasses.c` among the C run fixtures built as C++), `test/ccllib/alone/born_held.c`, the fixtures,
+  the module's version.
+- RULES.md (the rule of the passes after the rule of a loop's condition; the loop rule and the longjmp rule changed; the
+  record of 1.6.17 narrowed, and the record of a plain pointer declared null), HISTORY.md, CLAUDE.md (the versions, the
+  fixtures).
+
+The module 1.6.19, the reader 209 and the lowering 188.

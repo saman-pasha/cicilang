@@ -211,6 +211,16 @@ nr14.c: ok
 nr15.c: ok
 nr16.c: ok
 nr17.c: ok"
+# A LOOP WHOSE STATE DOES NOT SETTLE IN EIGHT PASSES (1.6.19): the walk of a loop's body goes on while a pass changes what the
+# next one finds, eight passes at most; a loop that does not settle in eight is refused by name at its line -- eight own
+# pointers that pass memory on, one a pass, need nine --, and seven, which settle in the eighth pass, are taken
+lsout=$("$CICILI" -fsyntax-only "$R/loop_unsettled.c" 2>&1); lscode=$?
+lsout7=$("$CICILI" -fsyntax-only "$R/loop_settled7.c" 2>&1); lscode7=$?
+check "a loop whose state does not settle in eight passes is refused by name; one that settles in eight is taken (1.6.19)" "$(echo "$lsout" | sed "s|$R/||g"; echo "exit $lscode"; echo "$lsout7"; echo "exit $lscode7")" "loop_unsettled.c:8: error: not lowered yet: loop_state_unsettled (function main)
+cicilang: 1 error(s)
+exit 1
+
+exit 0"
 check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cicilang: error: unknown argument: '--frobnicate'"
 check "no input files is an error" "$("$CICILI" -c 2>&1)" "cicilang: error: no input files"
 check "the tie: a broken tie is refused in clang's shape" "$("$CICILI" -fsyntax-only "$R/safe/tie_arg.c" 2>&1 | head -1 | sed "s|$R/||")" "safe/tie_arg.c:4: error: value not within its tie: 'b' in call(id(gap),[id(a),id(b)]) (function main)"

@@ -2053,32 +2053,64 @@ ck_init_where(Base, Key, W) :- ck_key_root(Base, R),
 %% holds, and the path after the loop leaves from where it fails -- before the first pass and after the body. The two
 %% went on unrefined: after `while (p) { free(p); p = NULL; }' over a plain pointer the entry's new memory went past the
 %% loop, `plain pointer not consumed' at the return
+%% A LOOP'S BODY IS WALKED AGAIN WHILE A PASS CHANGES WHAT THE NEXT ONE FINDS (1.6.19): the next pass starts from the join
+%% of the last one's start and its end -- its body's end and its continues, through the step --, and the passes end where
+%% the join is the start; a loop whose state does not settle in eight passes is refused by name (ck_loop_more/2). The
+%% loop rule asks the first pass alone (ck_no_moves_across/3): a later pass that consumes an owner of the loop's start
+%% leaves it moved, or partial, to the next, whose walk refuses its use. The path after the loop leaves from each pass's
+%% test that fails, and from each pass's breaks. A pass was walked once from the entry, so what it left to the next was
+%% never asked: `char *p = NULL; for (...) p = malloc(4); free(p);' leaked in the second pass, and a jump of a later pass
+%% to an earlier pass's setjmp was held to no note. EACH PASS STARTS WITH THE LABELS NOTED AT THE LOOP'S START
+%% (ck_loop_at/1): a pass notes its body's labels again, as the first did, so a goto before one of them is a forward goto
+%% in every pass; with the first pass's notes, a later pass's goto was a backward one, closed to the frames that it
+%% shares with that pass's label, and a body's own pointer, live across the goto, was `plain pointer not consumed'
 ck_loop_with_step(S, Step, C, Ends, St0, St) :-
-    ck_refine_cond(C, St0, InT, InF),
-    ck_loop_enter(InT, loop),
-    ck_stmt(S, InT, St1),
-    ck_loop_leave(Exits), ck_continues(Conts),
-    ck_merge_all([St1|Conts], StEnd),
-    ( Step == none -> StEnd1 = StEnd ; StEnd == dead -> StEnd1 = dead ; ck_expr(Step, StEnd, StEnd1) ),
-    ck_no_moves_across(InT, StEnd1, S),
+    ck_loop_at(At),
+    ck_loop_passes(S, Step, C, At, St0, 1, PassEnds, Exits),
     (   Ends == never -> ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
-    ;   ck_refine_cond(C, StEnd1, _, EndF), ck_merge_all([InF, EndF|Exits], St) ).
+    ;   ck_refine_falses(C, [St0|PassEnds], Fs), append(Fs, Exits, All), ck_merge_all(All, St) ).
+ck_loop_passes(S, Step, C, At, In, N, [End|Ends], Exits) :-
+    ck_refine_cond(C, In, InT, _),
+    ck_loop_pass(S, Step, At, InT, End, Exits1), ( N == 1 -> ck_no_moves_across(InT, End, S) ; true ),
+    (   ck_merge(In, End, J), J \== In
+    ->  ck_loop_more(N, At), N1 is N + 1, ck_loop_passes(S, Step, C, At, J, N1, Ends, Exits2), append(Exits1, Exits2, Exits)
+    ;   Ends = [], Exits = Exits1 ).
+ck_loop_more(N, _) :- N < 8, !.
+ck_loop_more(_, at(Ln, _)) :- nb_getval('$ck_fn', Fn), throw(error(not_lowered(loop_state_unsettled), where(Fn, line(Ln)))).
+%% where a loop is: its line, for the refusal of a loop that does not settle, and the labels noted at its start
+ck_loop_at(at(Ln, Ls)) :- nb_getval('$ck_line', Ln), ( nb_current('$ck_labels', Ls) -> true ; Ls = [] ).
+%% a pass: the labels as the loop's start noted them, the body walked from its start, joined with its continues, the step
+%% after them; its exits are its breaks
+ck_loop_pass(S, Step, at(_, Ls), In, End, Exits) :-
+    nb_setval('$ck_labels', Ls),
+    ck_loop_enter(In, loop),
+    ck_stmt(S, In, St1),
+    ck_loop_leave(Exits, Conts),
+    ck_merge_all([St1|Conts], St2),
+    ( Step == none -> End = St2 ; St2 == dead -> End = dead ; ck_expr(Step, St2, End) ).
+ck_refine_falses(_, [], []).
+ck_refine_falses(C, [S|Ss], [F|Fs]) :- ck_refine_cond(C, S, _, F), ck_refine_falses(C, Ss, Fs).
 %% A DO'S BODY RUNS ONCE AT LEAST (1.6.18; C17 6.8.5.2: the condition is evaluated after each run of the body): the path
 %% after it leaves from the body's end, where the condition fails, and from its breaks, never from the state before it;
 %% and a `do' whose condition is a constant zero -- `do { ... } while (0)', a macro's statement -- runs its body once, and
 %% no pass after it is asked to own again what it consumed. The state before it went past it: `do { free(p); p = NULL; }
 %% while (0)' over an own pointer was `owner consumed inside a loop', and over a plain one the entry's new memory went on,
-%% `plain pointer not consumed'
+%% `plain pointer not consumed'. ITS PASSES (1.6.19) start from the join of the state before it and each pass's end where
+%% the condition holds, as a while's do
 ck_do_loop(S, C, Ends, St0, St) :-
-    ck_loop_enter(St0, loop),
-    ck_stmt(S, St0, St1),
-    ck_loop_leave(Exits), ck_continues(Conts),
-    ck_merge_all([St1|Conts], StEnd),
+    ck_loop_at(At),
+    ck_do_passes(S, C, Ends, At, St0, 1, Fs, Exits),
+    (   Ends == never -> ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
+    ;   append(Fs, Exits, All), ck_merge_all(All, St) ).
+ck_do_passes(S, C, Ends, At, In, N, [F|Fs], Exits) :-
+    ck_loop_pass(S, none, At, In, StEnd, Exits1),
     ( StEnd == dead -> StC = dead ; ck_expr(C, StEnd, StC) ),
     ck_refine_cond(C, StC, StT, StF),
-    (   Ends == never -> ck_no_moves_across(St0, StT, S), ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
-    ;   Ends == once -> ck_merge_all([StC|Exits], St)
-    ;   ck_no_moves_across(St0, StT, S), ck_merge_all([StF|Exits], St) ).
+    (   Ends == once -> F = StC, Fs = [], Exits = Exits1
+    ;   F = StF, ( N == 1 -> ck_no_moves_across(In, StT, S) ; true ),
+        (   ck_merge(In, StT, J), J \== In
+        ->  ck_loop_more(N, At), N1 is N + 1, ck_do_passes(S, C, Ends, At, J, N1, Fs, Exits2), append(Exits1, Exits2, Exits)
+        ;   Fs = [], Exits = Exits1 ) ).
 ck_refine_cond(none, St, St, St) :- !.
 ck_refine_cond(C, St, StT, StF) :- ck_refine(C, St, StT, StF).
 ck_loop_ends(none, never) :- !.
@@ -2086,7 +2118,7 @@ ck_loop_ends(C, Ends) :- catch(ccl_const_eval(C, V), _, fail), number(V), !, ( V
 ck_loop_ends(_, cond).
 ck_loop_enter(St, Kind) :- nb_getval('$ck_loops', L), nb_setval('$ck_loops', [lp(Kind, St, [], [])|L]).
 ck_loop_leave(Exits) :- nb_getval('$ck_loops', [lp(_, _, Exits, _)|L]), nb_setval('$ck_loops', L).
-ck_continues(Cs) :- nb_getval('$ck_loops', L), ( L = [] -> Cs = [] ; Cs = [] ).   % continues were merged when leaving
+ck_loop_leave(Exits, Conts) :- nb_getval('$ck_loops', [lp(_, _, Exits, Conts)|L]), nb_setval('$ck_loops', L).
 ck_no_moves_across(_, dead, _) :- !.
 ck_no_moves_across(st(Before), st(After), S) :- ck_frames_kept(Before, After, S).
 ck_frames_kept([], _, _).
@@ -2105,7 +2137,7 @@ ck_exit_to_loop(St0, _) :-
     st(FrsIn) = StIn, length(FrsIn, Depth), ck_close_to(St0, Depth, St1),
     nb_setval('$ck_loops', [lp(LKind, StIn, [St1|Exits], Conts)|L]).
 ck_continue_to([lp(switch, StIn, Exits, Conts)|L], St0, [lp(switch, StIn, Exits, Conts)|L1]) :- !, ck_continue_to(L, St0, L1).
-ck_continue_to([lp(K, StIn, Exits, Conts)|L], St0, [lp(K, StIn, [St1|Exits], Conts)|L]) :- !,   % a continue rejoins the head: checked as an exit too
+ck_continue_to([lp(K, StIn, Exits, Conts)|L], St0, [lp(K, StIn, Exits, [St1|Conts])|L]) :- !,   % a continue rejoins the head: its state joins the pass's end, which the test after it leaves from and the next pass starts from (1.6.19)
     st(FrsIn) = StIn, length(FrsIn, Depth), ck_close_to(St0, Depth, St1).
 ck_continue_to([], _, _) :- ck_fail(not_checked, continue, continue).
 %% close the frames opened inside the loop: their defers run, their owners must be consumed
@@ -2488,12 +2520,14 @@ ck_expr(_, St, St).
 ck_setjmp_fn(F) :- memberchk(F, [setjmp, '_setjmp', sigsetjmp, '__sigsetjmp']).
 ck_longjmp_fn(F) :- memberchk(F, [longjmp, '_longjmp', siglongjmp, '__longjmp_chk']).
 ck_jump_call(_, _, dead) :- !.
-ck_jump_call(F, [E|_], St) :- ck_setjmp_fn(F), !, ck_env_key(E, K), St = st(Frs), length(Frs, D),
+ck_jump_call(F, [E|_], St) :- ck_setjmp_fn(F), !, ck_env_key(E, K), nb_getval('$ck_line', Site), St = st(Frs), length(Frs, D),
     ( nb_current('$ck_setjmps', Rs0) -> true ; Rs0 = [] ), ( nb_current('$ck_sj_seq', N0) -> true ; N0 = 0 ), N is N0 + 1,
-    nb_setval('$ck_sj_seq', N), nb_setval('$ck_setjmps', [sj(K, D, St, N)|Rs0]).
+    exclude(ck_sj_at(K, Site), Rs0, Rs1),   % A SETJMP THAT A LATER PASS OF ITS LOOP REACHES AGAIN replaces its note (1.6.19)
+    nb_setval('$ck_sj_seq', N), nb_setval('$ck_setjmps', [sj(K, D, St, N, Site)|Rs1]).
 ck_jump_call(F, [E|_], St) :- ck_longjmp_fn(F), !, ck_env_key(E, K), ck_jump_point(K, F, St).
 ck_jump_call(F, Args, St) :- nb_current('$ck_lj_fns', Ls), memberchk(F-Ks, Ls), !, forall(member(K0, Ks), ( ck_lj_key_at(K0, Args, K), ck_jump_point(K, F, St) )).
 ck_jump_call(_, _, _).
+ck_sj_at(K, Site, sj(K1, _, _, _, S1)) :- K1 == K, S1 == Site.
 %% the buffer that an argument names: its name, or any
 ck_env_key(E, K) :- ( E = id(X), atom(X) -> K = X ; K = any ).
 %% a callee's buffer in the caller's terms: a global's name, the argument at a parameter's place, or any
@@ -2501,8 +2535,8 @@ ck_lj_key_at(g(X), _, X) :- !.
 ck_lj_key_at(p(I), Args, K) :- nth1(I, Args, A), !, ck_env_key(A, K).
 ck_lj_key_at(_, _, any).
 ck_jump_point(K, F, St) :- ( nb_current('$ck_setjmps', Rs) -> true ; Rs = [] ),
-    ( K == any -> Ts = Rs ; findall(R, ( member(R, Rs), R = sj(K1, _, _, _), K1 == K ), Ts) ),
-    forall(member(sj(_, D, StS, N), Ts), ck_jump_to(F, D, StS, N, St)),
+    ( K == any -> Ts = Rs ; findall(R, ( member(R, Rs), R = sj(K1, _, _, _, _), K1 == K ), Ts) ),
+    forall(member(sj(_, D, StS, N, _), Ts), ck_jump_to(F, D, StS, N, St)),
     ( ( Ts == [] ; K == any ) -> ck_jump_out(F, St) ; true ).
 ck_jump_to(F, D, st(FrsS), Seq, st(Frs)) :- length(Frs, N),
     (   N < D -> K is D - N, length(Closed, K), append(Closed, _, FrsS),

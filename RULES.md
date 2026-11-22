@@ -11729,17 +11729,19 @@ in the first topic (The ccllib gate).
   (`ck_no_moves_across/3`, `move_in_loop`; null since 1.6.18: `while (head) { own node *next = head->next; free(head);
   head = next; }` leaves head null after the last node, and the next pass frees nothing -- it was `owner consumed inside
   a loop`, and so was `while (p != NULL) { free(p); p = NULL; }`; `test/c/run/loopjoins.c`, and
-  `test/c/safe/move_loop.c`, an owner left freed, refused as before). `break` and `continue` close the frames inside the
-  loop and join its exits (`'$ck_loops'`). A `switch` merges its entry state at each case label, and a `break` in it is
-  its own. A `continue` IS ITS NEAREST LOOP'S, PAST ANY SWITCH (0.290; `ck_exit_to_loop/2`, `ck_continue_to/3`): its
-  frames are closed down to that loop's, so the defers of the loop's body run there and an owner of the body that is
-  live there is leaked there (`owner_leaked`), and its state joins that loop's exits. Until 0.290 a `continue` in a
-  `switch` in a loop closed its frames down to the SWITCH's and handed the loop a state with the frames of the switch
-  and of the body still open; the loop's join met frame stacks of two lengths, `ck_merge_frames/3` failed, and the check
-  stopped with no line -- `not lowered yet: phase(check) (function file)` for every such program, with one `continue` as
-  with two. No fixture had one. `test/c/run/contswitch.c` (a while, a for whose step still runs, a do-while, a switch in
-  a switch, a block in a case, a defer of the body, an owner freed before the continue; as C and as C++);
-  `test/c/safe/cont_switch_leak.c`. (M3, 0.290, 1.6.18)
+  `test/c/safe/move_loop.c`, an owner left freed, refused as before; the first pass alone is asked since 1.6.19, as a
+  later pass that consumes an owner of the loop's start leaves it moved, or partial, to the next, whose walk refuses its
+  use; `test/c/safe/move_loop_do.c`, a do-while's). `break` and `continue` close the frames inside the loop and join its
+  exits (`'$ck_loops'`). A `switch` merges its entry state at each case label, and a `break` in it is its own. A
+  `continue` IS ITS NEAREST LOOP'S, PAST ANY SWITCH (0.290; `ck_exit_to_loop/2`, `ck_continue_to/3`): its frames are
+  closed down to that loop's, so the defers of the loop's body run there and an owner of the body that is live there is
+  leaked there (`owner_leaked`), and its state joins that loop's exits. Until 0.290 a `continue` in a `switch` in a loop
+  closed its frames down to the SWITCH's and handed the loop a state with the frames of the switch and of the body still
+  open; the loop's join met frame stacks of two lengths, `ck_merge_frames/3` failed, and the check stopped with no line
+  -- `not lowered yet: phase(check) (function file)` for every such program, with one `continue` as with two. No fixture
+  had one. `test/c/run/contswitch.c` (a while, a for whose step still runs, a do-while, a switch in a switch, a block in
+  a case, a defer of the body, an owner freed before the continue; as C and as C++); `test/c/safe/cont_switch_leak.c`.
+  (M3, 0.290, 1.6.18, 1.6.19)
 - A LOOP THAT ENDS BY A BREAK ALONE (1.6.15; C17 6.8.5/4, 6.8.5.3/2; `ck_loop_ends/2`, `ck_loop_with_step/6`): a
   condition left out, `for (;;)`, or an integer constant other than zero -- `while (1)`, `do ... while (1)`, C++'s
   `while (true)` -- ends the loop never, and the path after it is its breaks' alone, or none. The state before the loop
@@ -11762,6 +11764,32 @@ in the first topic (The ccllib gate).
   `for (; 0;)` are walked as any loop. `test/c/run/loopjoins.c`, as C and as C++; refused,
   `test/c/safe/loop_break_refine.c` (a break, which leaves with what it holds), `do_once_twice.c` (a do-while(0) that
   frees, and a free after it), `do_cond_leak.c` (new memory that a do-while's end holds). (1.6.18)
+- A LOOP'S BODY IS WALKED AGAIN WHILE A PASS CHANGES WHAT THE NEXT ONE FINDS (1.6.19; `ck_loop_passes/8`,
+  `ck_do_passes/8`, `ck_loop_pass/6`, `ck_loop_more/2`): the next pass starts from the join of the last one's start and
+  its end -- the body's end and its continues, through the step; a `do`'s where its condition holds --, and the passes
+  end where the join is the start; the path after the loop leaves from each pass's test where it fails and from each
+  pass's breaks. THE JOIN, NOT THE END ALONE: each pass starts from at least what the last one started from, so the
+  passes settle; two own pointers swapped in each pass change places in each pass, and from the end alone their states
+  would change places until the cap. A continue's state joins its pass's end (`ck_continue_to/3`), not the loop's exits:
+  it reaches the step, the test after it and the next pass. EACH PASS STARTS WITH THE LABELS NOTED AT THE LOOP'S START
+  (`ck_loop_at/1`): a pass notes its body's labels again, so a goto before one of them is a forward goto in every pass;
+  with the first pass's notes, a later pass's goto was a backward one, closed to the frames that it shares with that
+  pass's label, and a pointer of the body's own, live across the goto, was `plain pointer not consumed`. A LOOP WHOSE
+  STATE DOES NOT SETTLE IN EIGHT PASSES is refused by name at its line, `not lowered yet: loop_state_unsettled`: the cap
+  is the walk's bound, and of the compile gate's 412 fixtures, 82 loops take a second pass, 5 of them a third and none a
+  fourth. A SETJMP THAT A LATER PASS REACHES AGAIN REPLACES ITS NOTE (`ck_sj_at/3`): a note is held by its buffer and
+  its line, so a jump of a later pass is held to the earlier pass's note while the jump comes before the setjmp, and to
+  its own pass's after it. A pass was walked once from the entry, so what it left to the next was never asked: `char *p
+  = NULL; for (int i = 0; i < 3; i++) p = malloc(4); free(p);` leaked in the second pass and was taken; `b = a; a =
+  malloc(4);` in a loop over two own pointers wrote over b's memory in the third pass and was taken; a goto over the
+  free of what an earlier pass gave left it, and was taken; and a jump of a later pass to an earlier pass's setjmp was
+  held to no note and taken as a jump out. `test/c/run/looppasses.c`, as C and as C++; refused,
+  `test/c/safe/loop_pass_leak.c`, `loop_pass_owner.c`, `loop_pass_three.c` (found in the third pass),
+  `loop_pass_after.c` (the second pass's end after the loop), `loop_pass_continue.c`, `loop_pass_do.c`,
+  `loop_pass_goto.c`, `lj_loop_back.c`, and `test/ccllib/safe/drop_in_loop.c`, an object that the body drops and the
+  next pass uses again -- ccllib's drop frees the buffer and leaves its pointer, and the next pass pushes into it;
+  `test/ccllib/alone/born_held.c`, whose for ran once by its count, which the check does not know, breaks after its drop
+  since; the driver gate holds the cap, eight own pointers that pass memory on refused and seven taken. (1.6.19)
 - A CALL THAT DOES NOT RETURN ENDS ITS PATH (1.6.15; C17 6.7.4/8, 7.22.4.1/2, 7.22.4.4/2, 7.13.2.1/4; C23 6.7.12.7;
   [dcl.attr.noreturn]/1; `ck_noreturn_call/1`): an expression statement that calls a function declared not to return --
   `_Noreturn`, `[[noreturn]]`, GCC's `noreturn` (the reader's topic): glibc's `exit`, `abort`, `_Exit`, `quick_exit`,
@@ -11813,22 +11841,22 @@ in the first topic (The ccllib gate).
 - A LONGJMP IS FOLLOWED (1.6.17; C17 7.13.1.1, 7.13.2.1/3; [csetjmp.syn]/4; `ck_jump_call/3`, `ck_jump_point/3`,
   `ck_jump_to/5`, `ck_jump_same/4`, `ck_jump_out/2`): a call of `setjmp` (glibc's macro is `_setjmp`) or `sigsetjmp`
   (`__sigsetjmp`) notes its buffer -- the name of its argument, or any --, the state there, the depth of its frames and
-  its number in the walk (`'$ck_setjmps'`, `'$ck_sj_seq'`, reset at each walk of a body; each setjmp is noted, and a
-  jump is held to each of its buffer). A jump point is a call of `longjmp`, `_longjmp`, `siglongjmp` or `__longjmp_chk`,
-  or of a function that may longjmp (below), its buffer named in the caller's terms. A JUMP TO A BUFFER THAT THE
-  FUNCTION SET: the frames that it leaves, deeper than the setjmp's, hold no owner still live, no new memory and no
-  defer -- a `defer`, a destructor, an object's drop: the jump runs none --, and the frames that it lands in hold each
-  key in the state that the setjmp saw and given no value since (below), since the second return is walked from that
-  state: a key whose state changed is `changed_across_setjmp`, a key declared since holds no live owner and no new
-  memory, and a defer pushed since is refused. A JUMP TO A BUFFER THAT IT DID NOT SET -- a caller's, a parameter's, any
-  -- leaves every frame: none holds a live owner, new memory or a defer, and a borrowed struct's own fields are whole,
-  as at a return. A setjmp whose block has ended is no target for a frame that held an owner there
-  (`longjmp_into_ended`). The path was a plain call's: a `longjmp` ended it and asked nothing, and a call that jumped
-  went on -- `char *p = malloc(4); if (setjmp(e) == 0) { free(p); longjmp(e, 1); } free(p);` freed p twice, and memory
-  live where a jump left its frame was never refused. `test/c/run/longjmps.c`; refused,
-  `test/c/safe/lj_freed_between.c`, `lj_changed_borrow.c`, `lj_volatile.c`, `lj_leak_block.c`, `lj_leak_callee.c`,
-  `lj_leak_since.c`, `lj_leak_deep.c`, `lj_into_ended.c`, `lj_incomplete.c`; `test/cpp/lj_dtor.cpp`,
-  `lj_dtor_block.cpp`, `lj_dtor_out.cpp`. (1.6.17)
+  its number in the walk (`'$ck_setjmps'`, `'$ck_sj_seq'`, reset at each walk of a body; each setjmp is noted, one that
+  a later pass of its loop reaches again in place of its earlier note (1.6.19, below), and a jump is held to each of its
+  buffer). A jump point is a call of `longjmp`, `_longjmp`, `siglongjmp` or `__longjmp_chk`, or of a function that may
+  longjmp (below), its buffer named in the caller's terms. A JUMP TO A BUFFER THAT THE FUNCTION SET: the frames that it
+  leaves, deeper than the setjmp's, hold no owner still live, no new memory and no defer -- a `defer`, a destructor, an
+  object's drop: the jump runs none --, and the frames that it lands in hold each key in the state that the setjmp saw
+  and given no value since (below), since the second return is walked from that state: a key whose state changed is
+  `changed_across_setjmp`, a key declared since holds no live owner and no new memory, and a defer pushed since is
+  refused. A JUMP TO A BUFFER THAT IT DID NOT SET -- a caller's, a parameter's, any -- leaves every frame: none holds a
+  live owner, new memory or a defer, and a borrowed struct's own fields are whole, as at a return. A setjmp whose block
+  has ended is no target for a frame that held an owner there (`longjmp_into_ended`). The path was a plain call's: a
+  `longjmp` ended it and asked nothing, and a call that jumped went on -- `char *p = malloc(4); if (setjmp(e) == 0) {
+  free(p); longjmp(e, 1); } free(p);` freed p twice, and memory live where a jump left its frame was never refused.
+  `test/c/run/longjmps.c`; refused, `test/c/safe/lj_freed_between.c`, `lj_changed_borrow.c`, `lj_volatile.c`,
+  `lj_leak_block.c`, `lj_leak_callee.c`, `lj_leak_since.c`, `lj_leak_deep.c`, `lj_into_ended.c`, `lj_incomplete.c`;
+  `test/cpp/lj_dtor.cpp`, `lj_dtor_block.cpp`, `lj_dtor_out.cpp`. (1.6.17, 1.6.19)
 - A KEY GIVEN A VALUE SINCE A SETJMP (1.6.17; C17 7.13.2.1/3: its value after the jump is not known; `ck_sj_write/1`,
   `ck_sj_walk/3`, `ck_sj_loop/1`, `ck_sj_dead_block/3`, `ck_written_since/2`): a local's path that an assignment or a
   step gives a value while a setjmp is noted is noted with the number of the last setjmp (`'$ck_sj_writes'`), once the
@@ -16675,14 +16703,15 @@ Declarations topic of the C++ reader).
   caller's later jumps; a function that may longjmp is refused as a value, not followed through a pointer, a signal or a
   library's callback; a setjmp outside the contexts that 7.13.1.1/4 allows (`int r = setjmp(e);`) is taken, as clang
   takes it.
-- A LOOP'S BODY IS WALKED ONCE (found at 1.6.17; the safe part's topic), and a cycle of a backward goto in the order of
-  its first pass: what a pass leaves to the next is not walked again -- `char *p = NULL; for (int i = 0; i < 3; i++) p =
-  malloc(4); free(p);` leaks in the second pass and is taken, where the loop rule asks only that an owner from outside
-  be owned again, or left null, by the body's end; and a jump that a later pass makes to a setjmp of an earlier pass,
-  which the walk meets before the setjmp, is held to none and taken as a jump out, its landing unchecked -- `for (int i
-  = 0; i < 3; i++) { if (i == 2) longjmp(e, 1); if (setjmp(e) != 0) { free(p); return 0; } free(p); p = malloc(4); }`
-  frees memory twice under clang -O2 and is taken; a write in a goto's cycle after the jump is not noted for its next
-  pass.
+- A CYCLE OF A BACKWARD GOTO IS WALKED IN THE ORDER OF ITS FIRST PASS (found at 1.6.17, narrowed at 1.6.19, which walks
+  a loop's body again until its state settles; the safe part's topic): the function is walked again from the label's
+  join, as the gotos' walk has it, and a write in the goto's cycle after the jump is not noted for its next pass.
+- A PLAIN POINTER DECLARED NULL IS IN NO FRAME (found at 1.6.19; the safe part's topic): `char *q = NULL;` puts no key
+  of q in its frame (`ck_decls/3`), and new memory given to it later puts one there (`ck_declare_at/4`); a label's join
+  takes a key that a goto's state has not for a declaration that the goto jumps over (`ck_skipped_frames/4`), so `char
+  *q = NULL; if (c) goto out; q = malloc(4); out: free(q);` -- and a goto out of a loop whose earlier pass gave q new
+  memory -- is refused, `goto over the declaration of fresh memory or of an own array`, where each path frees what it
+  holds. A key in its frame from its declaration, in the state `none`, would close it, and reaches every `T *p = NULL;`.
 - A PLAIN POINTER'S FREED MEMORY IS FOLLOWED NO FURTHER (found at 1.6.18; the safe part's topic): `free`, `fclose`,
   `realloc` and an own parameter make a loose pointer `none` (`ck_consume_loose/3`), a pointer that holds nothing that
   the check follows, so `char *p = malloc(8); free(p); free(p);`, a write through p after its free and a copy of p after

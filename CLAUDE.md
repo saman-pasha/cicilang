@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.18 the versions are: the module 1.6.18 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 187 (`ccl_lowering_version/1`,
+At 1.6.19 the versions are: the module 1.6.19 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 188 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -555,7 +555,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             refused at its line (0.306); redef_*.c over redef_h1.h, redef_h2.h, redef_noguard.h,
                             redef_hobj.h and redef_late.h, a second definition at file scope, each refused at its
                             line (1.6.7); cleanup_*.c and mode_attr.c, GCC's cleanup and mode attributes refused,
-                            each at its line (1.6.8)
+                            each at its line (1.6.8); loop_unsettled.c and loop_settled7.c, the cap of a loop's
+                            passes, refused and taken, for the driver gate (1.6.19)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -624,7 +625,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             the safe part follows (1.6.17); loopjoins.c, loops and joins that the safe part refused,
                             and nullcopies.c, the copies of a pointer that its null test found null, each built as C
                             and as C++, and refilled.c, pointers that a free or a null test left holding nothing, given
-                            new memory by getline through their address (1.6.18)
+                            new memory by getline through their address (1.6.18); looppasses.c, loops whose next pass
+                            finds what the last left, built as C and as C++ (1.6.19)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -663,7 +665,10 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             do_once_twice.c, do_cond_leak.c, null_join_garbage.c and null_join_garbage2.c, what the
                             rules of a loop's condition, of a do's body and of a join refuse still, and
                             anchor_freed.c and anchor_nulltest.c, getline's memory through such an address leaked by
-                            an own copy (1.6.18)
+                            an own copy (1.6.18);
+                            loop_pass_leak.c, loop_pass_owner.c, loop_pass_three.c, loop_pass_after.c,
+                            loop_pass_continue.c, loop_pass_do.c, loop_pass_goto.c, lj_loop_back.c and move_loop_do.c,
+                            what a later pass of a loop meets (1.6.19)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -773,7 +778,8 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             a borrow (1.6.3); ratio_zero_den.c, ratio_overflow.c, ratio_sum_overflow.c,
                             ratio_divide_zero.c, complex_of_int.c, charconv_bool.c and charconv_prec_int.c, what
                             the numbers refuse (1.6.4); void_assign.c, a void value assigned over a vector, refused as
-                            C by its type macro and as C++ in clang++'s words (1.6.14)
+                            C by its type macro and as C++ in clang++'s words (1.6.14); drop_in_loop.c, a vector that a
+                            for declares, dropped in each pass and pushed to again in the next (1.6.19)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
