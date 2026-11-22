@@ -12437,7 +12437,21 @@ in the first topic (The ccllib gate).
 - The library's functions are not checked (0.45's decision, which the owner confirmed at 0.190): libc++ keeps raw
   pointers by its own discipline. `cpp_as_lib/2` marks each function a library walk emits `'$cpp_libfn'(Name)`; a
   library template's origin is `'$cpp_lib'(N)`. `ck_items/1` skips them (`cpp_library_function/1`), and compiler-made
-  thunks too. The program's own functions and its templates' instances are checked. (0.45, 0.108)
+  thunks too. The program's own functions and its templates' instances are checked, wherever they stand (1.6.16,
+  below). (0.45, 0.108, 1.6.16)
+- THE CHECK WALKS EVERY FUNCTION OF THE PROGRAM'S UNITS, A NAMESPACE'S AND AN `extern "C"` BLOCK'S AMONG THEM (1.6.16;
+  `ck_item_container/2`, `ck_unit_item/2`): the desugaring keeps `namespace(L, N, Items)` and `extern_c(L, Items)` in
+  its output, and the table's noter (`ccl_collect_item/9`) and the lowering (`ir_item/1`) open them. `ck_items/1` took
+  the units' top level alone, and so did the three passes before the walk: the static results (`ck_static_results/1`),
+  the writes of the static own arrays (`ck_static_writes/1`) and the flows (`ck_flows/1`). So a namespace's function,
+  a member of a namespace's class, an anonymous namespace's function and an `extern "C"` block's were compiled and
+  never walked, and a call of one was a call of a function with no body in the unit: `namespace ns { void f(int x) {
+  int *p = new int(x); *p = 1; } }` was compiled with its leak, `std::free(tbl::row(1))` freed static storage, a
+  local's address kept in a namespace's global vector left its scope, and a borrow of a static own array's element was
+  read after a namespace's function stored into the array. Each is refused now as at file scope:
+  `test/cpp/nsleak.cpp`, `nsleakclass.cpp`, `nsleakanon.cpp`, `nsleakextc.cpp`, `nsflow.cpp`, `nsstatret.cpp`,
+  `nsstaticwrite.cpp`; `test/cpp/run/nsfunctions.cpp` builds what is right in them and prints what clang++'s build
+  prints. A C unit has no such item, and its check does not change. (1.6.16)
 - A library class's VALUE is opaque to the owners (`ck_carries_/1` via `ck_library_class/1` -> `cpp_lib_class/1`). A
   nested class of a library class is the library's. So a map iterator's node pointer is not followed, and a library
   object is never loose memory nor `untied`. Such a value may be moved (`ck_moves_library/1`): `auto r = std::move(q)`

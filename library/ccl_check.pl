@@ -150,7 +150,18 @@ ck_items([]).
 ck_items([function(L, _, Ret, Name, Params, _, Body)|Is]) :- !,
     ( ck_library_fn(Name) -> true ; \+ \+ ck_function(L, Ret, Name, Params, Body) -> true ; ck_trace(check_failed(Name)), fail ),   % a library header's function: C++'s rules, not these (ccl_cpp); inside `\+ \+', so a function's walk is reclaimed; one that merely FAILS says its name under the trace (0.108)
     ck_items(Is).
+ck_items([I|Is]) :- ck_item_container(I, Js), !, ck_items(Js), ck_items(Is).
 ck_items([_|Is]) :- ck_items(Is).
+%% A NAMESPACE AND AN `extern "C"' BLOCK HOLD ITEMS OF THE UNIT (1.6.16): the desugaring keeps both in its output, and the
+%% table's noter (ccl_collect_item/9) and the lowering (ir_item/1) open them; the check took the units' top level alone, so
+%% a function of a namespace -- a free one, its class's members, an anonymous namespace's -- or of an `extern "C"' block was
+%% never walked, nor known to the passes before the walk (a static result, a static array's writes, a flow): `namespace ns
+%% { void f(int x) { int *p = new int(x); *p = 1; } }' was compiled, its leak unrefused
+ck_item_container(namespace(_, _, Js), Js).
+ck_item_container(extern_c(_, Js), Js).
+%% each item of the units, a container's at any depth
+ck_unit_item(Units, I) :- member(unit(Is), Units), ck_item_in(Is, I).
+ck_item_in(Is, I) :- member(I0, Is), ( ck_item_container(I0, Js) -> ck_item_in(Js, I) ; I = I0 ).
 %% a library's function, its code not the program's: C++'s (cpp_library_function/1), and in C one that a library's header
 %% defines and the unit uses, lowered with it (ir_header_defs/2, '$ir_hlib'/1; 0.212)
 ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$ir_hlib'(Name), _, fail) ).
@@ -412,7 +423,7 @@ ck_static_borrow_result(_, _).
 %% ... }' writes no `slot' of the file's (ck_writes_in/4, which walks a block's items in their order)
 ck_static_writes(Units) :- ( nb_current('$ck_static_arrays', SKs) -> true ; SKs = [] ),
     (   SKs == [] -> nb_setval('$ck_static_writes', [])
-    ;   findall(F-w(Ds, Cs), ( member(unit(Is), Units), member(function(_, _, _, F, Ps, _, B), Is), atom(F),
+    ;   findall(F-w(Ds, Cs), ( ck_unit_item(Units, function(_, _, _, F, Ps, _, B)), atom(F),
                                ck_body_writes(Ps, B, SKs, Ds), ck_body_callees(B, Cs) ), Fns),
         findall(F-Ds, member(F-w(Ds, _), Fns), W0), ck_static_writes_close(Fns, SKs, W0, W), nb_setval('$ck_static_writes', W) ).
 ck_body_writes(Ps, B, SKs, Ds) :- ( catch(ck_param_names(Ps, Hs0), _, fail) -> Hs = Hs0 ; Hs = [] ),
@@ -676,7 +687,7 @@ ck_library_static(F) :- memberchk(F, [getenv, setlocale, localeconv, strerror, a
 %% another local's, `malloc''s, or a static one on one road and new memory on another, stays fresh: its result is the
 %% caller's to give back, or the function's to tie
 ck_static_results(Units) :- nb_setval('$ck_static_fns', []),
-    findall(r(F, Ps, Es, Vs), ( member(unit(Is), Units), member(function(_, _, Ret, F, Ps, _, B), Is), atom(F), \+ ck_library_fn(F),
+    findall(r(F, Ps, Es, Vs), ( ck_unit_item(Units, function(_, _, Ret, F, Ps, _, B)), atom(F), \+ ck_library_fn(F),
         \+ ccl_tie_of(Ret, _), catch(ck_is_pointer_type(Ret), _, fail), \+ ck_own_type(Ret),
         findall(E, ( ck_sub_term(return(L, E), B), integer(L) ), Es), Es \== [], ck_body_vars(B, Vs) ), Cs),
     Cs = [_|_], !, findall(F, member(r(F, _, _, _), Cs), Fs0), sort(Fs0, Fs), nb_setval('$ck_static_fns', Fs), ck_static_results_close(Cs).
@@ -1218,7 +1229,7 @@ ck_lib_replace(Obj, F, Args, St0, St1, St) :- Args = [_|As], ck_lib_self(Obj, St
 %% plain pointer member in C++; the flows are what the function accepts -- a library object's store, a library value's,
 %% a slot through a reference
 ck_flows(Units) :- nb_setval('$ck_flows', []), ccl_lang(cpp),
-    findall(f(F, Ps, B, Ls), ( member(unit(Is), Units), member(function(_, _, _, F, Ps, _, B), Is), atom(F), \+ catch(cpp_library_function(F), _, fail),
+    findall(f(F, Ps, B, Ls), ( ck_unit_item(Units, function(_, _, _, F, Ps, _, B)), atom(F), \+ catch(cpp_library_function(F), _, fail),
         ck_body_locals(B, Ls) ), Fns),
     Fns = [_|_], !,
     findall(flow(F, J, I), ( member(f(F, Ps, B, Ls), Fns), ck_flow_direct(Ps, B, Ls, J, I) ), Fl0), sort(Fl0, Fl1),

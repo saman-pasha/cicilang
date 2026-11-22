@@ -332,6 +332,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.13 | A comma, an assignment and a prefix step as C++'s lvalues | the first item of the user's "do some not done items": in C++ a comma over an lvalue, an assignment and a prefix `++` or `--` are lvalues -- the desugaring takes them (overloads, forwarding, copies, `decltype`), the lowering takes their places once, the safe part borrows the places; beside them C took `(c ? a : b) = 5` and refused `(g(), s).m`, now in clang's words and taken, the check walked no initializer of a reference bound to a value (a double free), and the largest chart passed cocolog's default stack, 2 GB in the flow gate and a finding for cocolog | the twenty forms as clang++'s build, the probes as clang's and g++'s but one recorded limit; 32 broken copies, 30 caught and the two others' rules taken out; the flow gate, the C gates, ccllib, the C++ pools over 22, 21 and 18, the heavier fixtures and the gate's later parts GREEN |
 | 1.6.14 | A void value used as a value, refused at its line in clang's words | the second item of the user's "do some not done items": a void value where a value is taken is refused at its line in clang's words, C's by the place and C++'s by the object, in the lowering and in the desugaring; 498 bodies over the forms beside it found and mended the operands of a switch, a subscript and an indirection, C's call value as no lvalue, a conditional with a throw arm, a block's function and `extern` object, `sizeof` of a function, C's cast by clang's order and GNU's cast to a union, C++'s casts of a void value by their target's kind, the qualified call of one function, `dynamic_cast`'s operands, the type text of C++'s types and the line after a landing pad; the broken copies took four rules out, and their new bodies found six more forms -- a class copy-initialized from a void value, a class's parameter and assignment, a member's line in a local class, a local struct's name and `decltype` of a throw arm -- and C's operand read as a value named by its unqualified type, a block pointer no pointer, the library guards out | the 498 bodies as clang's and clang++'s words but 13 recorded limits, and 32 more; 124 broken copies over the first tree, 104 caught, four rules out and fifteen caught by 32 new bodies; 136 over the mended tree, 135 caught, the block pointer's alternative out; 146 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 357, driver 108, objects 29, cross 225, ccllib 623; the C++ pools 379 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 | 1.6.15 | Paths end at calls that do not return and loops that do not end | the third item of the user's "do some not done items", the record of 1.6.10: a block that ends in `exit()`, `abort()` or a trap with new memory live in it was refused, `plain pointer not consumed`; a call of a function declared not to return -- `_Noreturn`, `[[noreturn]]`, GCC's `noreturn`, glibc's and libc++'s so declared -- a trap that ends and `__builtin_unreachable()` end their path now, a cast of one to void, a comma and a conditional of two such arms too, and a loop whose condition is left out or a nonzero constant ends by its breaks alone; the reader keeps the mark on the result (reader 209), a C++ member's leading attribute its notes, the lowering ends the block in `unreachable` (lowering 184); a function's marks are no part of its type, a constructor's neither, which `_Generic` took for one since 1.6.8 | 34 forms as clang's and clang++'s builds but two that the safe part refuses by its own rules; 28 broken copies over the first tree, 25 caught, two rules out and a body for the third; 26 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 381 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
+| 1.6.16 | The safe part walks the functions of a namespace and of an `extern "C"` block | found by the probes of the user's "Fix these points", before their step: the desugaring keeps a namespace and an `extern "C"` block as items, which the table's noter and the lowering open, and the check's walk and its three passes before the walk took the units' top level alone -- a namespace's function, a member of a namespace's class, an anonymous namespace's and an `extern "C"` block's were compiled and never walked, their leaks unrefused, a static result freed, a local's address kept in a namespace's vector and a borrow read after a namespace's function stored into a static own array; `ck_item_container/2` and `ck_unit_item/2` open them (lowering 185) | 84 namespace fixtures, 83 as before and one skipped by its `.needs`; 7 broken copies, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 382 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 240 |
 
 ## M5 — the C++ mode
 
@@ -24497,3 +24498,49 @@ hand, 233 ok. The chain did not run, by the owner's rule of 0.271. No CI job ran
   record of 1.6.10 out of Not done, one record in), HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.15, the reader 209 and the lowering 184.
+
+
+## 1.6.16 — The safe part walks the functions of a namespace and of an `extern "C"` block
+
+Found by the probes of the user's "Fix these points" (the three records of 1.6.15), before their step: a C++ probe of a
+`noreturn` function's name put the function in a namespace, and its leak was compiled. The cause: the desugaring keeps
+`namespace(L, N, Items)` and `extern_c(L, Items)` in its output, which the table's noter (`ccl_collect_item/9`) and the
+lowering (`ir_item/1`) open, and the check's `ck_items/1` took the units' top level alone -- every function of a
+namespace, a member of a namespace's class, an anonymous namespace's function and an `extern "C"` block's were compiled
+and never walked. The three passes before the walk took the top level alone too: the static results
+(`ck_static_results/1`), the writes of the static own arrays (`ck_static_writes/1`) and the flows (`ck_flows/1`), so a
+call of such a function was a call of a function with no body in the unit -- its result new memory, its writes none,
+its flows none.
+
+THE CHANGE. `ck_item_container/2` names the two containers, `ck_items/1` walks a container's items in place, and
+`ck_unit_item/2` gives each item of the units at any depth to the three passes. A C unit has no such item.
+
+THE FORMS. Each was compiled before the change and is refused after it, in the rule's words, as at file scope:
+`test/cpp/nsleak.cpp` (a namespace's function), `nsleakclass.cpp` (a member of a class in nested namespaces),
+`nsleakanon.cpp` (an anonymous namespace's function), `nsleakextc.cpp` (an `extern "C"` block's in a namespace),
+`nsflow.cpp` (a local's address kept in a namespace's global vector, `a borrow stored where it cannot be followed`),
+`nsstatret.cpp` (`std::free` of a namespace's static result, `a borrow consumed`), `nsstaticwrite.cpp` (a borrow of a
+static own array's element read after a namespace's function stored into the array, `use of a borrow after a call
+that may replace its owner`). `test/cpp/run/nsfunctions.cpp` builds what is right in them -- a free function, a
+nested namespace's class with a `unique_ptr` member, an inline namespace's, an anonymous namespace's, `extern "C"` in
+a namespace and at file scope, a static result read and never freed, a global's address kept, a static own array's
+element borrowed again after the store -- and prints what clang++'s build prints. A function defined in a namespace
+was compiled where the same function at file scope was refused, so the C++ fixtures with a namespace are now checked: of
+the 84 run fixtures whose text names a namespace, 83 build and print as before over libc++ 22, and one is skipped by its
+`.needs`.
+
+THE BROKEN COPIES. Seven copies of the tree, each with one rule broken -- the walk's clause of a container, each of the
+two containers, the descent of `ck_item_in/2` and each of the three passes -- over a battery of the seven refusals and
+the run fixture: each was caught.
+
+THE PROOF. The nets over the main tree: the flow gate GREEN (462 s); the reader 173 ok (5 skipped), the compiler 362,
+the driver 109 (1 skipped), the objects 29, the cross gate 227 (1 skipped), ccllib 623 (36 programs in three runs, 188
+refused, 21 alone); the C++ pool of the 382 lighter run fixtures, 382 ok over libc++ 22, 21 and 18; the 520 heavier
+ones over 22, 506 ok and 14 skipped by their `.needs`; the C++ gate's later parts by hand, 240 ok. The chain did not
+run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_check.pl` (`ck_item_container/2`, `ck_unit_item/2`, `ck_item_in/2`; the three passes over them),
+  `library/ccl_ir.pl` (the lowering 185), `test/cpp.sh` (the seven refusals), the fixtures, the module's version.
+- RULES.md (the rule in The safe part), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.16, the reader 209 and the lowering 185.

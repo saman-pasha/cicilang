@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.15 the versions are: the module 1.6.15 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 184 (`ccl_lowering_version/1`,
+At 1.6.16 the versions are: the module 1.6.16 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 185 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -671,7 +671,10 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             moves an owner, refassign_escape.cpp and refstep_escape.cpp, a local returned through an
                             assignment or a prefix ++, callborrowcomma.cpp, callreplacecomma.cpp,
                             callreplacerefcomma.cpp and itercomma.cpp, the borrow rules through a comma, and
-                            refownelem.cpp, an own array's element assigned as a place, refused by name (1.6.13)
+                            refownelem.cpp, an own array's element assigned as a place, refused by name (1.6.13);
+                            nsleak.cpp, nsleakclass.cpp, nsleakanon.cpp, nsleakextc.cpp, nsflow.cpp, nsstatret.cpp
+                            and nsstaticwrite.cpp, a namespace's and an `extern "C"' block's functions, which the
+                            check never walked (1.6.16)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -699,7 +702,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             its scope drops, as a place (1.6.13); throwarm.cpp, conditionals with a throw arm, their
                             types, values and value categories, and voidkept.cpp, what the void values' rules keep in
                             C++ (1.6.14); noreturncpp.cpp, calls that do not return and loops that do not end in C++
-                            (1.6.15)
+                            (1.6.15); nsfunctions.cpp, what is right in a namespace's and an `extern "C"' block's
+                            functions (1.6.16)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
