@@ -336,6 +336,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.17 | A body that returns never, a noreturn function that returns, and longjmp | the user's "Fix these points", the three records of 1.6.15: a function whose body returns never ends its caller's path, found by a least fixpoint before the walk, and a throw ends its path; a function declared not to return that returns is refused in clang's words, a return at its line and an end at the body's last statement; a longjmp is followed -- the frames that it leaves hold no live memory and no defer, the frames that it lands in hold each pointer as the setjmp saw it and given no value since, a function that sets a global buffer itself catches its own jumps, and a function that may longjmp is called by its name alone; a loop's body walked once, found and recorded (lowering 186) | 42 fixtures; 85 broken copies over the final tree, each caught, three after a body for them, and two rules out; the nets: the flow gate GREEN; reader 173, compile 392, driver 110, objects 29, cross 229, ccllib 623; the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 250 |
 | 1.6.18 | The false refusals of loops and joins | five false refusals of the safe part that the probes of the next step met, each old: a loop's condition refines what it tests, as an `if`'s does; a do's body runs once at least, and `do ... while (0)` once; an owner that a loop's body leaves null is kept; a loose pointer found null is no owner; a join takes a field from the side whose owner is not null; a copy of what the test found null is null and its address anchors it, the step's own regression repaired before its commit -- the loop that frees a list, the do-while(0) of a macro and a null test that gives new memory again were refused; two old holes found and recorded, a plain pointer's freed memory and a join of new memory and a borrow (lowering 187) | nets GREEN: flow, reader 173, compile 402, driver 110, objects 29, cross 232; after the commit, carried by 1.6.19's: ccllib 623, the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 252 |
 | 1.6.19 | A loop's body walked again until its state settles | the record of 1.6.17 closed for the loops: each pass starts from the join of the last one's start and its end, until the join is the start, eight passes at most and a loop that does not settle refused by name; each pass starts with the labels noted at the loop's start; a setjmp that a later pass reaches again replaces its note -- a leak in a later pass, an owner written over, a goto over a free and a jump to an earlier pass's setjmp were taken; a plain pointer declared null, in no frame, recorded (lowering 188) | nets GREEN: flow, reader 173, compile 412, driver 111, objects 29, cross 233, ccllib 625 (621 and two failures at first, born_held.c), the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 253 |
+| 1.6.20 | A plain pointer declared null is a key of its frame | the record of 1.6.19 closed: `char *q = NULL;` declares q `none`, so a label's join no longer takes it for a declaration that a goto jumped over -- a goto past new memory that the label's path frees was refused, in C and in C++; a static local kept as it was; a volatile local keeps its value across a longjmp, no key changed since the setjmp (lowering 189) | nets GREEN: flow, reader 173, compile 417, driver 111, objects 29, cross 234, ccllib 625, the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 254 |
 
 ## M5 — the C++ mode
 
@@ -24819,3 +24820,53 @@ parts 253. The chain did not run, by the owner's rule of 0.271. No CI job ran.
   fixtures).
 
 The module 1.6.19, the reader 209 and the lowering 188.
+
+## 1.6.20 — A plain pointer declared null is a key of its frame
+
+The record of 1.6.19, A PLAIN POINTER DECLARED NULL IS IN NO FRAME, closed. `char *q = NULL;` put no key of q in its
+frame, and new memory given to it later made a key there, so a label's join took the key that a goto's state had not
+for a declaration that the goto jumped over: `char *q = NULL; if (c) goto out; q = malloc(4); out: free(q);`, a goto
+out of a loop whose earlier pass gave q new memory, and the same in C++ with `nullptr` were `goto over the declaration
+of fresh memory or of an own array`, an old false refusal that 1.6.17 met too. Each such program runs right under clang
+-O0 and -O2 and under GCC's AddressSanitizer.
+
+A PLAIN POINTER DECLARED NULL IS A KEY OF ITS FRAME (`ck_decls/3`): `= NULL`, `= 0` and `= nullptr` declare it `none`,
+a pointer that holds nothing the check follows, which the joins, the copies (1.6.18) and the anchors (1.6.18) take as a
+local with no state. A static local declared null is no key, as before: the first prototype made it one, and a static
+pointer that a lazy function fills with new memory, `untied` until then, was taken. The first prototype took
+`own_of_anchor.c` too, as `&line` anchored no key: the anchor of a `none` key is 1.6.18's. A declaration that the goto
+jumps over is refused as before.
+
+THE KEY AT A SETJMP. Such a pointer is a key where a setjmp notes the state, so the jump holds it to the rule of a key
+changed since the setjmp, where the leak's rule held it: `lj_loop_back.c`'s words are `changed_across_setjmp` since,
+the rule that holds there. And A VOLATILE LOCAL KEEPS ITS VALUE ACROSS THE JUMP (C17 7.13.2.1/3 names the objects that
+are not volatile; `ck_volatile_local/1`): no key changed since the setjmp, what it holds at the jump is held to the
+leak's rule, as the walk of the second return starts from the state that the setjmp saw. The first prototype gave
+`lj_volatile.c`'s volatile pointer the words of a changed key, which C's rule does not hold for it; a volatile pointer
+that the setjmp saw with new memory, given new memory again before the jump, was `changed_across_setjmp` by 1.6.19 and
+is `plain pointer not consumed` at the jump since. The qualifier of a typedef's type counts too (`volatile text p`).
+
+THE PROBES. 21 forms over 1.6.19 and the prototype, each in a HOME of its own: the goto forms of 1.6.19's probes, the
+same in C++, a declaration that the goto jumps over, a join and a leak with no goto, a loop, copies, a borrow of argv,
+the address of a local, a shadowed name, a longjmp, an own parameter, a return, a static local, and two volatile
+pointers. 1.6.19 refuses three that the prototype takes, each right; the words of two refusals change, as above; a
+pointer declared from an element of argv is followed as a borrow, and a goto beside it is taken by both.
+
+THE BROKEN COPIES. 4 copies, each caught: without the key (`ND1`), by `nulldecls.c`, as C and as C++, and by
+`lj_loop_back.c`; with a static local a key (`ND2`), by `static_null_lazy.c`; without the volatile local's rule
+(`VO1`), by `lj_volatile.c`, `lj_volatile_held.c` and `lj_volatile_typedef.c`; without a typedef's qualifier (`VO2`),
+by `lj_volatile_typedef.c`, which the step wrote for it. Each copy ran the batteries of 1.6.20, 1.6.19 and 1.6.18,
+1.6.19's with `lj_loop_back.c`'s words of 1.6.20.
+
+THE PROOF. The nets over the tree: the flow gate GREEN (445 s, 0 findings); the reader gate 173 ok, compile 417, driver
+111, objects 29, cross 234 and ccllib 625 (36 programs in three runs, 189 refused, 21 alone), each GREEN; the C++ pools
+of the lighter run fixtures 383 over each of libc++ 22, 21 and 18; the heavier 506 (14 skipped) over 22; the C++ gate's
+later parts 254. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_check.pl` (`ck_decls/3`, `ck_jump_same/4`, `ck_volatile_local/1`, `ck_top_quals/2`),
+  `library/ccl_ir.pl` (the lowering 189), `test/cpp.sh` (`nulldecls.c` among the C run fixtures built as C++),
+  `test/c/safe/lj_loop_back.expect`, the fixtures, the module's version.
+- RULES.md (the rule of a plain pointer declared null after the rule of the passes; the longjmp rule's volatile local;
+  the record of 1.6.19 out of Not done), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.20, the reader 209 and the lowering 189.

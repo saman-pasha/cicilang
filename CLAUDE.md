@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.19 the versions are: the module 1.6.19 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 188 (`ccl_lowering_version/1`,
+At 1.6.20 the versions are: the module 1.6.20 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 189 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -626,7 +626,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             and nullcopies.c, the copies of a pointer that its null test found null, each built as C
                             and as C++, and refilled.c, pointers that a free or a null test left holding nothing, given
                             new memory by getline through their address (1.6.18); looppasses.c, loops whose next pass
-                            finds what the last left, built as C and as C++ (1.6.19)
+                            finds what the last left, built as C and as C++ (1.6.19); nulldecls.c, pointers declared
+                            null that the path a goto jumps over gives new memory, built as C and as C++ (1.6.20)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -668,7 +669,9 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             an own copy (1.6.18);
                             loop_pass_leak.c, loop_pass_owner.c, loop_pass_three.c, loop_pass_after.c,
                             loop_pass_continue.c, loop_pass_do.c, loop_pass_goto.c, lj_loop_back.c and move_loop_do.c,
-                            what a later pass of a loop meets (1.6.19)
+                            what a later pass of a loop meets (1.6.19); skipped_null_decl.c, static_null_lazy.c,
+                            lj_volatile_held.c and lj_volatile_typedef.c, what a pointer declared null and a volatile
+                            local refuse still (1.6.20)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

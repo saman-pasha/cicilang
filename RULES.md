@@ -11790,6 +11790,16 @@ in the first topic (The ccllib gate).
   next pass uses again -- ccllib's drop frees the buffer and leaves its pointer, and the next pass pushes into it;
   `test/ccllib/alone/born_held.c`, whose for ran once by its count, which the check does not know, breaks after its drop
   since; the driver gate holds the cap, eight own pointers that pass memory on refused and seven taken. (1.6.19)
+- A PLAIN POINTER DECLARED NULL IS A KEY OF ITS FRAME (1.6.20; `ck_decls/3`): `char *q = NULL;` -- `= 0` and `= nullptr`
+  too -- declares q `none`, a pointer that holds nothing the check follows. It was in no frame, and new memory given to
+  it later made a key there (`ck_declare_at/4`), so a label's join took the key that a goto's state had not for a
+  declaration that the goto jumped over (`ck_skipped_frames/4`): `char *q = NULL; if (c) goto out; q = malloc(4); out:
+  free(q);`, a goto out of a loop whose earlier pass gave q new memory, and the same in C++, were `goto over the
+  declaration of fresh memory or of an own array`, where each path frees what it holds. A declaration that the goto
+  jumps over is refused as before. A static local declared null is no key, as before: static storage that new memory
+  reaches with no owner behind it is `untied`. Such a pointer, a key at a setjmp, is held to the rule of a key changed
+  since the setjmp (`test/c/safe/lj_loop_back.c`, whose words were the leak's). `test/c/run/nulldecls.c`, as C and as
+  C++; refused, `test/c/safe/skipped_null_decl.c`, `static_null_lazy.c`. (1.6.20)
 - A CALL THAT DOES NOT RETURN ENDS ITS PATH (1.6.15; C17 6.7.4/8, 7.22.4.1/2, 7.22.4.4/2, 7.13.2.1/4; C23 6.7.12.7;
   [dcl.attr.noreturn]/1; `ck_noreturn_call/1`): an expression statement that calls a function declared not to return --
   `_Noreturn`, `[[noreturn]]`, GCC's `noreturn` (the reader's topic): glibc's `exit`, `abort`, `_Exit`, `quick_exit`,
@@ -11856,7 +11866,11 @@ in the first topic (The ccllib gate).
   free(p); longjmp(e, 1); } free(p);` freed p twice, and memory live where a jump left its frame was never refused.
   `test/c/run/longjmps.c`; refused, `test/c/safe/lj_freed_between.c`, `lj_changed_borrow.c`, `lj_volatile.c`,
   `lj_leak_block.c`, `lj_leak_callee.c`, `lj_leak_since.c`, `lj_leak_deep.c`, `lj_into_ended.c`, `lj_incomplete.c`;
-  `test/cpp/lj_dtor.cpp`, `lj_dtor_block.cpp`, `lj_dtor_out.cpp`. (1.6.17, 1.6.19)
+  `test/cpp/lj_dtor.cpp`, `lj_dtor_block.cpp`, `lj_dtor_out.cpp`. A VOLATILE LOCAL KEEPS ITS VALUE ACROSS THE JUMP
+  (1.6.20; C17 7.13.2.1/3 names the objects that are not volatile; `ck_volatile_local/1`): it is no key changed since
+  the setjmp, and what it holds at the jump is held to the leak's rule, as the walk of the second return starts from the
+  state that the setjmp saw -- `char *volatile p` given new memory again before the jump is `plain pointer not consumed`
+  there (`test/c/safe/lj_volatile.c`, `lj_volatile_held.c`). (1.6.17, 1.6.19, 1.6.20)
 - A KEY GIVEN A VALUE SINCE A SETJMP (1.6.17; C17 7.13.2.1/3: its value after the jump is not known; `ck_sj_write/1`,
   `ck_sj_walk/3`, `ck_sj_loop/1`, `ck_sj_dead_block/3`, `ck_written_since/2`): a local's path that an assignment or a
   step gives a value while a setjmp is noted is noted with the number of the last setjmp (`'$ck_sj_writes'`), once the
@@ -16706,12 +16720,6 @@ Declarations topic of the C++ reader).
 - A CYCLE OF A BACKWARD GOTO IS WALKED IN THE ORDER OF ITS FIRST PASS (found at 1.6.17, narrowed at 1.6.19, which walks
   a loop's body again until its state settles; the safe part's topic): the function is walked again from the label's
   join, as the gotos' walk has it, and a write in the goto's cycle after the jump is not noted for its next pass.
-- A PLAIN POINTER DECLARED NULL IS IN NO FRAME (found at 1.6.19; the safe part's topic): `char *q = NULL;` puts no key
-  of q in its frame (`ck_decls/3`), and new memory given to it later puts one there (`ck_declare_at/4`); a label's join
-  takes a key that a goto's state has not for a declaration that the goto jumps over (`ck_skipped_frames/4`), so `char
-  *q = NULL; if (c) goto out; q = malloc(4); out: free(q);` -- and a goto out of a loop whose earlier pass gave q new
-  memory -- is refused, `goto over the declaration of fresh memory or of an own array`, where each path frees what it
-  holds. A key in its frame from its declaration, in the state `none`, would close it, and reaches every `T *p = NULL;`.
 - A PLAIN POINTER'S FREED MEMORY IS FOLLOWED NO FURTHER (found at 1.6.18; the safe part's topic): `free`, `fclose`,
   `realloc` and an own parameter make a loose pointer `none` (`ck_consume_loose/3`), a pointer that holds nothing that
   the check follows, so `char *p = malloc(8); free(p); free(p);`, a write through p after its free and a copy of p after

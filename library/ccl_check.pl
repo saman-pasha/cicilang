@@ -1851,6 +1851,7 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
             ;   ck_is_pointer_type(T), ck_plain_value(St5a, Init, _) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'; and its sum with an integer, and of an anchored pointer (0.299, ck_plain_value/3)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
+            ;   ck_is_pointer_type(T), ck_null(Init), \+ ck_is_static(N) -> ck_declare(St5a, N, none, St6)   % A PLAIN POINTER DECLARED NULL IS A KEY OF ITS FRAME (1.6.20), a static local's kept as it was, one that holds nothing the check follows: in no frame, a label's join took it for a declaration that a goto jumped over
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
 %% C++: A REFERENCE BOUND TO A VALUE -- the temporary C++ makes for it, no place to borrow -- has its initializer walked
@@ -2546,8 +2547,14 @@ ck_jump_to(F, D, st(FrsS), Seq, st(Frs)) :- length(Frs, N),
         ck_leaks_frames(Deeper, longjmp), ck_jump_same(F, Seq, Outer, FrsS) ).
 ck_jump_same(_, _, [], []).
 ck_jump_same(F, Seq, [fr(Os, Ds)|T], [fr(OsS, DsS)|TS]) :- ( Ds == DsS -> true ; ck_fail(longjmp_over_defer, F, longjmp) ),
-    forall(member(V-S, Os), ( memberchk(V-SS, OsS) -> ( S == SS, \+ ck_written_since(V, Seq) -> true ; ck_fail(changed_across_setjmp, V, longjmp) ) ; ck_leaks([V-S], longjmp) )),
+    forall(member(V-S, Os), ( memberchk(V-SS, OsS), \+ ck_volatile_local(V) -> ( S == SS, \+ ck_written_since(V, Seq) -> true ; ck_fail(changed_across_setjmp, V, longjmp) ) ; ck_leaks([V-S], longjmp) )),
     ck_jump_same(F, Seq, T, TS).
+%% A VOLATILE LOCAL KEEPS ITS VALUE ACROSS THE JUMP (1.6.20; C17 7.13.2.1/3 names the objects that are not volatile), so
+%% the rule of a key changed since the setjmp is not its: what it holds at the jump is held to the leak's rule, as the walk
+%% of the second return starts from the state that the setjmp saw
+ck_volatile_local(V) :- atom(V), ck_local_type(V, T), ck_top_quals(T, Q), memberchk(volatile, Q).
+ck_top_quals(ptr(Q, _), Q) :- !.
+ck_top_quals(base(Q, _), Q).
 %% A KEY GIVEN A VALUE SINCE A SETJMP (1.6.17; C17 7.13.2.1/3: its value after the jump is not known): a local's path that
 %% an assignment or a step gives a value while a setjmp is noted, once its walk is done ('$ck_sj_writes', with the number
 %% of the last setjmp noted), or that a loop gives a value anywhere, at the loop's entry, since a jump in a later pass
