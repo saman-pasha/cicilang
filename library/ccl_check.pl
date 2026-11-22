@@ -1531,6 +1531,7 @@ ck_stmt(expr(_, bind_ref(_, E)), St0, St) :- !, ck_expr(E, St0, St).   % a REFER
 ck_stmt(empty, St, St) :- !.
 ck_stmt(expr(L, E), _, _) :- ck_dropped_value(E), !, ck_line(L), ck_fail(dropped_temporary, temporary, E).   % a call's value that has a drop, thrown away (0.262)
 ck_stmt(expr(L, E), _, _) :- ck_dropped_memory(E, D), !, ck_line(L), ck_dropped_name(D, N), ck_fail(dropped_memory, N, D).   % new memory thrown away (0.309)
+ck_stmt(expr(L, E), St0, dead) :- ck_noreturn_call(E), !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, _).   % a call that does not return ends its path (1.6.15)
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, ['$autodrop'(V)], _), St0, St) :- !, ck_line(L), ck_defer(St0, '$autodrop'(L, V), St).   % an object's drop (0.262): its mark is the defer
 ck_stmt('$autodrop'(_, V), St0, St) :- !, ck_autodrop(V, St0, St).
@@ -1551,8 +1552,8 @@ ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L),
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
-ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_expr(C, St0, St1), ck_loop(S, St1, St2), ck_expr(C, St2, St).
-ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_loop(S, St0, St1), ck_expr(C, St1, St).
+ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St1, St2), ck_expr(C, St2, St).
+ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, Ends, St0, St1), ck_expr(C, St1, St).
 ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        % C++: a range-for over an array is the for it stands for
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
 ck_stmt(using(_, _), St, St) :- !.
@@ -1561,7 +1562,7 @@ ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L),
     ccl_scope_push, ck_bpath_push, ck_push(St0, St1),
     ( Init = decl(_, Vs) -> ck_decls(Vs, St1, St2) ; Init == none -> St2 = St1 ; ck_anchor_addrs(Init, St1, St1a), ck_expr(Init, St1a, St2) ),
     ( C == none -> St3 = St2 ; ck_expr(C, St2, St3) ),
-    ck_loop_with_step(S, Step, St3, St4),
+    ck_loop_ends(C, Ends), ck_loop_with_step(S, Step, Ends, St3, St4),
     ck_scope_end(St4, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt(return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 %% a coroutine's skeleton (0.108): co_return leaves every scope as a return does; the promise, the frame and the
@@ -1596,6 +1597,17 @@ ck_stmt(gnu_asm(L, basic(_)), St, St) :- !, ck_line(L).
 ck_stmt(gnu_asm(L, ext(_, _, Os, Is, _, Ls)), St0, St) :- !, ck_line(L), ck_asm_ops(Is, St0, St1), ck_asm_outs(Os), ck_asm_ops(Os, St1, St),
     ck_asm_gotos(Ls, L, St).   % `asm goto' (0.231): an edge to each of its labels, as a `goto' makes, and the state falls through too
 ck_stmt(S, _, _) :- functor(S, F, _), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(F), where(Fn, line(L)))).   % a form of C++'s later steps
+%% A CALL THAT DOES NOT RETURN ENDS ITS PATH (1.6.15; C17 6.7.4/8, 7.22.4.1, 7.22.4.4, 7.13.2.1/4): a statement that calls a
+%% function declared not to return -- `_Noreturn', `[[noreturn]]', GCC's `noreturn' (library(ccl_infer)'s ccl_noreturn_type/1):
+%% glibc's `exit', `abort', `_Exit', `quick_exit', `longjmp' and `pthread_exit', libc++'s `std::terminate' --, a trap that does
+%% not go on (`__builtin_trap()', `__builtin_verbose_trap'), or `__builtin_unreachable()'. Its arguments are walked as any call's;
+%% then no owner is asked, as the program ends there -- or goes on where `longjmp' leads, a jump the check follows no more than
+%% before. The path went on to the block's end, where new memory still live was refused, `plain pointer not consumed'
+ck_noreturn_call(call(id(F), _)) :- atom(F), ( F == '__builtin_unreachable' ; ccl_trap_builtin(F, _, _, ends) ), !.
+ck_noreturn_call(call(id(F), _)) :- atom(F), catch(ccl_type_of(id(F), T), _, fail), T \== unknown, ccl_resolve_type(T, R), ccl_noreturn_type(R), !.
+ck_noreturn_call(cast(T, E)) :- ccl_void_typed(T), !, ck_noreturn_call(E).                 % `(void)exit(1);'
+ck_noreturn_call(comma(A, B)) :- ( ck_noreturn_call(A) -> true ; ck_noreturn_call(B) ), !.   % `(free(p), exit(1));': a comma evaluates both
+ck_noreturn_call(cond(_, A, B)) :- ck_noreturn_call(A), ck_noreturn_call(B), !.             % `c ? exit(1) : abort();': both arms end
 %% AN OBJECT'S DROP AT AN EXIT (0.262; library(ccl_syntax)'s ccl_autodrop_decl/2): the drop of V ran, so V's own fields
 %% are gone, each live, null, moved or partial -- a move left it null behind (the lowering's `move'), and the drop frees
 %% what is there -- and what borrowed them dangles; an unset one is garbage, refused
@@ -1944,15 +1956,22 @@ ck_init_where(Base, Key, W) :- ck_key_root(Base, R),
     ;   atom_concat(Base, '.$held', K), W = key(R, K, join) ).
 
 %% ---- loops: a body may not consume an owner from outside, unless it re-owns it ------------
-ck_loop(S, St0, St) :- ck_loop_with_step(S, none, St0, St).
-ck_loop_with_step(S, Step, St0, St) :-
+%% A LOOP THAT ENDS BY A BREAK ALONE (1.6.15; C17 6.8.5/4, 6.8.5.3/2): a condition left out, `for (;;)', or an integer constant
+%% other than zero, `while (1)', `do ... while (1)', ends the loop never (ck_loop_ends/2), and the path after it is its breaks'
+%% alone, or none. The state before the loop and the state at its body's end went on past it: a loop that only a `return' left
+%% made the function's end live, and new memory there was refused, `plain pointer not consumed'
+ck_loop_with_step(S, Step, Ends, St0, St) :-
     ck_loop_enter(St0, loop),
     ck_stmt(S, St0, St1),
     ck_loop_leave(Exits), ck_continues(Conts),
     ck_merge_all([St1|Conts], StEnd),
     ( Step == none -> StEnd1 = StEnd ; StEnd == dead -> StEnd1 = dead ; ck_expr(Step, StEnd, StEnd1) ),
     ck_no_moves_across(St0, StEnd1, S),
-    ck_merge_all([St0, StEnd1|Exits], St).
+    (   Ends == never -> ( Exits == [] -> St = dead ; ck_merge_all(Exits, St) )
+    ;   ck_merge_all([St0, StEnd1|Exits], St) ).
+ck_loop_ends(none, never) :- !.
+ck_loop_ends(C, never) :- catch(ccl_const_eval(C, V), _, fail), number(V), V =\= 0, !.
+ck_loop_ends(_, cond).
 ck_loop_enter(St, Kind) :- nb_getval('$ck_loops', L), nb_setval('$ck_loops', [lp(Kind, St, [], [])|L]).
 ck_loop_leave(Exits) :- nb_getval('$ck_loops', [lp(_, _, Exits, _)|L]), nb_setval('$ck_loops', L).
 ck_continues(Cs) :- nb_getval('$ck_loops', L), ( L = [] -> Cs = [] ; Cs = [] ).   % continues were merged when leaving

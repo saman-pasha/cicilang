@@ -1,0 +1,13 @@
+case 0: exit 30
+case 1: signal
+case 2: exit 32
+case 3: exit 33
+case 4: exit 34
+case 5: exit 35
+case 6: exit 36
+case 7: exit 37
+case 8: signal
+2 -7 5 4
+1 1
+~Loud 99
+exit 0

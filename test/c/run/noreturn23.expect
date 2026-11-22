@@ -1,0 +1,5 @@
+case 0: exit 20
+case 1: exit 21
+case 2: exit 22
+10 20
+exit 0

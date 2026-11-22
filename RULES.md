@@ -2382,6 +2382,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   own header (`ccl_pp_parse/4`) stands each included header's text under the header's own name, glibc's `register_t` of
   mode word from `<sys/types.h>` among them. A library header's `mode`, glibc's `__cfloat128` of mode TC, is read as
   before. Reader `k171`'s `mode_attr.c`. (1.6.8)
+- A FUNCTION THAT DOES NOT RETURN (1.6.15, reader 209; `ccl_noreturn_note/1`, `ccl_noreturn_word/2`,
+  `ccl_add_noreturn/2`, `ccl_noreturn_type/1`): `_Noreturn` among the specifiers, `[[noreturn]]` (C23's and C++'s;
+  `[[gnu::noreturn]]`; C23's old spelling `[[_Noreturn]]`, a keyword's token, which C++ has not) and GCC's
+  `__attribute__((noreturn))` or `((__noreturn__))` are a note beside a constructor's (1.6.8), and the function's result
+  takes the qualifier `noreturn`, which the safe part and the lowering ask (`ccl_noreturn_type/1`); the mark was read
+  and dropped. `_Noreturn` inside GCC's attribute, as `<stdnoreturn.h>`'s `noreturn` makes it, is dropped, as clang
+  drops it with a warning. In C++ an attribute before a member is the member's -- its notes the member's, as an item's
+  (`'$ccl_run_lead'`) -- and a member function declared or defined in its class takes the mark on its own road. A
+  FUNCTION'S MARKS ARE NO PART OF ITS TYPE (C17 6.7.4: `_Noreturn` is a function specifier; `ccl_fn_mark_q/1`): the
+  canonical form of a type has no `noreturn` and no constructor's `gnu_init`, so `_Generic(exit, void (*)(int): 1,
+  default: 0)` is 1 and `__builtin_types_compatible_p` of a `_Noreturn` function's type and `void (int)` is 1, as clang
+  has them -- a constructor's function was 0 so since 1.6.8. `test/c/run/noreturn.c`, `noreturn23.c`,
+  `test/cpp/run/noreturncpp.cpp`. (1.6.15)
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -11718,6 +11731,27 @@ in the first topic (The ccllib gate).
   one. `test/c/run/contswitch.c` (a while, a for whose step still runs, a do-while, a switch in a switch, a block in a
   case, a defer of the body, an owner freed before the continue; as C and as C++); `test/c/safe/cont_switch_leak.c`.
   (M3, 0.290)
+- A LOOP THAT ENDS BY A BREAK ALONE (1.6.15; C17 6.8.5/4, 6.8.5.3/2; `ck_loop_ends/2`, `ck_loop_with_step/5`): a
+  condition left out, `for (;;)`, or an integer constant other than zero -- `while (1)`, `do ... while (1)`, C++'s
+  `while (true)` -- ends the loop never, and the path after it is its breaks' alone, or none. The state before the loop
+  and the state at its body's end went on past it: a function whose loop only a `return` left had a live end, and new
+  memory there was refused, `plain pointer not consumed`. `test/c/run/noreturn.c` (`for (;;)`, `while (1)`, `do ...
+  while (1)`), `test/cpp/run/noreturncpp.cpp` (`while (true)`, `for (;;)`); `test/c/safe/loop_break_leak.c`, the path of
+  a break, new memory that it leaves live refused as before. (1.6.15)
+- A CALL THAT DOES NOT RETURN ENDS ITS PATH (1.6.15; C17 6.7.4/8, 7.22.4.1/2, 7.22.4.4/2, 7.13.2.1/4; C23 6.7.12.7;
+  [dcl.attr.noreturn]/1; `ck_noreturn_call/1`): an expression statement that calls a function declared not to return --
+  `_Noreturn`, `[[noreturn]]`, GCC's `noreturn` (the reader's topic): glibc's `exit`, `abort`, `_Exit`, `quick_exit`,
+  `longjmp`, `pthread_exit`, a program's own, libc++'s `std::terminate` --, a trap that does not go on
+  (`__builtin_trap()`, `__builtin_verbose_trap`) or `__builtin_unreachable()`; a cast of such a call to void, a comma
+  with one on either side, a conditional whose two arms are such calls. Its arguments are walked as any call's; then no
+  owner is asked and no defer runs, as the program ends there -- or goes on where `longjmp` leads, a jump that the check
+  follows no more than before. The path went on to the block's end, and new memory still live there was refused, `plain
+  pointer not consumed`, where clang builds the program. A call through a pointer goes on, the pointer's type naming no
+  mark, as clang has it, and the check reads no function's body for the mark: a function that calls `exit` on every path
+  and says nothing of it is a call that returns. `test/c/run/noreturn.c` (each case in a child of its own),
+  `noreturn23.c` (C23's spellings and `unreachable()`), `test/cpp/run/noreturncpp.cpp` (`std::exit`, `std::abort`,
+  `std::_Exit`, `std::quick_exit`, `std::terminate`, a member function in its class and a static one defined after it, a
+  `[[noreturn]]` function that throws, caught); `test/c/safe/noreturn_unmarked.c`, `noreturn_ptr.c`. (1.6.15)
 - A `goto` IS AN EDGE OF THE FLOW (0.133; `ck_walk_body`, `'$ck_bpath'`, `'$ck_fwd'`, `'$ck_back'`, `'$ck_seed'`): every
   frame the check pushes has an id, and a label is where a goto's state -- the frames it leaves closed, their defers run,
   their owners consumed or leaked, their borrows dangling, as a `break` closes them -- joins the state that falls
@@ -13590,6 +13624,10 @@ in the first topic (The ccllib gate).
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
 - `__builtin_unreachable()` is `unreachable`, and `[[assume(e)]]` calls `llvm.assume`. (0.93)
+- A CALL THAT DOES NOT RETURN ENDS ITS BLOCK (1.6.15, lowering 184; `ir_call/4` over `ccl_noreturn_type/1`): after the
+  call of a function declared not to return, the block ends in `unreachable`, as clang's, and what follows the call is
+  in a block that nothing reaches -- a conditional's arm so ended joins no phi, as a trap's (1.6.10). The driver gate
+  counts the blocks that such calls end in its IR and in clang's, four each. (1.6.15)
 - THE TRAPS ARE LOWERED (1.6.10; `ccl_trap_builtin/4`, one table, which the inference and the lowering's `ir_call/4`
   read): `__builtin_trap()` is LLVM's `llvm.trap`, which does not return, and its block ends in `unreachable` after it;
   clang 19's `__builtin_verbose_trap(category, message)` is the same trap, its two arguments never read at run time;
@@ -16486,10 +16524,13 @@ Declarations topic of the C++ reader).
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints
   the name differs, the debug hardening mode's of a failed assertion among them.
-- A CALL THAT DOES NOT RETURN ENDS NO PATH OF THE SAFE PART (found at 1.6.10): a block that ends in a trap, `abort()` or
-  `exit()` with new memory live in it is refused, `plain pointer not consumed`, where the program ends at the call and
-  clang builds it; the path goes on after the call to the block's end. A null test before such a call refines as it does
-  before a `return` (`if (!p) __builtin_trap();` over `malloc`'s p builds).
+- WHAT A CALL THAT DOES NOT RETURN LEAVES (found at 1.6.15; the safe part's topic): the check reads no function's body
+  for the mark, so a function that calls `exit` on every path and is not declared so is a call that returns
+  (`test/c/safe/noreturn_unmarked.c`), as clang's own analysis has it but for `-Wmissing-noreturn`'s hint; a call
+  through a pointer goes on, and GCC's `noreturn` on a pointer's type is dropped; a `_Noreturn` function whose end or
+  `return` is reached is not refused, where clang warns (`function declared 'noreturn' should not return`), and the path
+  after its call is walked by no rule; `longjmp`'s jump is followed no more than before, and the state where `setjmp`
+  returns again is the state before it; a conditional with one such arm goes on.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and

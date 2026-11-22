@@ -1,0 +1,17 @@
+case 0: exit 10
+case 1: signal abort
+case 2: exit 12
+case 3: exit 13
+case 4: exit 14
+case 5: exit 15
+case 6: signal trap
+case 7: exit 17
+case 8: exit 18
+case 9: exit 19
+case 10: exit 20
+case 11: exit 21
+2 5 3 1
+-1 0
+1 1 1 1
+back from longjmp
+exit 0

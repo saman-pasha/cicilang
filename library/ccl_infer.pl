@@ -1096,11 +1096,15 @@ ccl_type_canon_(T, T).
 %% the qualifiers that say where an object lies, not what it is -- GCC's `packed' and `aligned', a typedef's `aligned', a place's
 %% alignment (0.203) -- are no part of a type's identity: `_Generic(&p.i, int *: 1, default: 0)' over a packed member is 1, as clang has it
 ccl_layout_free([], []).
-ccl_layout_free([X|Xs], Ys) :- ( ccl_layout_q(X) -> Ys = Ys1 ; Ys = [X|Ys1] ), ccl_layout_free(Xs, Ys1).
+ccl_layout_free([X|Xs], Ys) :- ( ( ccl_layout_q(X) ; ccl_fn_mark_q(X) ) -> Ys = Ys1 ; Ys = [X|Ys1] ), ccl_layout_free(Xs, Ys1).
 ccl_layout_q(packed).
 ccl_layout_q(aligned(_)).
 ccl_layout_q(taligned(_)).
 ccl_layout_q(ualign(_)).
+%% ... nor a function's marks on its result (1.6.15; C17 6.7.4: `_Noreturn' is a function specifier, no part of the type): a
+%% constructor's and a destructor's (1.6.8), and a function's that does not return -- `void (*f)(int) = exit;' takes glibc's exit
+ccl_fn_mark_q(noreturn).
+ccl_fn_mark_q(gnu_init(_, _)).
 %% WHERE AN OBJECT LIES IS NO PART OF THE TYPE `typeof' NAMES (0.203; GCC's manual, Typeof: the type of the expression): a packed
 %% member's `packed', an object's `aligned(E)' and a place's `ualign(K)' are off, through an array to its element -- a typedef's own
 %% alignment, `taligned(E)', stays, as clang has it. `__typeof__(q.i)' of `int i __attribute__((packed))' was aligned at one
@@ -1448,6 +1452,13 @@ ccl_add_init(K, P, ptr(Q, T), ptr(Q1, T)) :- !, ( memberchk(gnu_init(K, P), Q) -
 ccl_add_init(_, _, T, T).
 ccl_init_of(T, Is) :- ( T = base(Q, _) ; T = ptr(Q, _) ), !, findall(K-P, member(gnu_init(K, P), Q), Is).
 ccl_init_of(_, []).
+%% A FUNCTION THAT DOES NOT RETURN (1.6.15; library(ccl_syntax)'s ccl_noreturn_note/1): the qualifier `noreturn' on its result,
+%% once, where a constructor's mark is kept -- a result of no base type takes none, as no program asks it; ccl_noreturn_type/1
+%% of a function's type. A pointer to a function is the pointer's declared type: one declared without the mark calls a function
+%% that may return, as clang has it
+ccl_add_noreturn(base(Q, B), base(Q1, B)) :- !, ( memberchk(noreturn, Q) -> Q1 = Q ; Q1 = [noreturn|Q] ).
+ccl_add_noreturn(T, T).
+ccl_noreturn_type(fn(base(Q, _), _, _)) :- memberchk(noreturn, Q), !.
 %% the label of a name at file scope, from ANY of its declarations: a prototype's is its definition's (`int f(int)
 %% __asm__("g"); int f(int x) { ... }' defines @g) and an extern's its definition's, as GCC and clang have it. The answer,
 %% a miss among them, is kept per name, since the lowering asks it of every global it names

@@ -331,6 +331,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.12 | cocolint in the flow gate | the user's word "Add cocolint to flow gate": the flow gate lints the repository's 104 Prolog files in one run, a job of its pool, RED on any finding, HARD or WARN; the decimal runtime's clause of 12 KB acknowledged where it stands, by its generator; cocolint's stream pattern names no `nl/1` or `write/2`, a finding for cocolog | the flow gate GREEN, `no finding, 1 acknowledged`; a copy of the tree with three seeds RED, each at its line |
 | 1.6.13 | A comma, an assignment and a prefix step as C++'s lvalues | the first item of the user's "do some not done items": in C++ a comma over an lvalue, an assignment and a prefix `++` or `--` are lvalues -- the desugaring takes them (overloads, forwarding, copies, `decltype`), the lowering takes their places once, the safe part borrows the places; beside them C took `(c ? a : b) = 5` and refused `(g(), s).m`, now in clang's words and taken, the check walked no initializer of a reference bound to a value (a double free), and the largest chart passed cocolog's default stack, 2 GB in the flow gate and a finding for cocolog | the twenty forms as clang++'s build, the probes as clang's and g++'s but one recorded limit; 32 broken copies, 30 caught and the two others' rules taken out; the flow gate, the C gates, ccllib, the C++ pools over 22, 21 and 18, the heavier fixtures and the gate's later parts GREEN |
 | 1.6.14 | A void value used as a value, refused at its line in clang's words | the second item of the user's "do some not done items": a void value where a value is taken is refused at its line in clang's words, C's by the place and C++'s by the object, in the lowering and in the desugaring; 498 bodies over the forms beside it found and mended the operands of a switch, a subscript and an indirection, C's call value as no lvalue, a conditional with a throw arm, a block's function and `extern` object, `sizeof` of a function, C's cast by clang's order and GNU's cast to a union, C++'s casts of a void value by their target's kind, the qualified call of one function, `dynamic_cast`'s operands, the type text of C++'s types and the line after a landing pad; the broken copies took four rules out, and their new bodies found six more forms -- a class copy-initialized from a void value, a class's parameter and assignment, a member's line in a local class, a local struct's name and `decltype` of a throw arm -- and C's operand read as a value named by its unqualified type, a block pointer no pointer, the library guards out | the 498 bodies as clang's and clang++'s words but 13 recorded limits, and 32 more; 124 broken copies over the first tree, 104 caught, four rules out and fifteen caught by 32 new bodies; 136 over the mended tree, 135 caught, the block pointer's alternative out; 146 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 357, driver 108, objects 29, cross 225, ccllib 623; the C++ pools 379 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
+| 1.6.15 | Paths end at calls that do not return and loops that do not end | the third item of the user's "do some not done items", the record of 1.6.10: a block that ends in `exit()`, `abort()` or a trap with new memory live in it was refused, `plain pointer not consumed`; a call of a function declared not to return -- `_Noreturn`, `[[noreturn]]`, GCC's `noreturn`, glibc's and libc++'s so declared -- a trap that ends and `__builtin_unreachable()` end their path now, a cast of one to void, a comma and a conditional of two such arms too, and a loop whose condition is left out or a nonzero constant ends by its breaks alone; the reader keeps the mark on the result (reader 209), a C++ member's leading attribute its notes, the lowering ends the block in `unreachable` (lowering 184); a function's marks are no part of its type, a constructor's neither, which `_Generic` took for one since 1.6.8 | 34 forms as clang's and clang++'s builds but two that the safe part refuses by its own rules; 28 broken copies over the first tree, 25 caught, two rules out and a body for the third; 26 over the final tree, each caught; the nets: the flow gate GREEN; reader 173, compile 362, driver 109, objects 29, cross 227, ccllib 623; the C++ pools 381 over 22, 21 and 18, the heavier 506 (14 skipped) over 22, the C++ gate's later parts 233 |
 
 ## M5 — the C++ mode
 
@@ -24409,3 +24410,90 @@ and that check's failure before); the C++ pool of the 379 lighter run fixtures, 
   record out of Not done, twelve records in), HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.14, the reader 208 and the lowering 183.
+
+## 1.6.15 — Paths end at calls that do not return and loops that do not end
+
+**1.6.15: at the user's word "Add cocolint to flow gate, do some not done items", its third item, the record of 1.6.10:
+a block that ends in a trap, `abort()` or `exit()` with new memory live in it was refused, `plain pointer not
+consumed`, where the program ends at the call and clang builds it. A call of a function declared not to return --
+`_Noreturn`, `[[noreturn]]`, GCC's `noreturn` -- a trap that does not go on and `__builtin_unreachable()` end their
+path now, and a loop whose condition is left out or a constant other than zero ends by its breaks alone; the reader
+keeps the mark on the function's result, and the lowering ends the block after the call, as clang's.**
+
+THE ITEM. Not done's record of 1.6.10, `A CALL THAT DOES NOT RETURN ENDS NO PATH OF THE SAFE PART`: the path went on
+after the call to the block's end, and new memory live there was `plain pointer not consumed`. Of 34 forms probed
+beside it against clang's and clang++'s builds, 16 were so refused: `exit(0)` at `main`'s end, a block of an error
+path that ends in `exit(3)`, `abort()` in an `else` whose `then` frees, `_Exit`, `quick_exit`, `__builtin_trap()` at a
+function's end, a program's `_Noreturn` function, its `__attribute__((noreturn))` one declared before its definition,
+C23's `[[noreturn]]`, C++'s `std::exit` and `std::abort` -- and, the forms beside it, a loop that only a `return`
+leaves: `while (1)`, `for (;;)`, `do ... while (1)`, C++'s `while (true)`, whose end the check took to go on past the
+loop.
+
+THE CHANGE, THE MARK. The reader (reader 209): `_Noreturn` among the specifiers (`ccl_noreturn_spec/1`), `[[noreturn]]`,
+`[[gnu::noreturn]]` and C23's old spelling `[[_Noreturn]]` (`ccl_skip_attr//0`), and GCC's `noreturn` and `__noreturn__`
+(`ccl_layout_scan/1`) are a note `noreturn(L)` beside a constructor's of 1.6.8 (`ccl_noreturn_note/1`,
+`ccl_noreturn_word/2`), and `ccl_init_take/2` puts the qualifier `noreturn` on the function's result
+(`ccl_add_noreturn/2`, `ccl_noreturn_type/1`). glibc declares `exit`, `abort`, `_Exit`, `quick_exit`, `longjmp`,
+`_exit` and `pthread_exit` with `__attribute__ ((__noreturn__))`, libc++ `std::terminate` with `[[noreturn]]`: each is
+so marked by its header's read. `_Noreturn` inside GCC's attribute -- `<stdnoreturn.h>`'s `noreturn` there -- is
+dropped, as clang drops it with a warning, and so is C++'s `[[_Noreturn]]`, an identifier there. A FUNCTION'S MARKS ARE
+NO PART OF ITS TYPE (`ccl_fn_mark_q/1`): the canonical form that `_Generic` and `__builtin_types_compatible_p` compare
+has no `noreturn`, and no constructor's `gnu_init` either -- `_Generic(boot, void (*)(void): 1, default: 0)` over a
+constructor's function was 0 since 1.6.8, where clang has 1.
+
+THE CHANGE, THE PATHS. The check (`ck_noreturn_call/1`): an expression statement that calls such a function, a trap
+that does not go on or `__builtin_unreachable()` -- or a cast of one to void, a comma with one on either side, a
+conditional whose two arms are such calls -- ends its path: its arguments are walked as any call's, then nothing is
+asked of what is live, and no defer runs. A loop whose condition is left out or folds to an integer other than zero
+(`ck_loop_ends/2`, `ck_loop_with_step/5`) ends by its breaks alone; the state before the loop and at its body's end
+went past it. The lowering (lowering 184): the call's block ends in `unreachable`, as clang's (`ir_call/4`); the driver
+gate counts four such ends in its IR and in clang's.
+
+THE FORMS BESIDE IT. After the change the 34 forms build and print as clang's and clang++'s builds, but two that the
+safe part refuses by its own rules: a function that calls `exit` and is not declared so (the check reads no body for
+the mark, `test/c/safe/noreturn_unmarked.c`) and a conditional with one arm that goes on. They found:
+- A C++ MEMBER FUNCTION'S MARK WAS DROPPED: `[[noreturn]] void fail(int)` in its class went on, refused at its caller's
+  block. An attribute before a member lost its notes when the member's specifiers began, where an item's keeps them
+  (`'$ccl_run_lead'`, 1.6.8), and the method's road took no note (`ccl_member_decl//2`): both mended, a static member
+  declared in its class and defined after it among them.
+- A CAST OF SUCH A CALL TO VOID, A COMMA AND A CONDITIONAL: `(void)exit(1);`, `(free(q), exit(4));` and `c ? exit(5) :
+  abort();` went on; each ends its path now, and `c ? exit(5) : (void)0;` goes on.
+- A POINTER TO `exit` keeps the function's type, the mark aside: `void (*f)(int) = exit;` builds, and a call through
+  it goes on (`test/c/safe/noreturn_ptr.c`), as clang has it.
+Recorded, not mended: the check reads no function's body for the mark; a `_Noreturn` function whose end is reached is
+not refused, where clang warns, `function declared 'noreturn' should not return`; `longjmp`'s jump is followed no
+more than before.
+
+THE BROKEN COPIES, A RULE EACH. 28 copies of the tree, each with one rule broken, over a battery of the 34 forms, the
+three run fixtures, the three refusals and the driver gate's count: 25 were caught. Of the three left, two told nothing
+and are out -- the optional `gnu::` of `[[gnu::noreturn]]`, since the reader's last clause of a `[[...]]` passes `gnu`
+and `::` and the word is taken after them, and the member declarator's note, since a member function declared in its
+class goes the method's road -- and the third, a comma's left operand, had no body: `noreturn.c`'s case 11 is
+`(exit(21), (void)live[0]);`. Two rules no body could tell from their absence were out before the copies: a guard of
+`_Noreturn`'s note by the scope, and a pointer result's mark. Over the final tree, 26 copies, each caught.
+
+THE PROOF. The fixtures: `test/c/run/noreturn.c` (twelve cases, each in a child of its own: glibc's four calls, a
+`_Noreturn` and a GCC `noreturn` function, a trap, the three wrappers; the three loops; `abort()` at a function's end;
+`_Generic` and `__builtin_types_compatible_p` of `exit`, of a `_Noreturn` function and of a constructor's; a
+`longjmp`), `noreturn23.c` (C23's `[[noreturn]]`, `[[_Noreturn]]`, `[[gnu::noreturn]]`, `unreachable()`), each as
+clang's and GCC's builds; `test/cpp/run/noreturncpp.cpp` (`std::exit`, `std::abort`, `std::_Exit`, `std::quick_exit`,
+`std::terminate`, a `[[noreturn]]` free function, a member in its class and a static one defined after it, GCC's
+`noreturn`, a `[[noreturn]]` function that throws, caught; an object with a destructor that `exit` does not destroy;
+`while (true)` and `for (;;)`), as clang++'s (22, 21, 18) and g++'s builds; `test/c/safe/noreturn_unmarked.c`,
+`noreturn_ptr.c` and `loop_break_leak.c`; the driver gate's count of the blocks that the calls end. `voidkept.cpp` of
+1.6.14, which neither of the C++ pools' lists held, is in the lighter pool now. The nets over the final tree: the flow
+gate GREEN (444 s); over fresh HOMEs, the reader gate 173 ok (5 skipped), the compile gate 362 -- the two run fixtures
+and the three refusals among them --, the driver gate 109 with its count of the blocks' ends, the objects gate 29, the
+cross gate 227 (1 skipped), the two C fixtures on aarch64 under qemu among them, and the ccllib gate 623 (36 programs
+in three runs, 188 refused, 21 alone); the C++ pool of the 381 lighter run fixtures, 381 ok over each of libc++ 22, 21
+and 18; over libc++ 22's HOME, the 520 heavier, 506 ok and 14 skipped as before, and the C++ gate's later parts by
+hand, 233 ok. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_syntax.pl` (the notes, the member's leading attribute, the method's mark; the reader 209),
+  `library/ccl_infer.pl` (the qualifier, the canonical form), `library/ccl_check.pl` (the call's and the loop's path
+  ends), `library/ccl_ir.pl` (`unreachable` after the call; the lowering 184), `test/driver.sh`, the fixtures, the
+  module's version.
+- RULES.md (the mark in the reader's topic; the two path ends in The safe part; the block's end in The lowering; the
+  record of 1.6.10 out of Not done, one record in), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.15, the reader 209 and the lowering 184.
