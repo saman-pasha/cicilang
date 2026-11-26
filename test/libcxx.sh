@@ -92,6 +92,11 @@ ccl_warm() {   # ccl_warm HEADER STD [CFG]: CFG as ccl_union gives it, the build
   f="$D/warm_${hf}_${std}${tag}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
   if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cicilang++" -std=c++$std $fls -fsyntax-only "$f" > "$RES/w_${hf}_${std}${tag}.out" 2>&1; then
     echo "warm <$h> C++$std${fls:+ $fls}" > "$RES/w_${hf}_${std}${tag}.res"; ccl_time_record "$LX_TIMES" "$key" $(( $(date +%s) - t0 ))
+  elif grep -aq "fatal error: '$h' file not found" "$RES/w_${hf}_${std}${tag}.out"; then
+    # A HEADER THAT THIS BOX HAS NOT (1.6.23): the union takes every #include line, whatever its conditional --
+    # newthrow.cpp's <malloc/malloc.h> under `#if defined(__APPLE__)' --, and since 1.6.22 an #include that finds no file
+    # stops the build, as clang's does, where it was passed over and the warm passed with nothing read
+    echo "warm <$h> C++$std${fls:+ $fls}: not on this box" > "$RES/w_${hf}_${std}${tag}.res"
   else echo "warm <$h> C++$std${fls:+ $fls}: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${hf}_${std}${tag}.res"; fi
 }
 

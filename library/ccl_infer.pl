@@ -281,11 +281,20 @@ ccl_w_cmp(X, Y, O) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)),
 ccl_w_flip(<, >). ccl_w_flip(>, <). ccl_w_flip(=, =).
 %% a cast to an integer type wraps to its width, then to its signedness; to bool it is the test; to anything else the value
 ccl_w_cast(T, X, V) :- X = bv(_, _, _), !, ccl_resolve_type(T, RT), ccl_cast_shape(RT, _, _), ir_fp_int(T, X, V).   % a long double's exact value (0.160), truncated as the lowering truncates it
-ccl_w_cast(T, X, V) :- float(X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ( Signed == bool -> ( X =:= 0.0 -> V = 0 ; V = 1 ) ; ccl_float_int(X, X1), ccl_w_wrap(X1, Bits, Signed, V) ).   % a floating value to an integer type truncates toward zero (6.3.1.4), then wraps (0.108)
+ccl_w_cast(T, X, V) :- float(X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ( Signed == bool -> ( X =:= 0.0 -> V = 0 ; V = 1 ) ; ccl_w_sat_float(X, Bits, Signed, V) ).   % a floating value to an integer type truncates toward zero (6.3.1.4), and saturates (1.6.23)
 ccl_w_cast(T, X, V) :- ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ccl_w_wrap(X, Bits, Signed, V).
 ccl_w_cast(T, X, V) :- integer(X), ccl_is_float(T), !, V is X * 1.0.   % an integer to a floating type is a floating value
 ccl_w_cast(T, X, V) :- X = big(_), ccl_is_float(T), !, ccl_w_float(X, V).   % ... a wide one too (0.129)
 ccl_w_cast(_, X, X).
+%% A FLOATING VALUE THAT THE INTEGER TYPE DOES NOT HOLD IS ITS MAXIMUM OR ITS MINIMUM (1.6.23): the conversion is undefined
+%% (C17 6.3.1.4/1), and clang's fold, LLVM's APFloat, saturates -- `int a = 1e10;' is 2147483647, `unsigned u = -5.0;' 0,
+%% `unsigned long long ull = 2e19;' 18446744073709551615, as gcc's too --, where the fold wrapped (0.108): 1410065408. An
+%% infinity is the bound of its sign; a value in range is truncated toward zero, as before
+ccl_w_sat_float(X, Bits, Signed, V) :- ccl_w_bounds(Bits, Signed, Min, Max),
+    (   ccl_float_infinite(X) -> ( X > 0 -> V = Max ; V = Min )
+    ;   ccl_float_int(X, X1), ( ccl_w_cmp(X1, Min, (<)) -> V = Min ; ccl_w_cmp(X1, Max, (>)) -> V = Max ; V = X1 ) ).
+ccl_w_bounds(Bits, true, Min, Max) :- !, B1 is Bits - 1, ccl_pow2_mag(B1, P), ccl_mag_sub(P, [1], M), ccl_narrow(w(1, M), Max), ccl_narrow(w(-1, P), Min).
+ccl_w_bounds(Bits, _, 0, Max) :- ccl_pow2_mag(Bits, P), ccl_mag_sub(P, [1], M), ccl_narrow(w(1, M), Max).
 %% FLOATING VALUES AND WIDE INTEGERS (0.129): `truncate/1' and `* 1.0' have the engine's 61 bits, so `(__int128) 1e30' did not
 %% fold (a global's initializer refused, global_init) and `(double) ((__int128) 1 << 100)' kept the integer as a double's value.
 %% A double past 2^59 is an integer m * 2^e with m below 2^53 -- halving it is exact -- and the wide value is m shifted; a wide

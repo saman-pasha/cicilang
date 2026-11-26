@@ -190,9 +190,13 @@ cpp_ginit_items(Is0, Is) :- ( nb_current('$cpp_ginit', Ss1) -> true ; Ss1 = [] )
     ( nb_current('$cpp_ginit_pre', Ss0) -> true ; Ss0 = [] ), append(Ss0, Ss1, Ss),   % the guarded ones first (0.192, cpp_ginit_add/3)
     (   Ss == [] -> Fn = []
     ;   Void = base([], [void]), ccl_declare('$cpp_ginit', fn(Void, [], false)),
-        cpp_method_body(none, Void, [], block(Ss), Body1), Fn = [function(0, static, Void, '$cpp_ginit', [], false, Body1)] ),
+        cpp_ginit_walk(Ss, Void, Body1), Fn = [function(0, static, Void, '$cpp_ginit', [], false, Body1)] ),
     ( nb_current('$cpp_ginit_fns', Fs) -> true ; Fs = [] ),                       % the wrappers a static local array registers (0.117) stand without the unit's initialization function; read after its walk
     append(Is0, Fs, Is1), append(Is1, Fn, Is), cpp_ginit_reset.                  % ... and the lists emptied for the next unit (0.192)
+%% the walk of its statements marked (1.6.22): a const global's dynamic initialization is an assignment of the
+%% desugaring's own, `ch = h()' for `const int ch = h();', which the rule of a const place (cpp_const_assign/2) passes over
+cpp_ginit_walk(Ss, Void, Body) :- nb_setval('$cpp_in_ginit', yes),
+    ( catch(cpp_method_body(none, Void, [], block(Ss), Body), X, ( nb_setval('$cpp_in_ginit', no), throw(X) )) -> nb_setval('$cpp_in_ginit', no) ; nb_setval('$cpp_in_ginit', no), fail ).
 %% A GLOBAL AGGREGATE'S BRACED LIST IS COMPLETED BY THE CLASS'S DEFAULT MEMBER INITIALIZERS ([dcl.init.aggr]/5.1;
 %% 0.112): every data member gets its item -- the one written (by position, or by a designator `.f = v'), else its
 %% default member initializer desugared in the class's words, else `init([])', its zero -- and a member of an aggregate

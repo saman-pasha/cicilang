@@ -339,6 +339,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.20 | A plain pointer declared null is a key of its frame | the record of 1.6.19 closed: `char *q = NULL;` declares q `none`, so a label's join no longer takes it for a declaration that a goto jumped over -- a goto past new memory that the label's path frees was refused, in C and in C++; a static local kept as it was; a volatile local keeps its value across a longjmp, no key changed since the setjmp (lowering 189) | nets GREEN: flow, reader 173, compile 417, driver 111, objects 29, cross 234, ccllib 625, the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 254 |
 | 1.6.21 | The pins at the latest versions: cocolog 3.78.18, ZiguratIP 1.0.4, LLVM 23 and libc++ 23 | at the user's word "Update pins to latest versions" and "Add 23 and move LLVM to 23": cocolog 3.62.3 to 3.78.18, ZiguratIP 1.0.2 to 1.0.4, the embedded LLVM and the C gates' clang 18 to 23, libc++ 23 a fourth tree; LLVM 23's faults mended -- a static local's debug record, `_BitInt`'s alignment, a coroutine's end, the cross link's libc++abi --, libc++ 23's 27 failures of the C++ gate mended -- `decltype((E))` of any member access, an instance's `decltype(auto)`, a block's namespace alias, the evaluator's `using`, a callable data member called, the abs builtins as `llvm.abs`, `__builtin_bswapg`, `__FILE_NAME__`, a summary's AST file declared discontiguous --, three older silent wrong answers among them; a `_BitInt` past 64 bits across a call recorded; a ccllib twin's `NAME.needs` (reader 210, lowering 190) | the chain GREEN over libc++ 22, 21 and 18 (18's ccllib gate RED on its tree first: two twins call the floating `from_chars`, which libc++ 18 has not, and the box had no TSan runtime for clang 18), and over LLVM 23 ten gates: flow 684 s, reader 173, compile 418, driver 111, objects 29, cross 274, the C++ gate 1228 over 22, 1225 over 21, 1217 over 18 and 1228 over 23, ccllib 625, 625 and 623; the ccllib gate over 23 ran at the commit, made then at the user's word; 24 broken copies caught |
 | 1.6.22 | Twelve records of Not done closed, three narrowed, each against clang; cocolog 3.78.21 | at the user's words: GNU's `x ?: y`, a block's function declarations hiding outer overloads, a call's prvalue no place in C++, a local class defined in its object's declaration, a store through a reference to a pointer, an operator's value no lvalue in C, a call's result's address, a parenthesized callee and the argument's namespace's overloads joined, a member's initializer and a template's body in clang++'s words, a missing and a malformed `#include` refused; C's const places, a constexpr variable over a call or a trap and a C++ condition over a plain struct refused; the folds' arguments converted, an older silent wrong answer; cocolog 3.78.18 to 3.78.21 (reader 211, lowering 191) | committed while its nets ran, at the user's word: flow 522 s and reader 173 GREEN over LLVM 23, the other nine gates running; the copy's driver 117, reader 173 and compile 419, the constant pool 56; 27 broken copies caught, two clauses that none could break taken out, six more running; 1.6.21's ccllib gate over 23 GREEN, 625 |
+| 1.6.23 | C's pointers of incompatible types, C++'s const places, saturating conversions, each against clang | pointers of incompatible types refused in C in clang's words, at the four sites, what clang only warns of taken; C++'s const places refused, the desugaring's own initializations passed over; a constexpr variable over `__builtin_unreachable()` refused; a floating constant out of its integer type's range saturates; an older false refusal of a value through a reference mended; integer types spelled as clang spells them; the library read names a header that the box has not (lowering 192) | committed while its nets ran, at the user's word: the copy's compile 420 and driver 120 GREEN; 1.6.22's nets carried -- eight gates GREEN, the library read RED on the warm of a Mac header, mended; 5 broken copies caught, 8 running |
 
 ## M5 — the C++ mode
 
@@ -25243,3 +25244,74 @@ commit. No CI job ran, by the owner's rule of 0.271.
 - RULES.md (the rules in their topics; twelve records out of Not done, three narrowed, one new; the pins and cocolog's
   finding; What runs, 1.6.21's chain), HISTORY.md, CLAUDE.md (the versions, the fixtures), CCLLIB.md (cocolog's
   version).
+
+## 1.6.23 — C's pointers of incompatible types, C++'s const places, saturating conversions, each against clang
+
+**1.6.23: at the user's word "try to run less chain and do more tasks before every chain": four records of Not done
+closed or narrowed and two older faults mended, each form held to clang's or clang++'s answer at its line, and 1.6.22's
+nets carried. The step was committed while its nets ran, as 1.6.22 was, at the user's word "To prevent code lost, first
+commit and push": it claims nothing GREEN of them, and the next step's commit carries them.**
+
+1. C: POINTERS OF INCOMPATIBLE TYPES (C17 6.5.16.1/1; `ir_ptr_clash/4` in `ir_int_ptr_check/4`), which clang 20 and later
+   and GCC 14 refuse: `int *ip = cp;` over a `char *` built and read four characters as one `int`. Where a value is taken
+   as if by assignment -- an initializer, an assignment, an argument, a return -- a pointer, an array or a function for a
+   pointer whose pointee is not compatible with its own is refused in clang's words, `incompatible pointer types
+   initializing 'int *' with an expression of type 'char *'`, `incompatible function pointer types ...` over two
+   functions, an array by its own type (`'char[4]'`). What clang only warns of is taken: a qualifier discarded at any
+   level, the sign of an integer pointee (`int **` for `unsigned **` is refused, as clang refuses it), a `void *`, a null
+   pointer constant, an enumeration for its integer type. The compile gate met four false refusals of the first form: a
+   wide literal's type was its builtin name, `wchar_t *` against the typedef's `const int *`, and is its typedef's
+   integer type now (`ir_wide_char_int/2`). Seventeen forms and the four sites are the driver gate's, each clang 23's.
+   AN INTEGER TYPE IN A MESSAGE IS CLANG'S SPELLING (`ck_int_spelling/2`), `'unsigned int **'` where it was
+   `'unsigned **'`.
+2. C++: A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE ([expr.ass]/1; `cpp_const_assign/2`): `const int a = 1; a = 2;`,
+   `*p = 3` over a `const int *`, a const member, a member of a const object, a reference to const, a step and a
+   compound assignment built and ran in C++; each is clang++'s words now, by C's rule over the desugared place and a
+   reference by its own type. A constructor's member initializers and a const global's dynamic initialization, `const
+   int ch = h();`, are the desugaring's own assignments: the first passes no assignment's clause, the second is in the
+   walk of the unit's initialization function, which is marked (`cpp_ginit_walk/3`) -- the copy's first form refused
+   `constexprvars.cpp` so. Narrowed: a const member function's write through `this`, since a `mutable` member may be
+   written there, and a constexpr pointer.
+3. C++: A CONSTEXPR VARIABLE WHOSE EVALUATION REACHES `__builtin_unreachable()` IS REFUSED in clang++'s words: the
+   program's own call is kept (`cpp_builtin_call/3`), LLVM's `unreachable` at run time and the evaluator's trap; it was
+   answered as nothing, and `f(-1)` folded to -1. `test/cpp/run/unreachcpp.cpp`.
+4. A FLOATING CONSTANT CONVERTED TO AN INTEGER TYPE THAT DOES NOT HOLD IT SATURATES (`ccl_w_sat_float/4`), as clang's fold
+   and gcc's: `int a = 1e10;` is 2147483647 where it wrapped to 1410065408, `unsigned long long ull = 2e19;`
+   18446744073709551615. A NaN's constant stays recorded. `test/c/run/floatsat.c`, which clang 23 and gcc print alike.
+
+TWO OLDER FAULTS, FOUND BY THE STEP'S PROBES. A VALUE READ THROUGH A LOCAL REFERENCE AND RETURNED was refused, `a borrow
+leaves the function` for `return cr + 1;` over `const int &cr = x;`: the check holds a reference as the pointer it is,
+and the value's type was a pointer's; it is typed through the reference now (`ck_ref_view/2` in `ck_no_escape/2`), and a
+pointer out of the referent is refused still. `test/cpp/run/refvalues.cpp`, which clang++ 23 and g++ print alike. The
+other is item 1's wide literals.
+
+1.6.22'S NETS, CARRIED. Over LLVM 23 and its work tree, the toolchain check strict: the flow gate 522 s with no finding
+(61 ok), reader 4 s (173 ok), compile 34 s (419 ok), driver 179 s (118 ok), objects 5 s (29 ok), the proof and the cross
+gate 321 s (275 ok) GREEN; then the library read RED in 270 s -- its warm of `<malloc/malloc.h>`, a header this box has
+not, which `newthrow.cpp` includes under `#if defined(__APPLE__)`: the gate's union takes every `#include` line whatever
+its conditional, and since 1.6.22 an `#include` that finds no file stops the build, where the warm had passed with
+nothing read. The gate names such a header `not on this box` now (`test/libcxx.sh`); 1.6.22's C++ gate and ccllib gate
+did not run, and 1.6.23's net runs them over both steps' code. 1.6.22's last six broken copies (`MISS1`, `MAL1`,
+`FATAL1`, `COND1`, `LOGIC1`, `LOGIC2`) were each caught by the driver gate.
+
+THE BROKEN COPIES, AT THE COMMIT, 13 over the copy: the saturation (`SAT1`, the old wrap; `SAT2`, a signed bound one
+past) by `floatsat.c`; the wide literals' types (`PTR4`) by `cwrap.c` and `u16pairs.c`; the returned value's type
+(`REFV1`) by `refvalues.cpp`; the initialization's mark (`CCA3`) by `constexprvars.cpp` and the driver gate -- each
+caught; the others (`CCA1`, `CCA2`, `UNR1`, `UNR2`, `PTR1`, `PTR2`, `PTR3`, `SPELL1`), each over the driver gate, ran at
+the commit.
+
+THE NETS, AT THE COMMIT. Over the copy and LLVM 23 before the port: the compile gate 420 and the driver gate 120 GREEN;
+every new check's bodies by hand against clang 23 and clang++ 23. Over the work tree after the port: the toolchain check
+strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `test/libcxx.sh` (a header that the box has not); `library/ccl_ir.pl` (`ir_int_ptr_check/4`, `ir_ptr_clash/4`,
+  `ir_canon_noq/2`, `ir_wide_char_int/2`, `ir_sign_only/2`; the lowering 192); `library/ccl_infer.pl` (`ccl_w_cast/3`,
+  `ccl_w_sat_float/4`, `ccl_w_bounds/4`); `library/ccl_check.pl` (`ck_no_escape/2`, `ck_c_spec_text/2`,
+  `ck_int_spelling/2`); `library/ccl_cpp_expr.pl` (`cpp_assignable/1`, `cpp_const_assign/2`, `cpp_const_words/3`,
+  `cpp_this_rooted/1`, `cpp_builtin_call/3`); `library/ccl_cpp_init.pl` (`cpp_ginit_walk/3`); `library/ccl_cpp_eval.pl`
+  (the trap's list); `library/ccl_driver.pl` (`ptr_conversion`'s words); `test/driver.sh` (four checks);
+  `test/c/run/floatsat.c`; `test/cpp/run/refvalues.cpp`, `unreachcpp.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: a record closed, three narrowed), HISTORY.md, CLAUDE.md (the versions,
+  the fixtures).
+
+The module 1.6.23, the reader 211 and the lowering 192.

@@ -361,6 +361,7 @@ dr_diag(F, not_lowered(designator_negative(K)), where(_, line(L))) :- !, dr_erro
 dr_diag(F, not_lowered(instance_refused(I, W0)), Where) :- atom(I), dr_inner_worded(W0, W), !, dr_diag(F, not_lowered(W), Where).   % AN INSTANCE'S REFUSAL IN THE BODY'S WORDS (1.6.22), where the body's refusal has words of its own
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_error(F, L, Ps).
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_error(F, L, Ps).   % A VOID VALUE AND THE OPERANDS BESIDE IT (1.6.14, dr_value_text/2)
+dr_diag(F, not_lowered(ptr_conversion(K, Site, A, B)), where(_, line(L))) :- !, dr_int_conv_site(Site, A, B, Ps), ( K == function -> W = 'incompatible function pointer types ' ; W = 'incompatible pointer types ' ), dr_error(F, L, [W|Ps]).   % C: pointers of incompatible types, in clang's words (1.6.23, ir_ptr_clash/4)
 dr_diag(F, not_lowered(int_conversion(Dir, Site, A, B)), where(_, line(L))) :- !,
     ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),
     dr_int_conv_site(Site, A, B, Ps), dr_error(F, L, [K|Ps]).

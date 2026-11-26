@@ -555,7 +555,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   level, else C++17, but an asserted one, its key `header@level` matched WHOLE (0.180: `ostream@17` is a substring of
   `iostream@17`, so `<ostream>` at C++17 was never warmed, and `libdiamond.cpp` flattened it cold in the C++ gate of
   every chain over a fresh HOME, 147 s at 0.179's where it builds in 12 to 16 s warm). A missing Cicili checkout is
-  named, because `<sstream>` and `<stdexcept>` then stay cold. `<algorithm>` and `<array>` are only warmed: nothing
+  named, because `<sstream>` and `<stdexcept>` then stay cold. A HEADER THAT THE BOX HAS NOT is named `not on this box`,
+  no failure (1.6.23): the union takes every `#include` line whatever its conditional -- `newthrow.cpp`'s
+  `<malloc/malloc.h>` under `#if defined(__APPLE__)` -- and since 1.6.22 its build stops at the missing file, as
+  clang's does, where the warm passed with nothing read; 1.6.22's net over LLVM 23 was RED there. `<algorithm>` and
+  `<array>` are only warmed: nothing
   asserts their counts. A file whose `.flags` names `-fno-rtti` or `-fno-exceptions` has its headers warmed under that
   flag too, its key `header@level@-fno-rtti` (0.191, `-fno-exceptions` since 0.193: such a summary is keyed apart, the
   C++ summary cache). A header in a directory, `<sys/wait.h>`, names its warm's files with `_` for each `/` (0.200: they
@@ -8059,8 +8063,12 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   53 bits, the next one and the sticky rest (`ccl_w_float/2`; it had stayed an integer for a double). An infinity or a
   NaN converts to no integer. `test/c/run/floatglobal.c`. (0.129, 0.160)
 - A cast to an integer type WRAPS to its width and signedness ([conv.integral]; `ccl_w_cast/3`, `ccl_w_wrap/4`):
-  `(long long) (1ULL << 63)` is -2^63; a floating value truncates, then wraps. `test/c/run/bigint.c`. Why: libc++'s
-  `numeric_limits<T>::max()` folded to -1 and the string extractor never looped. (0.94, 0.108)
+  `(long long) (1ULL << 63)` is -2^63. `test/c/run/bigint.c`. Why: libc++'s `numeric_limits<T>::max()` folded to -1 and
+  the string extractor never looped. A FLOATING VALUE truncates toward zero, and SATURATES where the type does not hold
+  it (1.6.23; C17 6.3.1.4/1 leaves it undefined; `ccl_w_sat_float/4`, `ccl_w_bounds/4`), as clang's fold, LLVM's
+  APFloat, and gcc's do: `int a = 1e10;` is 2147483647, `unsigned u = -5.0;` 0, `unsigned long long ull = 2e19;`
+  18446744073709551615, an infinity the bound of its sign; it wrapped (0.108), 1410065408. `test/c/run/floatsat.c`.
+  (0.94, 0.108, 1.6.23)
 - AN UNSIGNED OPERATION IS DONE IN ITS TYPE (C 6.3.1.8, 6.2.5/9; [expr.arith.conv]; 0.128): the values stay untyped
   mathematical integers, so `~0u` was -1, `~0u / 3` folded to 0 (it is 0x55555555), `0u - 1` was -1 and `-1 < 0u` held.
   `ccl_cv_binary/7` (after `ccl_const_op/4` in `ccl_const_eval/2`'s `bin` clause) answers at once where both operands
@@ -8380,7 +8388,10 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   trap (`'$cpp_eval_why'`, `cpp_eval_call/5`, `cpp_eval_reduce/3`); any other fold that fails keeps the run-time road,
   since the evaluator does not take every constant expression (`constexpr double dd = k(3) / 4.0;`).
   `test/cpp/run/constexprvars.cpp`, the driver gate's two
-  C++ bodies. (1.6.22)
+  C++ bodies. SO IS ONE WHOSE EVALUATION REACHES `__builtin_unreachable()` (1.6.23; [expr.const]/5): the program's own
+  call is kept (`cpp_builtin_call/3`), LLVM's `unreachable` at run time -- a `switch`'s default, a conditional's arm --
+  and the evaluator's trap; a library's body answers it as nothing, as before. `test/cpp/run/unreachcpp.cpp`, the
+  driver gate's two bodies. (1.6.22, 1.6.23)
 - C++20'S CONSTANT EVALUATION (0.257, on the owner's choice; `constexpr20.cpp`, whose static assertions passed unasked
   until then). A USING-DECLARATION, A USING-DIRECTIVE AND A NAMESPACE ALIAS in a body do nothing there, as in the check
   and the lowering (1.6.21; `cpp_eval_stmt/4` of `using(_, _)`): libc++ 23's `__split_buffer` swaps by `using std::swap;
@@ -12704,7 +12715,10 @@ in the first topic (The ccllib gate).
   check holds a local reference as the pointer it is, and the desugared code reads its name as the referent, so `int *&q
   = p; *q = 9;` -- `deref(id(q))`, a store into `arr[0]` -- was typed as p itself, an `int *` slot given no owner, `no
   owner behind: '*q'`. And THE ADDRESS OF WHAT A RETURNED REFERENCE NAMES IS NO NEW MEMORY (`ck_ref_rooted/1`): `int *p =
-  &hr();` over `int &hr()` was `plain pointer not consumed`. `test/cpp/run/refplaces.cpp`. (1.6.22)
+  &hr();` over `int &hr()` was `plain pointer not consumed`. `test/cpp/run/refplaces.cpp`. AND A RETURNED VALUE'S TYPE
+  (1.6.23; `ck_ref_view/2` in `ck_no_escape/2`): `return cr + 1;` over `const int &cr = x;` was typed as pointer
+  arithmetic over the borrow of x, `a borrow leaves the function`, an older false refusal; a pointer out of the
+  referent, `return &r + 0;`, is refused still. `test/cpp/run/refvalues.cpp`. (1.6.22, 1.6.23)
 - A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLEE'S OBJECT TO THE CHECK (0.207; `ck_param_dtors/3` in
   `ck_function/5`): the caller destroys it since 0.207 (the Classes topic), and the callee's code has no defer of its
   destructor; the walk takes one at the body's head all the same, as the desugaring's own defer was before, so its
@@ -13389,6 +13403,18 @@ in the first topic (The ccllib gate).
   use '.'?` over a struct or a union, and without the question over another type (`ir_arrow_operand/1`; C17 6.5.2.3/2),
   in C and in C++, where it was `not lowered yet: not_a_pointer(...)`. The driver gate's fifteen bodies. (1.6.13,
   1.6.14, 1.6.22)
+- C: POINTERS OF INCOMPATIBLE TYPES ARE REFUSED (1.6.23; C17 6.5.16.1/1, which an argument and a return take as by
+  assignment; `ir_ptr_clash/4` in `ir_int_ptr_check/4`), in clang's words, as clang 20 and later and GCC 14 refuse them:
+  where a value is taken as if by assignment, a pointer -- or an array or a function, which become one -- for a pointer
+  whose pointee is not compatible with its own is `incompatible pointer types initializing 'int *' with an expression of
+  type 'char *'` (and `assigning to`, `passing`, `returning`), over two functions `incompatible function pointer types
+  ...`, an array by its own type, `'char[4]'`; it was taken. Every qualifier is set aside at each level (clang warns that
+  one is discarded), so is the sign of an integer pointee (`char *` for `unsigned char *`, `int *` for `unsigned *`,
+  which it warns of; `int **` for `unsigned **` is refused), a `void *` on either side and a null pointer constant are
+  taken, an enumeration is its integer type, and a wide literal's type is its typedef's (`ir_wide_char_int/2`:
+  `wchar_t` `int`, `char16_t` `unsigned short`, `char32_t` `unsigned int`). C alone: C++'s conversions are the
+  overloads'. The driver gate's eighteen bodies. AN INTEGER TYPE IN A MESSAGE IS CLANG'S SPELLING (`ck_int_spelling/2`):
+  `unsigned` is `unsigned int`, `long int` `long`, in C and C++. (1.6.23)
 - IN C A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE (1.6.22; C17 6.3.2.1/1, 6.5.16/2, 6.5.2.4/1, 6.5.3.1/1;
   `ir_c_const_place/2` in `ir_c_assignable/1`): an assignment, a compound assignment and a step of one are refused in
   clang's words (its Sema's DiagnoseConstAssignment) at the line -- the variable whose type makes the place const named,
@@ -13397,8 +13423,17 @@ in the first topic (The ccllib gate).
   'x' ...`); a struct with one assigned whole by the member (`... with const-qualified data member 'x'`); any other
   place `read-only variable is not assignable`. A store through an `int *const`, a member that is not const and a
   pointer to const given a new target stay. `const int a = 1; a = 2;` and `*p = 3` over a `const int *p` built and ran.
-  C alone: the C++ desugaring writes a constructor's member initializers as assignments (Not done). The driver gate's
-  thirteen bodies. (1.6.22)
+  In C++ since 1.6.23 (the rule below). The driver gate's thirteen bodies. (1.6.22, 1.6.23)
+- IN C++ A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE EITHER (1.6.23; [expr.ass]/1, [expr.pre.incr]/1;
+  `cpp_const_assign/2` in `cpp_assignable/1`): an assignment, a compound assignment and a step of one in the program's
+  own code are refused in the desugaring by C's rule over the desugared place (`ir_c_const_place/2`), whose words are
+  clang++'s too -- a const variable, a place through a pointer to const, a const member, a member of a const object,
+  and a reference to const by its own type, `cannot assign to variable 'cr' with const-qualified type 'const int &'`
+  (`cpp_const_words/3`); each built and ran. A constructor's member initializers are the desugaring's own assignments,
+  which pass no assignment's clause; a const global's, a static member's and a static local's dynamic initialization
+  are assignments of its own too, in the walk of the unit's initialization function, which is marked
+  (`cpp_ginit_walk/3`, `'$cpp_in_ginit'`). A place through `this` keeps its road, since a const member function writes
+  its `mutable` members (Not done), and a library's body its own. The driver gate's eight bodies. (1.6.23)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
@@ -16590,10 +16625,8 @@ Declarations topic of the C++ reader).
    `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no gate's, and
    `gnuasm.c` and `gnuasm.cpp` name its sections and its symbols' underscore without a run there.
 - THE CONSTRAINTS OF A CALL AND OF AN ASSIGNMENT (0.302; the lowering's topics of a call's count and of an integer and a
-  pointer): what is left. POINTERS OF INCOMPATIBLE TYPES are taken -- `int *ip = cp;` over a `char *` -- where clang 22
-  refuses them, `incompatible pointer types initializing 'int *' with an expression of type 'char *'` (C17 6.5.16.1/1;
-  its `-Wincompatible-pointer-types` is an error since clang 20), and GCC 14 too: a rule of its own, over qualifiers,
-  `void *` and the sign of a character. In C++ too: `f(c)` of `int f(int *)` over a `char` array builds and reads four
+  pointer): what is left. POINTERS OF INCOMPATIBLE TYPES are refused in C since 1.6.23 (the lowering's topic). In C++
+  they are not: `f(c)` of `int f(int *)` over a `char` array builds and reads four
   characters as one `int`, where clang++ says `no matching function for call to 'f'`. A C++ CALL'S MISFIT other than the
   count and an integer and a pointer -- a struct for a scalar, a `double` for a pointer -- has the words of the road
   after the overloads, `no conversion from 'S' to 'int'`, where clang++ says `no matching function for call to 'f'`. A
@@ -16845,11 +16878,10 @@ Declarations topic of the C++ reader).
   function between this compiler's code and another compiler's reads a wrong value; within one program it is
   consistent. `abi_targets.c` holds the layouts and an `unsigned _BitInt(128)` after an `int` on the three machines;
   the conventions past 64 bits are a step of their own. (1.6.21)
-- A floating constant converted to an integer type it does not fit wraps (0.108, `ccl_w_cast/3`), where clang's fold
-  saturates, as LLVM's APFloat converts (the type's maximum, its minimum or 0, a NaN 0): both are allowed, the
-  conversion being undefined (C 6.3.1.4), but a program that does it prints otherwise than clang's. 0.248 met it in
-  `ldconst.c` on Apple's arm64, whose `long double` rounds 2^64 - 1 to 2^64, and made that fixture's constant one in
-  range there.
+- A NaN CONVERTED TO AN INTEGER TYPE IN A CONSTANT (found at 0.108, narrowed at 1.6.23, whose fold saturates): `int n =
+  (int)(0.0 / 0.0);` at file scope is refused, `global_init(...)`, where clang's fold gives 0: `0.0 / 0.0` is no value
+  of the fold. 0.248 met the old wrap in `ldconst.c` on Apple's arm64, whose `long double` rounds 2^64 - 1 to 2^64, and
+  made that fixture's constant one in range there.
 - The Itanium mangler spells the forms the shipped libraries' symbols use (measured at 0.186: libc++ 18's, 21's and 22's
   `libc++.so.1` and `libc++abi.so.1`, and the 27 symbols libc++ 21's `libc++experimental.a` defines strongly), and since
   0.236 the forms a program's type information shows -- `Dp`, `DT` and `Dt`, `B`, `Ul`, `Ut`, `X`, `L_Z`, a local name
@@ -16877,11 +16909,6 @@ Declarations topic of the C++ reader).
   `not lowered yet: auto(f)`, where clang says `builtin functions must be directly called`, as `void (*f)() =
   __builtin_trap;` says here; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap,
   where a build does.
-- A CONSTEXPR VARIABLE WHOSE EVALUATION REACHES `__builtin_unreachable()` IS NOT REFUSED (found at 1.6.10, narrowed at
-  1.6.22): the desugaring answers that builtin as nothing (`cpp_builtin_call/3`), so `f(-1)` of `if (x < 0)
-  __builtin_unreachable(); return x;` is -1 where clang refuses it, `constexpr variable 'g' must be initialized by a
-  constant expression`. A call of a function that is not constexpr and a trap are refused since 1.6.22 (the topic of
-  constant evaluation).
 - THE WORDS OF THREE VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14): a variable of a `typeof` or a `decltype` type
   that is void is `variable has incomplete type 'void'`, where clang names the type written, `'typeof (f())' (aka
   'void')`; a void value through `printf`'s ellipsis in C++ is `cannot pass expression of type 'void' to variadic
@@ -17186,16 +17213,16 @@ Declarations topic of the C++ reader).
   (`ir_int_ptr_check/4`, 0.302) is C's alone, since the desugared C mixes the two where C++ means it. A call's count and
   a pointer and an integer in each other's place in a call are clang's words since 0.302 in C, and the overloads'
   `no matching function for call to 'f'` in C++ (seen at 1.6.22).
-- AN ASSIGNMENT TO A CONST-QUALIFIED LVALUE IS NOT REFUSED IN C++ (C17 6.5.16/2's twin, [expr.ass]/1; found by 0.295, C's
-  refused since 1.6.22): `const int a = 1; a = 2;` and `*p = 3` over a `const int *p` build in C++, where clang++ refuses
-  them; so does a write through a `span<const int>`, `c[0] = 7`. Since 0.265 only an own field of a const object is
-  refused (`assign_to_const`). The C++ desugaring writes a constructor's member initializers as assignments, and a const
-  member's would meet the rule: the rule waits for the desugaring to mark them. A CONSTEXPR POINTER IS NO CONST POINTER
-  HERE (found at 1.6.10): the desugaring holds its `const` on what it points to, `const const char` for `constexpr const
-  char *m`, so `m = "y"` and `p = &g` over `constexpr int *p = nullptr` build, where clang refuses them (`cannot assign
-  to variable 'm' with const-qualified type 'const char *const'`). A TYPEDEF'S NAME has no `(aka ...)` in C's words
-  either: `CI c = 1; c = 2;` over `typedef const int CI` is `... type 'CI'`, clang's `'CI' (aka 'const int')`. (0.295,
-  1.6.10, 1.6.22)
+- C++: A CONST MEMBER FUNCTION'S WRITE OF A MEMBER AND A CONSTEXPR POINTER ARE NOT REFUSED (found by 0.295, narrowed at
+  1.6.23, which refuses C++'s other const places): `void g() const { m = 1; }` builds, where clang++ says `cannot assign
+  to non-static data member within const member function 'g'` -- a place through `this` keeps its road, since the reader
+  keeps no `mutable` that the rule would ask; a write through a `span<const int>`, `c[0] = 7`, is the C rule's
+  `read-only variable is not assignable`, where clang++ names the operator's const result. A CONSTEXPR POINTER IS NO
+  CONST POINTER HERE (found at 1.6.10): the reader holds its `const` on what it points to, `const const char` for
+  `constexpr const char *m`, so `m = "y"` and `p = &g` over `constexpr int *p = nullptr` build, where clang refuses them
+  (`cannot assign to variable 'm' with const-qualified type 'const char *const'`). A TYPEDEF'S NAME has no `(aka ...)`
+  in C's words either: `CI c = 1; c = 2;` over `typedef const int CI` is `... type 'CI'`, clang's `'CI' (aka 'const
+  int')`. (0.295, 1.6.10, 1.6.22, 1.6.23)
 - THE NOTE OF A MACRO'S EXPANSION PRINTS ITS TYPE ARGUMENTS AS TERMS (found at 0.288): `note: expanded from macro
   'vector' on base([],[int])`, under an error in an instance's function.
 - A PAIR'S, A TUPLE'S, AN OPTIONAL'S AND A VARIANT'S RELATIONS OVER A PLAIN STRUCT ARE REFUSED IN THE MODULE'S TEXT (found

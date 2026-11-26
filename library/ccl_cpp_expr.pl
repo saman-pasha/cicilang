@@ -259,7 +259,17 @@ cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_c
 cpp_expr(Ctx, addr(X), E) :- X = call(_, _), !, cpp_expr(Ctx, X, X1),
     ( cpp_scalar_prvalue_call(X1, T) -> ( catch(ir_type_text(T, A), _, fail) -> true ; A = '?' ), cpp_refuse_stmt(address_of_rvalue(A)) ; E = addr(X1) ).
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
-cpp_assignable(A) :- ( cpp_scalar_prvalue_call(A, _) -> cpp_refuse_stmt(not_assignable) ; true ).
+cpp_assignable(A) :- ( cpp_scalar_prvalue_call(A, _) -> cpp_refuse_stmt(not_assignable) ; cpp_const_assign(A, W) -> cpp_refuse_stmt(W) ; true ).
+%% C++: A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE EITHER ([expr.ass]/1, [expr.pre.incr]/1; 1.6.22), in the program's
+%% own code: C's rule over the desugared place (ir_c_const_place/2) and its words, which are clang++'s too; a
+%% constructor's member initializers are the desugaring's own assignments, which pass no assignment's clause here. A
+%% place through `this' keeps its road: a const member function writes its mutable members
+cpp_const_assign(A, W) :- \+ nb_current('$cpp_in_lib', yes), \+ nb_current('$cpp_in_ginit', yes), \+ cpp_this_rooted(A), catch(ir_c_const_place(A, W0), _, fail), cpp_const_words(A, W0, W).
+%% ... a reference's name as its own type, `'const int &'', as clang++ names it, where the place's type is its referent's
+cpp_const_words(id(N), const_var(N, _), const_var(N, T)) :- atom(N), catch(ccl_declared(N, R), _, fail), ( R = ref(_, _) ; R = rref(_, _) ), catch(ir_type_text(R, T), _, fail), !.
+cpp_const_words(_, W, W).
+cpp_this_rooted(id(this)) :- !.
+cpp_this_rooted(E) :- ( E = member(X, _) ; E = arrow(X, _) ; E = index(X, _) ; E = deref(X) ), !, cpp_this_rooted(X).
 cpp_scalar_prvalue_call(call(id(F), _), T) :- atom(F), catch(ccl_declared(F, fn(R, _, _)), _, fail), \+ R = ref(_, _), \+ R = rref(_, _),
     catch(ccl_resolve_type(R, T), _, fail), ( T = ptr(_, _) ; ccl_is_arith(T) ), !.
 %% A CONSTEXPR OBJECT OF THE FUNCTION A CLOSURE OR A LOCAL CLASS IS MADE IN (0.258): its note is in the walk's constants
@@ -1351,7 +1361,7 @@ cpp_builtin_call('__builtin_strlen', As, call(id(strlen), As)).
 cpp_builtin_call('__builtin_constant_p', [_], int(0)).
 cpp_builtin_call('__builtin_assume', [_], int(0)).
 cpp_builtin_call('__builtin_assume_dereferenceable', [_|_], int(0)).   % libc++'s `__assume_valid_range', which EVERY range algorithm over a vector's iterators calls
-cpp_builtin_call('__builtin_unreachable', [], int(0)).
+cpp_builtin_call('__builtin_unreachable', [], E) :- ( nb_current('$cpp_in_lib', yes) -> E = int(0) ; E = call(id('__builtin_unreachable'), []) ).   % the program's own call is LLVM's terminator, and the evaluator's trap (1.6.23); a library's body answers it as nothing, as before
 cpp_builtin_call('__builtin_prefetch', [_|_], int(0)).
 %% THE BIT COUNT, folded here where the argument folds: libc++ writes a type's `digits' as
 %% `__builtin_popcountg(~__make_unsigned_t<type>(0)) - is_signed', and numeric_limits<ptrdiff_t>::__max is built

@@ -1525,7 +1525,7 @@ ck_no_escape(E, St) :-
     ;   ck_owner_path(St, E, K) -> ( ck_tied_to(K, R) -> ck_ret_tied(St, R, RT, K, E) ; true )
     ;   E = id(N), ck_state(St, N, dangling(P)) -> ck_fail_dangling(N, P)
     ;   E = id(N), ck_state(St, N, borrow(P)) -> ( ck_local_type(N, T), ck_borrowing_type(T) -> ck_ret_borrow(St, P, RT, N, borrowed_from(P)) ; true )
-    ;   ccl_type_of(E, T), ck_borrowing_type(T), ck_borrows_from(E, St, P) -> ck_ret_borrow(St, P, RT, P, E)
+    ;   ck_ref_view(E, EV), ccl_type_of(EV, T), ck_borrowing_type(T), ck_borrows_from(E, St, P) -> ck_ret_borrow(St, P, RT, P, E)   % the value's type with each reference its referent (1.6.23): `return cr + 1;' over `const int &cr = x;' is an int
     ;   true ).
 ck_ret_borrow(St, P, RT, N, Form) :-
     (   ck_state(St, P, loose) -> true                                  % the caller takes the memory over
@@ -2806,7 +2806,17 @@ ck_c_spec_text([typedef(N)], N) :- atom(N), !.
 ck_c_spec_text([struct(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('struct ', Tag, T).
 ck_c_spec_text([union(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('union ', Tag, T).
 ck_c_spec_text([enum(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('enum ', Tag, T).   % `enum e', as clang spells it (0.302): its words were the raw term
+ck_c_spec_text(S, T) :- ck_all_atoms(S), ck_int_spelling(S, T), !.
 ck_c_spec_text(S, T) :- ck_all_atoms(S), atomic_list_concat(S, ' ', T).
+%% AN INTEGER TYPE AS CLANG SPELLS IT (1.6.23): its canonical words whatever the order and the words written --
+%% `unsigned' is `unsigned int', `long int' `long', `short unsigned int' `unsigned short', `signed' `int', `char signed'
+%% `signed char' --, where the words were joined as written, `'unsigned **'' for clang's `'unsigned int **''
+ck_int_spelling(S, T) :- S \== [], memberchk(char, S), !, subtract(S, [char, signed, unsigned], []),
+    ( memberchk(unsigned, S) -> T = 'unsigned char' ; memberchk(signed, S) -> T = 'signed char' ; T = char ).
+ck_int_spelling(S, T) :- S \== [], subtract(S, [signed, unsigned, short, long, int, '__int128'], []),
+    include(==(long), S, Ls), length(Ls, NL),
+    ( memberchk('__int128', S) -> B = '__int128' ; memberchk(short, S) -> B = short ; NL >= 2 -> B = 'long long' ; NL =:= 1 -> B = long ; B = int ),
+    ( memberchk(unsigned, S) -> atom_concat('unsigned ', B, T) ; T = B ).
 %% A C++ CLASS AS CLANG'S MESSAGES SPELL IT (1.6.14): its namespaces and an instance's arguments, `ns::C', `TT<int>' (the
 %% function's own name's spelling, cpp_pf_class/2), a local class by its own name; a closure keeps its key. A class's key
 %% was its spelling: `TT.int'

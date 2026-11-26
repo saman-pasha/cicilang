@@ -472,6 +472,45 @@ cnd6.cpp:4: error: invalid argument type 'S' to unary expression
 cnd7.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
 cnd8.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
 exit 7"
+# C++: A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE (1.6.23; [expr.ass]/1; cpp_const_assign/2), in clang++'s words, which
+# are clang's: a const variable, a place through a pointer to const, a const member, a member of a const object, a
+# reference to const, a step and a compound assignment; a constructor's member initializers, a const global's, a static
+# member's and a static local's dynamic initialization, and a pointer to const given a new target build
+cq_pre='struct S { int m; const int x; S() : m(0), x(1) {} };\nint h() { return 3; }\nconst int g = h();\nint main() {\n  int x = 0;\n  const int a = 1;\n  const int *p = &x;\n  S s;\n  const S s2;\n  const int &cr = x;\n'
+check "C++: a const-qualified place is no modifiable lvalue, in clang++'s words, and what initializes one builds (1.6.23)" "$(n=0; for body in 'a = 2;' '*p = 3;' 's.x = 2;' 's2.m = 1;' 'cr = 5;' '++a;' 'a += 1;' 'p = &x + 0; return *p + s.x + g + a + cr - 5;'; do n=$((n + 1)); printf "$cq_pre  %s\n  return 0;\n}\n" "$body" > cq$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 cq$n.cpp -o cq$n 2>&1 | head -1); if [ -n "$o" ]; then echo "$o"; else ./cq$n; echo "cq$n: exit $?"; fi; done)" "cq1.cpp:11: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cq2.cpp:11: error: read-only variable is not assignable
+cq3.cpp:11: error: cannot assign to non-static data member 'x' with const-qualified type 'const int'
+cq4.cpp:11: error: cannot assign to variable 's2' with const-qualified type 'const S'
+cq5.cpp:11: error: cannot assign to variable 'cr' with const-qualified type 'const int &'
+cq6.cpp:11: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cq7.cpp:11: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cq8: exit 0"
+# C++: A CONSTEXPR VARIABLE WHOSE EVALUATION REACHES __builtin_unreachable() IS REFUSED (1.6.23; [expr.const]/5; the
+# evaluator's trap, cpp_eval_reduce/3), at file scope and in a block, in clang++'s words; it was answered as nothing
+check "C++: a constexpr variable whose evaluation reaches __builtin_unreachable() is refused in clang++'s words (1.6.23)" "$(printf 'constexpr int f(int x) { if (x < 0) __builtin_unreachable(); return x; }\nconstexpr int g = f(-1);\nint main() { return g; }\n' > unr1.cpp; "$ROOT/bin/cicilang++" -std=c++17 -c unr1.cpp -o unr1.o 2>&1 | head -1; printf 'int main() {\n  constexpr int f2 = [](int x) { if (x < 0) __builtin_unreachable(); return x; }(-1);\n  return f2;\n}\n' > unr2.cpp; "$ROOT/bin/cicilang++" -std=c++17 -c unr2.cpp -o unr2.o 2>&1 | head -1)" "unr1.cpp:2: error: constexpr variable 'g' must be initialized by a constant expression
+unr2.cpp:2: error: constexpr variable 'f2' must be initialized by a constant expression"
+# C: POINTERS OF INCOMPATIBLE TYPES ARE REFUSED IN CLANG'S WORDS (1.6.23; C17 6.5.16.1/1; ir_ptr_clash/4), as clang 20 and
+# later refuse them: a pointee of another type, a nested pointer's, an array's, a struct's, a function's; a qualifier that
+# is discarded, at any level, the sign of an integer pointee, a void pointer, an enumeration's own integer type and a
+# wide literal for its typedef's pointer are taken, as clang warns of them or says nothing; and each of the four sites
+check "C: pointers of incompatible types are refused in clang's words, at the four sites, and what clang only warns of builds (1.6.23)" "$(n=0; for body in 'char *cp = 0; int *ip = cp; (void)ip;' 'char *cp = 0; unsigned char *up = cp; (void)up;' 'int *a = 0; unsigned *b = a; (void)b;' 'const char *c = 0; char *d = c; (void)d;' 'char **pp = 0; const char **qq = pp; (void)qq;' 'int **ii = 0; unsigned **uu = ii; (void)uu;' 'void *v = 0; int *w = v; (void)w;' 'char arr[4]; int *ap = arr; (void)ap;' 'int (*fp)(int) = 0; void (*gp)(void) = fp; (void)gp;' 'struct A { int a; } sa; struct B { int b; } *bp = &sa; (void)bp;' 'int k = 0; long *lp = &k; (void)lp;' 'int *p1 = 0; char *c3; c3 = p1; (void)c3;' 'int (*a6)[3] = 0; int (*a7)[4] = a6; (void)a7;' 'enum E { E0 } *ep = 0; unsigned *u8 = ep; (void)u8;' 'const unsigned short *w16 = u"ab"; (void)w16;' 'long l = 0; use(&l);' 'char cc = 0; return *ret(&cc);'; do n=$((n + 1)); printf '#include <stddef.h>\nvoid use(int *q) { (void)q; }\nint *ret(char *c) { return (int *)c; }\nint main(void) {\n  %s\n  return 0;\n}\n' "$body" > ipc$n.c; o=$("$CICILI" -fsyntax-only ipc$n.c 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "ipc$n.c: builds"; done; printf 'int *ret2(char *c) { return c; }\nint main(void) { return 0; }\n' > ipret.c; "$CICILI" -fsyntax-only ipret.c 2>&1 | head -1)" "ipc1.c:5: error: incompatible pointer types initializing 'int *' with an expression of type 'char *'
+ipc2.c: builds
+ipc3.c: builds
+ipc4.c: builds
+ipc5.c: builds
+ipc6.c:5: error: incompatible pointer types initializing 'unsigned int **' with an expression of type 'int **'
+ipc7.c: builds
+ipc8.c:5: error: incompatible pointer types initializing 'int *' with an expression of type 'char[4]'
+ipc9.c:5: error: incompatible function pointer types initializing 'void (*)(void)' with an expression of type 'int (*)(int)'
+ipc10.c:5: error: incompatible pointer types initializing 'struct B *' with an expression of type 'struct A *'
+ipc11.c:5: error: incompatible pointer types initializing 'long *' with an expression of type 'int *'
+ipc12.c:5: error: incompatible pointer types assigning to 'char *' from 'int *'
+ipc13.c:5: error: incompatible pointer types initializing 'int (*)[4]' with an expression of type 'int (*)[3]'
+ipc14.c: builds
+ipc15.c: builds
+ipc16.c:5: error: incompatible pointer types passing 'long *' to parameter of type 'int *'
+ipc17.c: builds
+ipret.c:1: error: incompatible pointer types returning 'char *' from a function with result type 'int *'"
 # A VOID VALUE IS NO VALUE (1.6.14; C17 6.3.2.2/1): an initializer, an assignment, an argument, a return, an operand, a
 # condition, a cast, an argument through an ellipsis, a member's item, a step, an indirection, an address, a subscript and
 # a switch over one are refused in clang's words at the line, and so are the operands beside them that C refuses: a switch
