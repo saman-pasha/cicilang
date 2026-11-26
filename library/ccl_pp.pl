@@ -1070,12 +1070,17 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
         ;   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
         ;   nb_setval('$pp_mt_line', L), pp_include_file(Path, Out0, Out) )
     ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
+    ;   pp_e_top_file(From) -> pp_spec_name(Spec0, N), atomic_list_concat(['''', N, ''' file not found'], M), throw(pp_fatal(L, M))   % -E: the run stops, as clang -E's (1.6.24)
     ;   Out0 = Out ).
 %% AN #include WHOSE OPERAND IS NO NAME, AS WRITTEN OR AS ITS MACROS MAKE IT, IS REFUSED IN THE PROGRAM'S FILE (1.6.22; C17
 %% 6.10.2/4): clang's `expected "FILENAME" or <FILENAME>' at its line, where it was dropped with no word and the program
 %% failed at the header's first name -- `#include \"x.h\"', which a slip of a shell wrote. A header's own run
 %% passes it over, as before
-pp_do_include(_, _, _, L, Out, Out) :- ( nb_getval('$pp_top', yes) -> throw(pp_error(L, 'expected "FILENAME" or <FILENAME>')) ; true ).
+pp_do_include(_, _, _, L, Out, Out) :- ( ( nb_getval('$pp_top', yes) ; pp_current_file(F), pp_e_top_file(F) ) -> throw(pp_error(L, 'expected "FILENAME" or <FILENAME>')) ; true ).
+%% the file that `-E' preprocesses (1.6.24, dr_preprocess/2): its own #include that finds no file or names none stops the
+%% run in clang -E's words; a header's is passed over still, since a branch that this preprocessor takes and clang's does
+%% not may include a file that no build asks
+pp_e_top_file(F) :- nb_current('$pp_e_top', T), T \== none, F == T.
 %% AN #include INSIDE AN ITEM OF THE TOP RUN IS ITS FILE'S TEXT IN PLACE (0.310; C17 6.10.2/3, the directive replaced by
 %% the entire contents of the file): where the run's output stands inside braces, parentheses or brackets, or after `='
 %% (pp_top_inner/0), the file is run in the run, as a header's run takes an #include, under the macros in force -- an

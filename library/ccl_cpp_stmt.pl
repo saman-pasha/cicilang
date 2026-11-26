@@ -1003,7 +1003,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
         ;   Args == [], cpp_trivial_default(C) -> Pieces = [declaration(L, Sto, B, [var(N, T, none)])|P1]        % nothing to construct
         ;   Args = [E], cpp_class_of_type_of(E, C), \+ cpp_dtor(C, _) -> Pieces = [declaration(L, Sto, B, [var(N, T, E)])|P1]   % the implicit copy, bitwise
         ;   cpp_refuse(L, no_constructor(C, NA)) )
-    ;   cpp_trace(plain_init(N, T, I)), cpp_plain_init(I, T, I0), cpp_expr(Ctx, I0, I0w), cpp_plain_copy_check(T, I0w), cpp_init_convs(T, I0w, I00), cpp_conv_to(I00, T, I10), ccl_declare(N, T), cpp_note_const(B, N, T, I10, I1),   % a scalar from a class value: its conversion operator
+    ;   cpp_trace(plain_init(N, T, I)), cpp_plain_init(I, T, I0), cpp_expr(Ctx, I0, I0w), cpp_init_int_ptr(N, T, I0w), cpp_plain_copy_check(T, I0w), cpp_init_convs(T, I0w, I00), cpp_conv_to(I00, T, I10), ccl_declare(N, T), cpp_note_const(B, N, T, I10, I1),   % a scalar from a class value: its conversion operator
         ( cpp_binds_const_lvalue(T, I1) -> cpp_refuse(L, binds_const(N)) ; true ),
         ( cpp_class_of_type(T, C0), cpp_dtor(C0, _), cpp_lvalue(I1) -> cpp_refuse(L, copy_of_a_class_with_destructor(C0)) ; true ),   % two owners of one buffer
         (   Sto \== static, Sto \== extern, cpp_ext_temp(T, I1, X, XT, XD)   % A TEMPORARY BOUND TO A NAMED REFERENCE LIVES AS LONG AS THE REFERENCE ([class.temporary]/6; 0.112): it is a hidden local `$ext_K', the prvalue elided into it, destroyed by a defer at the scope's end where the statement's end had destroyed it (`const Tag &a = Tag(1)' dangled) or nothing had (`Tag &&b = make(2)')
@@ -1018,6 +1018,8 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
             ;   Pieces = [declaration(L, Sto, B, [var(N, T, I2)])|P1] ) ) ),
     ( Sto \== static, Sto \== extern, cpp_class_of_type(T, C2), cpp_dtor(C2, DName) -> cpp_check_access(Ctx, C2, '$dtor'), cpp_scope_end(L, N, LE), P1 = [defer(L, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|P2] ; P1 = P2 ),   % THE DESTRUCTOR'S ACCESS where a local of the class ends (0.127; [class.dtor]/15)
     cpp_decl_pieces(Ctx, L, Sto, B, Vs, P2).
+%% ... a scalar's initializer of a pointer for an integer, or of an integer for a pointer (1.6.24, cpp_int_ptr_check/3)
+cpp_init_int_ptr(N, T, E) :- ( atom(N), \+ T = ref(_, _), \+ T = rref(_, _), \+ cpp_class_of_type(T, _) -> cpp_int_ptr_check(initializing, T, E) ; true ).
 %% a declaration's written type that names `std::initializer_list' (0.206): its template-id, or an instance's name, the `auto' road's
 cpp_il_written(base(_, [typedef(X)])) :- cpp_il_written_(X).
 cpp_il_written_(scoped(_, X)) :- !, cpp_il_written_(X).

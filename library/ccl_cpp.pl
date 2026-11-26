@@ -93,7 +93,7 @@
 :- use_module(library(ccl_cpp_lambda)).
 :- use_module(library(ccl_cpp_concept)).
 
-ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_alloc_units(Units0, Units00), cpp_ns_resolve(Units00, Units1),
+ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_kind_clashes(Units0), cpp_alloc_units(Units0, Units00), cpp_ns_resolve(Units00, Units1),
     catch(( cpp_register_units(Units1), cpp_units(Units1, Units) ), Err, ( cpp_kept_assert_failure, throw(Err) )), cpp_kept_assert_failure.
 %% THE PROGRAM'S OWN FAILED STATIC ASSERTION IS ITS ERROR WHEREVER IT WAS ASKED (0.221; [dcl.pre]/10, [temp.inst]/3: a class template's
 %% instance asserts as it is made, in no immediate context of a deduction): the failure is kept ('$cpp_assert_failed', the first one)
@@ -101,6 +101,69 @@ ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_alloc_units(Units0, Units00
 %% program compiled. A library header's failure is reported only where its throw comes out: what this compiler instantiates beyond
 %% what clang does is no error of the program's.
 cpp_kept_assert_failure :- ( '$cpp_assert_failed'(Err, L) -> throw(error(Err, here(none, L))) ; true ).   % Err: static_assert_failed(Text), or static_assert_unfolded (0.257)
+%% A NAME OF THE FILE SCOPE DECLARED AGAIN AS ANOTHER KIND OF SYMBOL (1.6.24; [basic.scope.declarative]/4, [dcl.typedef]):
+%% an object and a function of one name, a typedef's name and either, an enumerator and either, among the program's own
+%% items of the global scope and of its `extern "C"' blocks, are clang++'s `redefinition of 't' as different kind of
+%% symbol' at the later one's line, where they were built -- `int t(void); int t;' -- or refused in LLVM's words. A
+%% function's overloads are one kind, a class's or an enumeration's tag no name of these, and a namespace's names are
+%% its own scope's; C's file scope is the reader's (ccl_kind_clash/2)
+cpp_kind_clashes([]).
+cpp_kind_clashes([unit(Is)|Us]) :- !, cpp_kind_walk(Is, [], _), cpp_redef_walk(Is, [], _), cpp_kind_clashes(Us).
+cpp_kind_clashes([_|Us]) :- cpp_kind_clashes(Us).
+cpp_kind_walk([], K, K).
+cpp_kind_walk([extern_c(_, Js)|Is], K0, K) :- !, cpp_kind_walk(Js, K0, K1), cpp_kind_walk(Is, K1, K).
+cpp_kind_walk([I|Is], K0, K) :- findall(N-Kd-L, cpp_item_kind(I, N, Kd, L), NKs), cpp_kind_note(NKs, K0, K1), cpp_kind_walk(Is, K1, K).
+cpp_item_kind(function(L, _, _, N, _, _, _), N, fn, L) :- atom(N).
+cpp_item_kind(template(_, _, function(L, _, _, N, _, _, _)), N, fn, L) :- atom(N).
+cpp_item_kind(declaration(L, _, B, Vs), N, Kd, L) :- ( member(var(N, T, _), Vs), atom(N), ( T = fn(_, _, _) -> Kd = fn ; Kd = obj ) ; cpp_base_enumerator(B, N), Kd = enumerator ).
+cpp_item_kind(declare(L, B), N, enumerator, L) :- cpp_base_enumerator(B, N).
+cpp_item_kind(typedef(L, Vs), N, type, L) :- member(var(N, _, _), Vs), atom(N).
+cpp_base_enumerator(base(_, [enum(_, Es)]), N) :- is_list(Es), member(enumerator(N, _), Es), atom(N).
+cpp_kind_note([], K, K).
+cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> throw(error(not_lowered(kind_redefinition(N)), where(file, line(L)))) ; true ),   % before the desugaring's state: no trace to note it in
+    ( memberchk(N-_, K0) -> K1 = K0 ; K1 = [N-Kd|K0] ), cpp_kind_note(T, K1, K).
+%% ... AND A SECOND DEFINITION (1.6.24; [basic.def.odr]/1: no translation unit holds two definitions of a variable, a
+%% function, a class or an enumeration), in clang++'s words, `redefinition of 'f'': a function of one name and one list of
+%% parameter types, each its adjusted type ([dcl.fct]/5: an array a pointer, a function a pointer, a top-level qualifier
+%% off), its typedefs resolved; an object defined twice -- an object with no `extern' is a definition in C++ --, and one
+%% declared again with another type, C's words (ccl_redef_obj_compat/2); a class, a union or an enumeration with two
+%% bodies. Each was LLVM's `invalid redefinition of function', or built with the first. An instance's function is passed
+%% over (`linkonce'), and a type that does not resolve leaves its function out
+cpp_redef_walk([], S, S).
+cpp_redef_walk([extern_c(_, Js)|Is], S0, S) :- !, cpp_redef_walk(Js, S0, S1), cpp_redef_walk(Is, S1, S).
+cpp_redef_walk([I|Is], S0, S) :- ( cpp_redef_item(I, S0, S1) -> true ; S1 = S0 ), cpp_redef_walk(Is, S1, S).
+cpp_redef_item(function(L, Sto, _, N, Ps, V, block(_)), S0, [fn(N, Sig)|S0]) :- atom(N), Sto \== linkonce, catch(cpp_redef_sig(Ps, V, Sig), _, fail),
+    ( memberchk(fn(N, Sig), S0) -> cpp_redef_throw(redefinition(N), L) ; true ).
+cpp_redef_item(declare(L, B), S0, S) :- cpp_redef_tags(B, L, S0, S).
+cpp_redef_item(declaration(L, Sto, B, Vs), S0, S) :- Sto \== typedef, Sto \== linkonce, cpp_redef_tags(B, L, S0, S1), cpp_redef_vars(Vs, Sto, L, S1, S).
+cpp_redef_tags(base(_, Specs), L, S0, S) :- ( member(Sp, Specs), cpp_redef_tag_def(Sp, Tag) -> ( memberchk(tag(Tag), S0) -> cpp_redef_throw(redefinition(Tag), L) ; S = [tag(Tag)|S0] ) ; S = S0 ).
+cpp_redef_tag_def(struct(Tag, Ms), Tag) :- atom(Tag), Tag \== anon, is_list(Ms).
+cpp_redef_tag_def(union(Tag, Ms), Tag) :- atom(Tag), Tag \== anon, is_list(Ms).
+cpp_redef_tag_def(class(_, Tag, _, Ms), Tag) :- atom(Tag), Tag \== anon, is_list(Ms).
+cpp_redef_tag_def(enum(Tag, Es), Tag) :- atom(Tag), Tag \== anon, is_list(Es).
+cpp_redef_tag_def(enum_class(Tag, Es), Tag) :- atom(Tag), is_list(Es).
+cpp_redef_vars([], _, _, S, S).
+cpp_redef_vars([var(N, T, Init)|Vs], Sto, L, S0, S) :- atom(N), \+ ccl_redef_fn_type(T), !, ( Init == none, Sto == extern -> D = decl ; D = def ),
+    (   memberchk(ob(N, T0, D0), S0)
+    ->  (   \+ ccl_redef_obj_compat(T0, T) -> ( D == decl -> K = redeclaration ; K = redefinition ), ccl_redef_words(T, A), ccl_redef_words(T0, B0), cpp_redef_throw(redef_type(K, N, A, B0), L)
+        ;   D == def, D0 == def -> cpp_redef_throw(redefinition(N), L)
+        ;   true )
+    ;   true ),
+    cpp_redef_vars(Vs, Sto, L, [ob(N, T, D)|S0], S).
+cpp_redef_vars([_|Vs], Sto, L, S0, S) :- cpp_redef_vars(Vs, Sto, L, S0, S).
+cpp_redef_throw(W, L) :- throw(error(not_lowered(W), where(file, line(L)))).
+%% a function's parameter types as they make its type: adjusted, then each level's typedefs resolved and its qualifiers
+%% sorted; a variadic one apart
+cpp_redef_sig(Ps, V, sig(Ks, Va)) :- findall(K, ( member(P, Ps), arg(1, P, T), cpp_redef_ptype(T, K) ), Ks), length(Ps, N), length(Ks, N), ( ck_c_variadic(V) -> Va = yes ; Va = no ).
+cpp_redef_ptype(T, K) :- ccl_resolve_type(T, R), ( R = arr(_, X) -> R1 = ptr([], X) ; R = fn(_, _, _) -> R1 = ptr([], R) ; R = base(Q, Sp) -> subtract(Q, [const, volatile], Q1), R1 = base(Q1, Sp) ; R = ptr(_, X) -> R1 = ptr([], X) ; R1 = R ), cpp_redef_deep(R1, K).
+cpp_redef_deep(T, K) :- ccl_resolve_type(T, R), cpp_redef_deep_(R, K).
+cpp_redef_deep_(base(Q, Sp), K) :- !, ccl_type_canon(base(Q, Sp), K).
+cpp_redef_deep_(ptr(Q, X), ptr(Q1, K)) :- !, msort(Q, Q1), cpp_redef_deep(X, K).
+cpp_redef_deep_(ref(_, X), ref(K)) :- !, cpp_redef_deep(X, K).
+cpp_redef_deep_(rref(_, X), rref(K)) :- !, cpp_redef_deep(X, K).
+cpp_redef_deep_(arr(N, X), arr(N, K)) :- !, cpp_redef_deep(X, K).
+cpp_redef_deep_(fn(R, Ps, V), fn(RK, Ks, Va)) :- !, cpp_redef_deep(R, RK), cpp_redef_sig(Ps, V, sig(Ks, Va)).
+cpp_redef_deep_(T, T).
 %% the unit's initialization lists, empty before anything registers (0.192): the registration emits the program's own
 %% headers' classes and variables, whose statics' initializations and destructors join the first unit's lists
 cpp_ginit_reset :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_pre', []), nb_setval('$cpp_ginit_fns', []).

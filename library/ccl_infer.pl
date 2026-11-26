@@ -1104,7 +1104,7 @@ ccl_pow2_at_least(X, P0, P) :- ( P0 >= X -> P = P0 ; P1 is P0 * 2, ccl_pow2_at_l
 %% long and supplied for a bare `unsigned', so `unsigned' and `unsigned int' are one type as C has them
 ccl_type_canon(T, K) :- ccl_resolve_type(T, T1), ccl_type_canon_(T1, K).
 ccl_type_canon_(base(Q, S), base(Q1, K)) :- !, ccl_layout_free(Q, Q0), msort(Q0, Q1), msort(S, S1), ( memberchk(char, S1) -> S2 = S1 ; delete(S1, signed, S2) ),
-    ( ( memberchk(short, S2) ; memberchk(long, S2) ) -> delete(S2, int, S3) ; S2 == [unsigned] -> S3 = [int, unsigned] ; S3 = S2 ), ccl_canon_specs(S3, K).
+    ( ( memberchk(short, S2) ; memberchk(long, S2) ) -> delete(S2, int, S3) ; S2 == [unsigned] -> S3 = [int, unsigned] ; S2 == [] -> S3 = [int] ; S3 = S2 ), ccl_canon_specs(S3, K).   % `signed' alone an int (1.6.24)
 ccl_type_canon_(ptr(_, T), ptr(K)) :- !, ccl_type_canon(T, K).
 ccl_type_canon_(arr(N, T), arr(V, K)) :- !, ( ccl_const_eval(N, V) -> true ; V = N ), ccl_type_canon(T, K).
 ccl_type_canon_(fn(R, Ps, V), fn(RK, PKs, V)) :- !, ccl_type_canon(R, RK), findall(PK, ( member(param(PT, _), Ps), ccl_type_canon(PT, PK) ), PKs).

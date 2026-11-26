@@ -340,6 +340,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.21 | The pins at the latest versions: cocolog 3.78.18, ZiguratIP 1.0.4, LLVM 23 and libc++ 23 | at the user's word "Update pins to latest versions" and "Add 23 and move LLVM to 23": cocolog 3.62.3 to 3.78.18, ZiguratIP 1.0.2 to 1.0.4, the embedded LLVM and the C gates' clang 18 to 23, libc++ 23 a fourth tree; LLVM 23's faults mended -- a static local's debug record, `_BitInt`'s alignment, a coroutine's end, the cross link's libc++abi --, libc++ 23's 27 failures of the C++ gate mended -- `decltype((E))` of any member access, an instance's `decltype(auto)`, a block's namespace alias, the evaluator's `using`, a callable data member called, the abs builtins as `llvm.abs`, `__builtin_bswapg`, `__FILE_NAME__`, a summary's AST file declared discontiguous --, three older silent wrong answers among them; a `_BitInt` past 64 bits across a call recorded; a ccllib twin's `NAME.needs` (reader 210, lowering 190) | the chain GREEN over libc++ 22, 21 and 18 (18's ccllib gate RED on its tree first: two twins call the floating `from_chars`, which libc++ 18 has not, and the box had no TSan runtime for clang 18), and over LLVM 23 ten gates: flow 684 s, reader 173, compile 418, driver 111, objects 29, cross 274, the C++ gate 1228 over 22, 1225 over 21, 1217 over 18 and 1228 over 23, ccllib 625, 625 and 623; the ccllib gate over 23 ran at the commit, made then at the user's word; 24 broken copies caught |
 | 1.6.22 | Twelve records of Not done closed, three narrowed, each against clang; cocolog 3.78.21 | at the user's words: GNU's `x ?: y`, a block's function declarations hiding outer overloads, a call's prvalue no place in C++, a local class defined in its object's declaration, a store through a reference to a pointer, an operator's value no lvalue in C, a call's result's address, a parenthesized callee and the argument's namespace's overloads joined, a member's initializer and a template's body in clang++'s words, a missing and a malformed `#include` refused; C's const places, a constexpr variable over a call or a trap and a C++ condition over a plain struct refused; the folds' arguments converted, an older silent wrong answer; cocolog 3.78.18 to 3.78.21 (reader 211, lowering 191) | committed while its nets ran, at the user's word: flow 522 s and reader 173 GREEN over LLVM 23, the other nine gates running; the copy's driver 117, reader 173 and compile 419, the constant pool 56; 27 broken copies caught, two clauses that none could break taken out, six more running; 1.6.21's ccllib gate over 23 GREEN, 625 |
 | 1.6.23 | C's pointers of incompatible types, C++'s const places, saturating conversions, each against clang | pointers of incompatible types refused in C in clang's words, at the four sites, what clang only warns of taken; C++'s const places refused, the desugaring's own initializations passed over; a constexpr variable over `__builtin_unreachable()` refused; a floating constant out of its integer type's range saturates; an older false refusal of a value through a reference mended; integer types spelled as clang spells them; the library read names a header that the box has not (lowering 192) | committed while its nets ran, at the user's word: the copy's compile 420 and driver 120 GREEN; 1.6.22's nets carried -- eight gates GREEN, the library read RED on the warm of a Mac header, mended; 5 broken copies caught, 8 running |
+| 1.6.24 | Clang's (aka ...), redeclarations in C and C++, const member functions, C++'s integers and pointers | a typedef's type with clang's (aka ...) where the words are clang's; an object declared again with another type refused in C, a second definition and another kind of symbol in C++; a const member function's writes refused, `mutable` marked; a constexpr pointer a const pointer; C++'s integers and pointers refused at an assignment and an initializer; a NaN converted to an integer 0; `-E` stops at its own missing include; a library function's words and header note; the three words that 1.6.23's net found changed mended; cocolog's master taken (reader 212, lowering 193) |
 
 ## M5 — the C++ mode
 
@@ -25315,3 +25316,105 @@ strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran,
   the fixtures).
 
 The module 1.6.23, the reader 211 and the lowering 192.
+
+## 1.6.24 — Clang's (aka ...), redeclarations in C and C++, const member functions, C++'s integers and pointers
+
+**1.6.24: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": ten records of Not done closed or narrowed, each form held to clang's or clang++'s answer at its
+line, 1.6.23's nets and broken copies carried, the three words that 1.6.23's net found changed mended, and cocolog's
+latest master taken. The step was committed while its nets ran: it claims nothing GREEN of them, and the next step's
+commit carries them.**
+
+1. C++: A NAME OF THE FILE SCOPE DECLARED AGAIN AS ANOTHER KIND OF SYMBOL ([basic.scope.declarative]/4;
+   `cpp_kind_clashes/1`, before the desugaring registers the units): `int t(void); int t;` built, other pairs were
+   LLVM's words or `not lowered yet: call(id(t))`; each is clang++'s `redefinition of 't' as different kind of symbol`
+   at the later one's line, among the program's own items of the global scope and of its `extern "C"` blocks.
+2. C++: A SECOND DEFINITION AT FILE SCOPE ([basic.def.odr]/1; `cpp_redef_walk/3`, beside the first): a function of one
+   list of adjusted parameter types (`cpp_redef_sig/3`), an object defined twice -- an object with no `extern` is a
+   definition in C++ --, an object declared again with another type, a class, a union, an enumeration and a scoped one
+   with two bodies are clang++'s `redefinition of 'f'` and C's words; a function was LLVM's `invalid redefinition of
+   function 'f'` at no line, an object or a class built with the first. `signed` alone is `int` in the canonical type
+   now (`ccl_type_canon/2`), where it was a type of no specifier.
+3. C: AN OBJECT OF THE FILE SCOPE DECLARED AGAIN WITH ANOTHER TYPE (C17 6.7/4; `ccl_redef_obj_type/8` in 1.6.7's walk):
+   `int x; long x;` built, the object of the second type; it is clang's `redefinition of 'x' with a different type:
+   'long' vs 'int'`, `redeclaration of` after an `extern` with no initializer -- an array of another bound, a bound that
+   an initializer gives too, another pointee, another qualifier, a pointer's own at any level. A qualifier is spelled as
+   clang spells it: `'volatile int'`, `'int *const volatile'`, `'int *const[2]'` (`ck_c_ptr_quals/3`), where `volatile`
+   and `restrict` were left out, `'int' vs 'int'`.
+4. C AND C++: A TYPE THAT A TYPEDEF NAMES HAS CLANG'S `(aka ...)` where the words are clang's (`ir_type_aka/2`): `'I'
+   (aka 'int')`, `'size_t' (aka 'unsigned long')`, `'S' (aka 'struct S')`, C++'s `'TC' (aka 'C')` and `'const I &' (aka
+   'const int &')`; a struct with no tag is its typedef's name, `'P'`, as clang spells it. The text ends in a mark of
+   code 1 that the driver closes (`dr_aka_close/2`): the first form closed the parenthesis after the next quote, and a
+   text of the driver's own table that holds its `(aka ...)` whole, `snprintf`'s, would have had two. A C++ function
+   type with no parameters is `'int ()'`, as clang++ spells it.
+5. C++: A CONST MEMBER FUNCTION WRITES NO MEMBER BUT A MUTABLE ONE ([class.this]/1, [dcl.stc]/9): `void g() const { m =
+   1; }` built; a write of a member through `this` -- an element of it, a member of it, a base's member through its
+   subobject (`cpp_this_path/3`) -- is `cannot assign to non-static data member within const member function 'g'`, and a
+   const member in any member function is clang++'s words. The reader marks a `mutable` member, `mutable(N)` beside the
+   members as `default_init(N, E)` is (`ccl_mutable_marks/3`), so that its type is unchanged. A write through a pointer
+   member or a reference member stays. `test/cpp/run/constmembers.cpp`, which clang++ 23 and g++ print alike.
+6. A CONSTEXPR POINTER IS A CONST POINTER ([dcl.constexpr]/10, C23 6.7.1/5; `ccl_constexpr_fold/2`): the reader held the
+   const on what the pointer points to, `const const char *` for `constexpr const char *m`, and `m = "y"` built; it is
+   `const char *const` now, an array's elements and a pointer to a function alike, in C++ and C23.
+   `test/cpp/run/constexprptrs.cpp`, which clang++ 23 and g++ print alike.
+7. C++: AN INTEGER AND A POINTER DO NOT CONVERT IMPLICITLY ([conv.ptr]/1; `cpp_int_ptr_check/3`): `long n; n = q;` over
+   an `int *q` built, the address's bits the integer; an assignment and a scalar's initializer in the program's own code
+   are clang++'s words now -- `incompatible pointer to integer conversion assigning to 'long' from 'int *'`, `assigning
+   to 'long' from incompatible type 'char[2]'`, `cannot initialize a variable of type 'long' with an lvalue of type
+   'const char[4]'` for a string literal, `; take the address with &` where an lvalue's address would be the place's
+   type. A bool from a pointer, a literal 0, `nullptr` and `NULL` stay. C's rule stays C's: the desugared C mixes the
+   two where C++ means it, so this rule is the desugaring's.
+8. A NaN CONVERTED TO AN INTEGER TYPE IN A CONSTANT IS 0 (`ir_fp_cast/3`), a `_Bool`'s 1, as clang's fold and gcc's make
+   it: `int n = (int)(0.0 / 0.0);` at file scope was refused, `global_init`. `test/c/run/nanconst.c`, which clang 23 and
+   gcc print alike.
+9. `cicilang -E` STOPS AT ITS FILE'S OWN `#include` THAT FINDS NO FILE OR NAMES NONE (`pp_e_top_file/1`,
+   `dr_pp_thrown/2`), in clang's words, as clang -E does; a header's is passed over still.
+10. A LIBRARY FUNCTION THAT CLANG KNOWS BY NAME, CALLED WITH NO DECLARATION, has clang's words and its note of the
+    header (`dr_lib_fn/3`, forty of them, each type as clang 23 spells it): `call to undeclared library function
+    'printf' with type 'int (const char *, ...)'; ...` and `note: include the header <stdio.h> ...`.
+11. THE NOTE OF A MACRO'S EXPANSION names a type argument by its type's text, `on int`, where it was `on base([],[int])`
+    (`dr_arg_write/1`).
+
+THE THREE WORDS THAT 1.6.23'S NET FOUND CHANGED. 1.6.22's net had stopped at the library read, so 1.6.23's ran the C++
+gate first over both steps: `freeoprval.cpp` was 1.6.22's `invalid operands to binary expression ('W' and 'int')` and is
+clang++'s `no viable overloaded '+='` now (`cpp_assign_op/1`), checked by clang++'s words in the gate where it was a
+`not lowered yet` term; `constrefslot.cpp` named the referent's type, `'const Buf'`, under 1.6.23's const rule, which
+names a reference by its own type now through a member of it too, `'const Buf &'`; and `delconstassign.cpp` was C's
+`with const-qualified data member 'c'`, which came before the deleted copy assignment's words and now gives way to them.
+
+1.6.23'S NETS, CARRIED. Over LLVM 23 and its work tree, the toolchain check strict: the flow gate 602 s with no finding
+(61 ok), reader 5 s (173 ok), compile 34 s (420 ok), driver 189 s (121 ok), objects 6 s (29 ok), the proof, the cross
+gate 320 s (276 ok) and the library read 247 s (24 ok) GREEN; then the C++ gate RED in 1252 s, 1231 ok and the three
+failures above, and the ccllib gate did not run. 1.6.23's last broken copies (`CCA1`, `CCA2`, `UNR1`, `UNR2`, `PTR1`,
+`PTR2`, `PTR3`, `SPELL1`) were each caught by the driver gate: thirteen of thirteen.
+
+COCOLOG'S LATEST MASTER, `b645756`, two commits past the pin, which change its `CLAUDE.md` and `NOTDONE.md` alone: no
+build changes, and the pin moves (`test/toolchain.pins`). Its version stays 3.78.21.
+
+THE BROKEN COPIES, AT THE COMMIT: forty-one over the copy, each rule of the step broken on purpose -- the kinds, the
+`-E`'s, the library table and the note's argument over the driver gate; the aka words, the redeclarations, a qualifier's
+spelling, a const member function, `mutable`, a constexpr pointer, C++'s integers and pointers, the function type's `()`
+and C++'s second definitions over their checks; the NaN over `nanconst.c`, and the three mended words over their
+fixtures -- ran at the commit.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the driver gate's ten new checks, their bodies each against
+clang 23 or clang++ 23 -- ten of the kinds, the `-E`'s, four of the libraries, twelve and five of the aka words,
+twenty-one of C's redeclarations, eleven of a const member function, five of a constexpr pointer, eleven of C++'s
+integers and pointers and twenty-six of C++'s second definitions --, the three fixtures by cicilang and cicilang++
+beside clang, clang++ and g++, and the three refusals of the C++ gate. Over the work tree after the port: the toolchain
+check strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_cpp.pl` (`cpp_kind_clashes/1`, `cpp_redef_walk/3`, `cpp_redef_sig/3`); `library/ccl_cpp_expr.pl`
+  (`cpp_const_assign/2`, `cpp_const_words/3`, `cpp_this_path/3`, `cpp_member_kept/3`, `cpp_int_ptr_check/3`,
+  `cpp_assign_op/1`); `library/ccl_cpp_stmt.pl` (`cpp_init_int_ptr/3`); `library/ccl_syntax.pl` (`ccl_mutable_marks/3`,
+  `ccl_constexpr_fold/2`, `ccl_redef_obj_type/8`, `ccl_redef_ptr_quals/2`; the reader 212); `library/ccl_ir.pl`
+  (`ir_type_aka/2`, `ir_desugar/2`, `ir_fp_cast/3`; the lowering 193); `library/ccl_infer.pl` (`ccl_type_canon/2`);
+  `library/ccl_check.pl` (`ck_c_ptr_quals/3`, `ck_c_params_text/3`); `library/ccl_pp.pl` (`pp_e_top_file/1`);
+  `library/ccl_driver.pl` (`dr_lib_fn/3`, `dr_arg_write/1`, `dr_parts_text/2`, `dr_aka_close/2`, the new words);
+  `test/driver.sh` (ten checks, and the note's line); `test/cpp.sh` (`freeoprval.cpp` by clang++'s words);
+  `test/c/run/nanconst.c`; `test/cpp/run/constmembers.cpp`, `constexprptrs.cpp`; `test/toolchain.pins` (cocolog); the
+  module's version.
+- RULES.md (the rules in their topics; Not done: three records closed, seven narrowed), HISTORY.md, CLAUDE.md (the
+  versions, the fixtures).
+
+The module 1.6.24, the reader 212 and the lowering 193.

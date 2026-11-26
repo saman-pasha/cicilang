@@ -187,7 +187,7 @@ cpp_expr(Ctx, assign('=', A, init(Items)), E) :- \+ ( member(item(D, _), Items),
     \+ catch(cpp_method(C, operator('='), [init(Items)], _, _), error(not_lowered(_), _), fail), !,
     findall(V, member(item(_, V), Items), Vs), ( Vs == [] -> T = call(id(C), []) ; T = braced_temp(call(id(C), Vs)) ),
     cpp_expr(Ctx, assign('=', A, T), E).
-cpp_expr(Ctx, assign('=', A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), cpp_expr(Ctx, B, B10), cpp_assign_sliced(A1, B10, B1), cpp_deleted_assign_check(A1, B1),
+cpp_expr(Ctx, assign('=', A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), cpp_expr(Ctx, B, B10), cpp_assign_int_ptr(A1, B10), cpp_assign_sliced(A1, B10, B1), cpp_deleted_assign_check(A1, B1),
     (   cpp_class_of_type_of(A1, C), cpp_assign_from_own(B1, C, B0), \+ cpp_written_copy_assign(C),   % THE IMPLICIT COPY OR MOVE ASSIGNMENT where the class writes operator= for other types only (0.112)
         ( ( cpp_dtor(C, _) ; cpp_dynamic_class(C) ) -> cpp_implicit_assign(C, B1, Name) ; Name = none )   % ... made where it can be: a class holding OWNERS takes the roads below (`d[n] = move(x)', the holder's fresh slot); A CLASS WITH A TABLE assigns memberwise (0.135, cpp_dynamic_class/1)
     ->  ( Name \== none -> cpp_object_arg(Name, addr(A1), Obj), cpp_ref_args_of(Name, [B1], [B2]), cpp_rhs_first(call(id(Name), [Obj, B2]), E) ; E = assign('=', A1, B0) )
@@ -262,12 +262,61 @@ cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
 cpp_assignable(A) :- ( cpp_scalar_prvalue_call(A, _) -> cpp_refuse_stmt(not_assignable) ; cpp_const_assign(A, W) -> cpp_refuse_stmt(W) ; true ).
 %% C++: A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE EITHER ([expr.ass]/1, [expr.pre.incr]/1; 1.6.22), in the program's
 %% own code: C's rule over the desugared place (ir_c_const_place/2) and its words, which are clang++'s too; a
-%% constructor's member initializers are the desugaring's own assignments, which pass no assignment's clause here. A
-%% place through `this' keeps its road: a const member function writes its mutable members
+%% constructor's member initializers are the desugaring's own assignments, which pass no assignment's clause here
 cpp_const_assign(A, W) :- \+ nb_current('$cpp_in_lib', yes), \+ nb_current('$cpp_in_ginit', yes), \+ cpp_this_rooted(A), catch(ir_c_const_place(A, W0), _, fail), cpp_const_words(A, W0, W).
+%% ... AND A PLACE THROUGH `this' (1.6.24; [class.this]/1, [dcl.stc]/9): a const member is clang++'s `cannot assign to
+%% non-static data member 'cm' with const-qualified type 'const int'' in any member function, and in a const member
+%% function a member that is not `mutable' (the reader's mark, ccl_mutable_marks/3), its own or a base's, written by
+%% itself, by an element of it or by a member of it, is `cannot assign to non-static data member within const member
+%% function 'g''; a write through a pointer member or a reference member is no write of the object. Both built. A
+%% closure's members are the lambda's rules (cpp_lambda's), and a function whose name is no plain name is passed over
+cpp_const_assign(A, W) :- \+ nb_current('$cpp_in_lib', yes), \+ nb_current('$cpp_in_ginit', yes), cpp_this_rooted(A),
+    cpp_fsig_now(fsig(member, C, M, _, _, _, FQs, _)), atom(C), \+ memberchk(closure, FQs), \+ catch('$cpp_pf_closure'(C, _, _), _, fail),
+    catch(ir_c_const_place(A, W0), _, fail), cpp_this_const_words(A, C, M, FQs, W0, W).
 %% ... a reference's name as its own type, `'const int &'', as clang++ names it, where the place's type is its referent's
-cpp_const_words(id(N), const_var(N, _), const_var(N, T)) :- atom(N), catch(ccl_declared(N, R), _, fail), ( R = ref(_, _) ; R = rref(_, _) ), catch(ir_type_text(R, T), _, fail), !.
+cpp_const_words(_, const_var(N, _), const_var(N, T)) :- atom(N), catch(ccl_declared(N, R), _, fail), ( R = ref(_, _) ; R = rref(_, _) ), catch(ir_type_aka(R, T), _, fail), !.   % through a member of it too, `b.data = ...' over `const Buf &b' (1.6.24)
+cpp_const_words(_, const_data_member(_, _), _) :- !, fail.   % a class with a const member: its copy assignment is deleted, the deleted assignment's words (cpp_deleted_assign_check/2, 1.6.24)
 cpp_const_words(_, W, W).
+cpp_this_const_words(_, _, _, _, const_member(F, T), const_member(F, T)) :- !.
+cpp_this_const_words(A, C, M, FQs, W0, const_method_member(M)) :- memberchk(const, FQs), atom(M), ( W0 = const_var(this, _) ; W0 == read_only ), cpp_this_path(A, [], Path),
+    cpp_member_kept(C, Path, K), K == plain.
+%% the members that a place through `this' names, from `this' out: `this->m' [m], `this->a[i]' over an array member
+%% [a], `this->s.q' [s, q], a base's member through its subobject [$base, bm]
+cpp_this_path(arrow(id(this), F), P, [F|P]) :- !, atom(F).
+cpp_this_path(member(deref(id(this)), F), P, [F|P]) :- !, atom(F).
+cpp_this_path(member(X, F), P0, P) :- !, atom(F), cpp_this_path(X, [F|P0], P).
+cpp_this_path(index(X, _), P0, P) :- catch(ccl_type_of(X, XT), _, fail), catch(ccl_resolve_type(XT, arr(_, _)), _, fail), cpp_this_path(X, P0, P).
+%% the first data member of a path, the class's own or its primary base's through `$base': `mutable', `ref' or `plain';
+%% one that is not found answers nothing
+cpp_member_kept(C, [F|Rest], K) :- catch(cpp_class(C, cls(B, _, Ms, _, _, _)), _, fail), !,
+    (   memberchk(member(T, F, _), Ms) -> ( memberchk(mutable(F), Ms) -> K = mutable ; ( T = ref(_, _) ; T = rref(_, _) ) -> K = ref ; K = plain )
+    ;   F == '$base', Rest \== [], atom(B), B \== none, cpp_member_kept(B, Rest, K) ).
+%% C++: AN INTEGER AND A POINTER DO NOT CONVERT IMPLICITLY (1.6.24; [conv], [conv.ptr]/1: no standard conversion takes a
+%% pointer to an integer, nor an integer other than a null pointer constant, a literal 0, to a pointer), in the program's
+%% own code, in clang++'s words: an assignment, `incompatible pointer to integer conversion assigning to 'long' from 'int
+%% *'' (C's words) and `assigning to 'long' from incompatible type 'char[2]'' for an array or a function, and a scalar's
+%% initializer, `cannot initialize a variable of type 'long' with an lvalue of type 'int *''. Each built, the address's
+%% bits the integer: C's rule (ir_int_ptr_check/4, 0.302) is C's alone, since the desugared C mixes the two where C++
+%% means it -- so the rule is the desugaring's, over the program's own assignments and initializers. A bool takes a
+%% pointer, an enumeration and `nullptr' are passed over
+cpp_assign_int_ptr(A, B) :- ( catch(ccl_type_of(A, TA0), _, fail), TA0 \== unknown -> cpp_int_ptr_check(assigning, TA0, B) ; true ).
+cpp_int_ptr_check(Site, TA0, B) :- ( \+ nb_current('$cpp_in_lib', yes), catch(cpp_int_ptr_words(Site, TA0, B, W), _, fail) -> cpp_refuse_stmt(W) ; true ).
+cpp_int_ptr_words(Site, TA0, B, W) :- ccl_unref(TA0, TA), B \== nullptr,
+    cpp_int_ptr_source_type(B, TB0), TB0 \== unknown, ccl_unref(TB0, TB), ccl_resolve_type(TA, RA), ccl_resolve_type(TB, RB),
+    (   cpp_plain_int_type(RA), ( RB = ptr(_, _) -> K = ptr ; ( RB = arr(_, _) ; RB = fn(_, _, _) ) -> K = other )
+    ->  cpp_int_ptr_term(Site, K, ptr_int, TA, B, TB, W)
+    ;   RA = ptr(_, _), RB = base(_, _), ccl_is_integer(RB), \+ cpp_null_literal(B)
+    ->  cpp_int_ptr_term(Site, ptr, int_ptr, TA, B, TB, W) ).
+%% ... the words: an lvalue's address that would be the place's type is named, `; take the address with &', as clang++ does
+cpp_int_ptr_term(assigning, ptr, Dir, TA, B, TB, W) :- !, ir_type_aka(TA, SA), ir_type_aka(TB, SB),
+    ( Dir == int_ptr, cpp_lvalue(B), catch(ccl_type_canon(ptr([], TB), K1), _, fail), catch(ccl_type_canon(TA, K2), _, fail), K1 == K2 -> W = int_conversion_amp(Dir, assigning, SB, SA) ; W = int_conversion(Dir, assigning, SB, SA) ).
+cpp_int_ptr_term(assigning, other, _, TA, _, TB, incompatible_assign(SA, SB)) :- !, ir_type_aka(TA, SA), ir_type_aka(TB, SB).
+cpp_int_ptr_term(initializing, _, _, TA, B, TB, init_mismatch(SA, Cat, SB)) :- ir_type_aka(TA, SA), ir_type_aka(TB, SB), ( ( cpp_lvalue(B) ; B = str(_) ) -> Cat = lvalue ; Cat = rvalue ).
+%% ... a string literal's type is its array's, `const char[4]', where the inference answers the pointer it becomes
+cpp_int_ptr_source_type(str(Cs), arr(int(N), base([const], [char]))) :- is_list(Cs), !, length(Cs, K), N is K + 1.
+cpp_int_ptr_source_type(B, T) :- catch(ccl_type_of(B, T), _, fail).
+cpp_plain_int_type(R) :- R = base(_, S), ccl_is_integer(R), \+ memberchk(bool, S), \+ memberchk('_Bool', S), \+ ( member(X, S), compound(X), functor(X, enum, _) ).
+cpp_null_literal(E) :- compound(E), E =.. [F, V], memberchk(F, [int, long, llong, uint, ulong, ullong]), V == 0.
 cpp_this_rooted(id(this)) :- !.
 cpp_this_rooted(E) :- ( E = member(X, _) ; E = arrow(X, _) ; E = index(X, _) ; E = deref(X) ), !, cpp_this_rooted(X).
 cpp_scalar_prvalue_call(call(id(F), _), T) :- atom(F), catch(ccl_declared(F, fn(R, _, _)), _, fail), \+ R = ref(_, _), \+ R = rref(_, _),
@@ -1091,7 +1140,7 @@ cpp_void_call_refusal(F, _, _, no_matching_member(M)) :- ( F = member(X, M) -> T
 %% initializer, `T() : m(f())', in clang++'s words, `cannot initialize a new value of type 'int' with an rvalue of type
 %% 'void'' and `a member subobject'; the desugaring makes each an assignment, whose words the lowering would give
 cpp_void_init_check(K, T, A) :- ( nb_current('$cpp_line', L) -> true ; L = 0 ), cpp_void_init_check(K, T, A, L).
-cpp_void_init_check(K, T, A, L) :- ( cpp_void_value(A) -> catch(ir_type_text(T, B), _, B = T), cpp_refuse(L, void_value(K, B)) ; true ).   % a member's at its constructor's line
+cpp_void_init_check(K, T, A, L) :- ( cpp_void_value(A) -> catch(ir_type_aka(T, B), _, B = T), cpp_refuse(L, void_value(K, B)) ; true ).   % a member's at its constructor's line
 %% ... AND A CLASS OBJECT COPY-INITIALIZED FROM ONE ([dcl.init.general]/16.6.3, [over.match.copy]; 1.6.14): `M m = f();', a
 %% default member initializer so written, an element or an aggregate's member from a braced item -- `no viable conversion
 %% from 'void' to 'M'', clang++'s words, where the constructor road gave direct-initialization's, `no matching constructor
@@ -1711,8 +1760,11 @@ cpp_operator(Op, A, Args, Plain, E) :-
 %% a library's body its own, which its substitution failures read
 cpp_builtin_op_words(Op, A, Args, W) :- \+ nb_current('$cpp_in_lib', yes), cpp_plain_operand_text(A, TA, RA),
     (   Args == [] -> ( Op == '*' -> W = pointer_operand(indirection, TA) ; memberchk(Op, ['-', '+', '~', '!']) -> W = unary_operand(TA) )
-    ;   Args = [B], cpp_plain_operand_text(B, TB, RB), ( RA == record ; RB == record ), W = binary_operands(TA, TB) ), !,
+    ;   Args = [B], cpp_plain_operand_text(B, TB, RB), ( RA == record ; RB == record ), ( RA == record, cpp_assign_op(Op) -> W = no_viable_assign(Op) ; W = binary_operands(TA, TB) ) ), !,
     ( Args == [] -> RA == record ; true ).
+%% ... an assignment's over a class is its operator='s, clang++'s `no viable overloaded '+='' (1.6.24: it was named as a
+%% binary operator's operands, `invalid operands to binary expression ('W' and 'int')')
+cpp_assign_op(Op) :- memberchk(Op, ['=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=']).
 cpp_plain_operand_text(X, Text, K) :- catch(ccl_type_of(X, T0), _, fail), T0 \== unknown, ccl_unref(T0, T), \+ catch(cpp_class_of_type(T, _), _, fail),
     catch(ccl_resolve_type(T, R), _, fail), ( R = base(_, [S]), compound(S), ( S = struct(_, _) ; S = union(_, _) ) -> K = record ; K = scalar ),
     catch(ir_type_text(T, Text), _, fail).

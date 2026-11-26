@@ -87,7 +87,7 @@ count 2 1"
 check "the pool of shared_ptr<int> and its lock are linkonce_odr globals, the program's and not each unit's (1.6.5)" "$("$CICILI" -S -emit-llvm "$R/link/sp_b.c" -o spb.ll 2>&1 && grep -c -e '^@shared_ptr_int_pool = linkonce_odr global' -e '^@shared_ptr_int_pool_lock = linkonce_odr global' spb.ll)" "2"
 lpout=$("$CICILI" "$R/lit_noplace.c" -o litnp 2>&1); lpcode=$?
 check "a list literal where no place gives it a type, a conditional's branch, is refused by name (0.263)" "$(echo "$lpout" | sed "s|$R/||g"; echo "exit $lpcode")" "lit_noplace.c:8: error: not lowered yet: list_literal_with_no_type_given (function main)
-lit_noplace.c:8: note: expanded from macro 'vector' on base([],[int])
+lit_noplace.c:8: note: expanded from macro 'vector' on int
 cicilang: 1 error(s)
 exit 1"
 upout=$("$CICILI" "$R/unread_place.c" -o unrp 2>&1); upcode=$?
@@ -511,6 +511,142 @@ ipc15.c: builds
 ipc16.c:5: error: incompatible pointer types passing 'long *' to parameter of type 'int *'
 ipc17.c: builds
 ipret.c:1: error: incompatible pointer types returning 'char *' from a function with result type 'int *'"
+# C++: A NAME OF THE FILE SCOPE DECLARED AGAIN AS ANOTHER KIND OF SYMBOL IS REFUSED (1.6.24; cpp_kind_clashes/1), in
+# clang++'s words: an object and a function, an enumerator, a typedef, an `extern "C"' block's object, a function template;
+# a namespace's name, a class's tag, two overloads and an object declared again build
+check "C++: a name of the file scope declared again as another kind of symbol is refused in clang++'s words, and what C++ takes builds (1.6.24)" "$(n=0; for pair in 'int t(void);|int t;' 'enum { u = 1 };|int u(void);' 'typedef int w;|int w(void);' 'extern "C" { int c1; }|int c1(int);' 'template <class T> T tp(T x) { return x; }|int tp;' 'int v;|typedef int v;' 'namespace a { int t2; }|int t2();' 'struct s3 { int m; };|int s3(int);' 'int o(int);|double o(double);' 'int x9;|extern int x9;'; do n=$((n + 1)); printf '%s\n%s\nint main() { return 0; }\n' "${pair%%|*}" "${pair#*|}" > kind$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c kind$n.cpp -o kind$n.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "kind$n.cpp: builds"; done)" "kind1.cpp:2: error: redefinition of 't' as different kind of symbol
+kind2.cpp:2: error: redefinition of 'u' as different kind of symbol
+kind3.cpp:2: error: redefinition of 'w' as different kind of symbol
+kind4.cpp:2: error: redefinition of 'c1' as different kind of symbol
+kind5.cpp:2: error: redefinition of 'tp' as different kind of symbol
+kind6.cpp:2: error: redefinition of 'v' as different kind of symbol
+kind7.cpp: builds
+kind8.cpp: builds
+kind9.cpp: builds
+kind10.cpp: builds"
+# C: A LIBRARY FUNCTION THAT NOTHING DECLARES HAS CLANG'S WORDS AND ITS NOTE OF THE HEADER (1.6.24; dr_lib_fn/3), the
+# type as clang 23 spells it; a name that clang does not know so has a call's words
+check "C: a library function that nothing declares is refused in clang's words, with the header in a note (1.6.24)" "$(n=0; for c in 'printf("x")' 'exit(0)' 'double d = sqrt(2.0); (void)d' 'puts("x")'; do n=$((n + 1)); printf 'int main(void) {\n  %s;\n  return 0;\n}\n' "$c" > lib$n.c; "$CICILI" -fsyntax-only lib$n.c 2>&1 | grep -v '^cicilang:'; done)" "lib1.c:2: error: call to undeclared library function 'printf' with type 'int (const char *, ...)'; ISO C99 and later do not support implicit function declarations
+lib1.c:2: note: include the header <stdio.h> or explicitly provide a declaration for 'printf'
+lib2.c:2: error: call to undeclared library function 'exit' with type 'void (int) __attribute__((noreturn))'; ISO C99 and later do not support implicit function declarations
+lib2.c:2: note: include the header <stdlib.h> or explicitly provide a declaration for 'exit'
+lib3.c:2: error: call to undeclared library function 'sqrt' with type 'double (double)'; ISO C99 and later do not support implicit function declarations
+lib3.c:2: note: include the header <math.h> or explicitly provide a declaration for 'sqrt'
+lib4.c:2: error: call to undeclared function 'puts'; ISO C99 and later do not support implicit function declarations"
+# C: A TYPE THAT A TYPEDEF NAMES HAS CLANG'S `(aka ...)' (1.6.24; ir_type_aka/2, dr_aka_close/2) where the words are clang's:
+# a void value, a const place, a pointer of an incompatible type and a pointer for an integer; a struct with no tag is its
+# typedef's name, and a typedef of a struct `'S' (aka 'struct S')'
+check "C: a type that a typedef names has clang's (aka ...) where the words are clang's: a void value, a const place, the conversions of an integer and a pointer (1.6.24)" "$(n=0; for body in 'J j = f();' 'S s = f();' 'P p = f();' 'str q = f();' 'IP ip = f();' 'I *ip2 = f();' 'size_t n = f();' 'int8_t e = f();' 'const I ci = f();' 'const I c = 1; c = 2;' 'I *p = 0; char *c = 0; p = c;' 'I k; I *p = &k; long n2; n2 = p;'; do n=$((n + 1)); printf '#include <stddef.h>\n#include <stdint.h>\ntypedef int I;\ntypedef I J;\ntypedef struct S S;\nstruct S { int a; };\ntypedef struct { int b; } P;\ntypedef const char *str;\ntypedef I *IP;\nvoid f(void);\n%s\n  %s\n  return 0;\n}\n' 'int main(void) {' "$body" > aka$n.c; o=$("$CICILI" -std=c17 -fsyntax-only aka$n.c 2>&1 | grep -m1 'error:' | sed 's/^\(aka[0-9]*\.c:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "aka$n.c: builds"; done)" "aka1.c:12: error: initializing 'J' (aka 'int') with an expression of incompatible type 'void'
+aka2.c:12: error: initializing 'S' (aka 'struct S') with an expression of incompatible type 'void'
+aka3.c:12: error: initializing 'P' with an expression of incompatible type 'void'
+aka4.c:12: error: initializing 'str' (aka 'const char *') with an expression of incompatible type 'void'
+aka5.c:12: error: initializing 'IP' (aka 'int *') with an expression of incompatible type 'void'
+aka6.c:12: error: initializing 'I *' (aka 'int *') with an expression of incompatible type 'void'
+aka7.c:12: error: initializing 'size_t' (aka 'unsigned long') with an expression of incompatible type 'void'
+aka8.c:12: error: initializing 'int8_t' (aka 'signed char') with an expression of incompatible type 'void'
+aka9.c:12: error: initializing 'const I' (aka 'const int') with an expression of incompatible type 'void'
+aka10.c:12: error: cannot assign to variable 'c' with const-qualified type 'const I' (aka 'const int')
+aka11.c:12: error: incompatible pointer types assigning to 'I *' (aka 'int *') from 'char *'
+aka12.c:12: error: incompatible pointer to integer conversion assigning to 'long' from 'I *' (aka 'int *')"
+# ... AND IN C++, a typedef's and an alias's, a class's alias `'TC' (aka 'C')', a reference to const by its own type
+check "C++: a type that a typedef or an alias names has clang++'s (aka ...) in a void value's and a const place's words (1.6.24)" "$(n=0; for body in 'I i = f();' 'U u = f();' 'TC t = f();' 'const I c = 1; c = 2;' 'I x = 0; const I &r = x; r = 2;'; do n=$((n + 1)); printf 'typedef int I;\nusing U = long;\nstruct C {};\ntypedef C TC;\nvoid f();\n%s\n  %s\n  return 0;\n}\n' 'int main() {' "$body" > akp$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c akp$n.cpp -o akp$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(akp[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "akp$n.cpp: builds"; done)" "akp1.cpp:7: error: cannot initialize a variable of type 'I' (aka 'int') with an rvalue of type 'void'
+akp2.cpp:7: error: cannot initialize a variable of type 'U' (aka 'long') with an rvalue of type 'void'
+akp3.cpp:7: error: no viable conversion from 'void' to 'TC' (aka 'C')
+akp4.cpp:7: error: cannot assign to variable 'c' with const-qualified type 'const I' (aka 'const int')
+akp5.cpp:7: error: cannot assign to variable 'r' with const-qualified type 'const I &' (aka 'const int &')"
+# C: AN OBJECT OF THE FILE SCOPE DECLARED AGAIN WITH ANOTHER TYPE (1.6.24; C17 6.7/4; ccl_redef_obj_type/8) is clang's
+# `redefinition of 'x' with a different type', `redeclaration of' for a later `extern': another integer, an array of
+# another bound, another pointee, another qualifier, a pointer's own, each spelled; an array's bound left out and a function's prototype
+# left out build, and so does the same type
+check "C: an object of the file scope declared again with another type is refused in clang's words, and the compatible ones build (1.6.24)" "$(n=0; for pair in 'int x;|long x;' 'extern int x;|long x;' 'int x = 1;|long x;' 'typedef int I; I x;|long x;' 'int x;|unsigned x;' 'int x[2];|int x[3];' 'int *x;|char *x;' 'extern int x;|extern long x;' 'int x[3] = {1, 2, 3};|extern int x[2];' 'const int x;|int x;' 'volatile int x;|int x;' 'int *const x;|int *x;' 'int *const a[2];|int *a[2];' 'char *x;|unsigned char *x;' 'int *volatile x;|char *x;' 'int *restrict x;|char *x;' 'int x[];|int x[3];' 'extern int x[];|int x[3];' 'int x;|int x;' 'int (*x)(int);|int (*x)();' 'char *const x = 0;|extern char *const x;'; do n=$((n + 1)); printf '%s\n%s\nint main(void) { return 0; }\n' "${pair%%|*}" "${pair#*|}" > rdo$n.c; o=$("$CICILI" -std=c17 -fsyntax-only rdo$n.c 2>&1 | grep -m1 'error:' | sed 's/^\(rdo[0-9]*\.c:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "rdo$n.c: builds"; done)" "rdo1.c:2: error: redefinition of 'x' with a different type: 'long' vs 'int'
+rdo2.c:2: error: redefinition of 'x' with a different type: 'long' vs 'int'
+rdo3.c:2: error: redefinition of 'x' with a different type: 'long' vs 'int'
+rdo4.c:2: error: redefinition of 'x' with a different type: 'long' vs 'I' (aka 'int')
+rdo5.c:2: error: redefinition of 'x' with a different type: 'unsigned int' vs 'int'
+rdo6.c:2: error: redefinition of 'x' with a different type: 'int[3]' vs 'int[2]'
+rdo7.c:2: error: redefinition of 'x' with a different type: 'char *' vs 'int *'
+rdo8.c:2: error: redeclaration of 'x' with a different type: 'long' vs 'int'
+rdo9.c:2: error: redeclaration of 'x' with a different type: 'int[2]' vs 'int[3]'
+rdo10.c:2: error: redefinition of 'x' with a different type: 'int' vs 'const int'
+rdo11.c:2: error: redefinition of 'x' with a different type: 'int' vs 'volatile int'
+rdo12.c:2: error: redefinition of 'x' with a different type: 'int *' vs 'int *const'
+rdo13.c:2: error: redefinition of 'a' with a different type: 'int *[2]' vs 'int *const[2]'
+rdo14.c:2: error: redefinition of 'x' with a different type: 'unsigned char *' vs 'char *'
+rdo15.c:2: error: redefinition of 'x' with a different type: 'char *' vs 'int *volatile'
+rdo16.c:2: error: redefinition of 'x' with a different type: 'char *' vs 'int *restrict'
+rdo17.c: builds
+rdo18.c: builds
+rdo19.c: builds
+rdo20.c: builds
+rdo21.c: builds"
+# C++: A CONST MEMBER FUNCTION'S WRITE OF A MEMBER (1.6.24; [class.this]/1, [dcl.stc]/9; cpp_const_assign/2): the member,
+# a compound assignment, a step, an element, a member of it, through `this', a base's; a `mutable' member, a write through
+# a pointer member or a reference member, a static member and a non-const member function's writes build; a const member
+# is refused in any member function
+check "C++: a const member function's write of a member is refused in clang++'s words, a mutable one's, a pointer's and a reference's build (1.6.24)" "$(n=0; for body in 'void C::g() const { m = 1; } void C::h() {}' 'void C::g() const { m += 1; } void C::h() {}' 'void C::g() const { ++m; } void C::h() {}' 'void C::g() const { m++; } void C::h() {}' 'void C::g() const { a[1] = 1; } void C::h() {}' 'void C::g() const { s.q = 1; } void C::h() {}' 'void C::g() const { this->m = 1; } void C::h() {}' 'void C::g() const { bm = 1; } void C::h() {}' 'void C::g() const { k = 1; bk = 2; *p = 3; r = 4; st = 5; } void C::h() { m = 1; a[0] = 2; s.q = 3; bm = 4; }' 'void C::h() { cm = 1; } void C::g() const {}' 'void C::g() const { cm = 1; } void C::h() {}'; do n=$((n + 1)); printf 'struct P { int q; };\nstruct B { int bm = 0; mutable int bk = 0; };\nstruct C : B { int m = 0; mutable int k = 0; int a[2] = {0, 0}; P s{0}; int *p = nullptr; int &r; static int st; const int cm = 0;\n  C(int &x) : r(x) {}\n  void g() const;\n  void h();\n};\nint C::st = 0;\n%s\nint main() { int x = 0; C c(x); c.g(); c.h(); return 0; }\n' "$body" > cmf$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c cmf$n.cpp -o cmf$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(cmf[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "cmf$n.cpp: builds"; done)" "cmf1.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf2.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf3.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf4.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf5.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf6.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf7.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf8.cpp:9: error: cannot assign to non-static data member within const member function 'g'
+cmf9.cpp: builds
+cmf10.cpp:9: error: cannot assign to non-static data member 'cm' with const-qualified type 'const int'
+cmf11.cpp:9: error: cannot assign to non-static data member 'cm' with const-qualified type 'const int'"
+# C++: A CONSTEXPR POINTER IS A CONST POINTER (1.6.24; [dcl.constexpr]/10; ccl_constexpr_fold/2): the const that came
+# with the marker is the pointer's, an array's elements' and a pointer to a function's; it was the pointee's, and an
+# assignment built
+check "C++: a constexpr pointer is a const pointer, its elements' too, refused in clang++'s words where it is assigned (1.6.24)" "$(n=0; for body in 'constexpr const char *m = "x"; int main() { m = "y"; return 0; }' 'int g; constexpr int *p = nullptr; int main() { p = &g; return 0; }' 'constexpr const char *ns[] = {"a", "bc"}; int main() { ns[0] = "z"; return 0; }' 'constexpr int (*fp)(int) = nullptr; int h(int); int main() { fp = h; return 0; }' 'constexpr const char *m = "x"; int main() { const char *q = m; return q[0] == 120 ? 0 : 1; }'; do n=$((n + 1)); printf '%s\n' "$body" > cxp$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c cxp$n.cpp -o cxp$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(cxp[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "cxp$n.cpp: builds"; done)" "cxp1.cpp:1: error: cannot assign to variable 'm' with const-qualified type 'const char *const'
+cxp2.cpp:1: error: cannot assign to variable 'p' with const-qualified type 'int *const'
+cxp3.cpp:1: error: cannot assign to variable 'ns' with const-qualified type 'const char *const[2]'
+cxp4.cpp:1: error: cannot assign to variable 'fp' with const-qualified type 'int (*const)(int)'
+cxp5.cpp: builds"
+# C++: AN INTEGER AND A POINTER DO NOT CONVERT IMPLICITLY (1.6.24; [conv.ptr]/1; cpp_int_ptr_check/3), in the program's own
+# assignments and scalar initializers, in clang++'s words: a pointer, an array, a function or a string literal for an
+# integer, an integer, a bool or an enumerator for a pointer, an lvalue's address named; a bool from a pointer, a literal 0,
+# nullptr, NULL, a cast and a difference build
+check "C++: an integer and a pointer do not convert implicitly at an assignment or an initializer, in clang++'s words, and what C++ takes builds (1.6.24)" "$(n=0; for body in 'long n; n = q; (void)n;' 'long n = q; (void)n;' 'int *p; p = 5; (void)p;' 'int *p = 5; (void)p;' 'char c[2]; long n; n = c; (void)n;' 'int *p; p = x; (void)p;' 'long n; n = f; (void)n;' 'long n = "abc"; (void)n;' 'int *p = false; (void)p;' 'enum E { E0 }; E e = E0; int *p; p = e; (void)p;' 'bool b; b = q; int *p; p = 0; p = nullptr; p = NULL; int *p2 = 0L; long n; n = (long)q; n = q - q; (void)b; (void)p; (void)p2; (void)n;'; do n=$((n + 1)); printf '#include <cstddef>\nint f();\nint main() {\n  int x = 1; int *q = &x;\n  %s\n  return 0;\n}\n' "$body" > ipc$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c ipc$n.cpp -o ipc$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(ipc[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "ipc$n.cpp: builds"; done)" "ipc1.cpp:5: error: incompatible pointer to integer conversion assigning to 'long' from 'int *'
+ipc2.cpp:5: error: cannot initialize a variable of type 'long' with an lvalue of type 'int *'
+ipc3.cpp:5: error: incompatible integer to pointer conversion assigning to 'int *' from 'int'
+ipc4.cpp:5: error: cannot initialize a variable of type 'int *' with an rvalue of type 'int'
+ipc5.cpp:5: error: assigning to 'long' from incompatible type 'char[2]'
+ipc6.cpp:5: error: incompatible integer to pointer conversion assigning to 'int *' from 'int'; take the address with &
+ipc7.cpp:5: error: assigning to 'long' from incompatible type 'int ()'
+ipc8.cpp:5: error: cannot initialize a variable of type 'long' with an lvalue of type 'const char[4]'
+ipc9.cpp:5: error: cannot initialize a variable of type 'int *' with an rvalue of type 'bool'
+ipc10.cpp:5: error: incompatible integer to pointer conversion assigning to 'int *' from 'E'
+ipc11.cpp: builds"
+# C++: A SECOND DEFINITION AT FILE SCOPE (1.6.24; [basic.def.odr]/1; cpp_redef_walk/3), in clang++'s words: a function of
+# one list of adjusted parameter types, an object defined twice, one declared again with another type, a class, a union,
+# an enumeration and a scoped one with two bodies; what C++ takes builds -- a declaration and its definition, overloads,
+# an object's `extern' declaration
+check "C++: a second definition at file scope is refused in clang++'s words, and declarations and overloads build (1.6.24)" "$(n=0; for pair in 'int f() { return 1; }|int f() { return 2; }' 'int x = 1;|int x = 2;' 'int x;|int x;' 'int x;|long x;' 'static int f() { return 1; }|int f() { return 2; }' 'inline int f() { return 1; }|inline int f() { return 1; }' 'typedef int I;|int f(I a) { return a; } int f(int b) { return b; }' 'int x[2];|int x[3];' 'extern "C" { int g() { return 1; } }|int g() { return 2; }' 'struct S { int m; };|struct S { int m; };' 'const int c = 1;|const int c = 2;' 'int f(int *a) { return 1; }|int f(int a[]) { return 2; }' 'int f(const int a) { return a; }|int f(int a) { return a; }' 'enum E { A };|enum E { B };' 'extern int x;|extern long x;' 'int f(signed a) { return 1; }|int f(int a) { return 2; }' 'int f(int (*g)(int)) { return 1; }|int f(int g(int)) { return 2; }' 'inline int v = 1;|inline int v = 1;' 'enum class E2 { A };|enum class E2 { A };' 'extern int x;|int x;' 'int f(int a) { return a; }|int f(long a) { return 1; }' 'int f();|int f() { return 1; }' 'struct S;|struct S { int m; };' 'int f(int *const *a) { return 1; }|int f(int **a) { return 2; }' 'int f(int &a) { return 1; }|int f(const int &a) { return 2; }' 'signed x;|extern int x;'; do n=$((n + 1)); printf '%s\n%s\nint main() { return 0; }\n' "${pair%%|*}" "${pair#*|}" > rdf$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c rdf$n.cpp -o rdf$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(rdf[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "rdf$n.cpp: builds"; done)" "rdf1.cpp:2: error: redefinition of 'f'
+rdf2.cpp:2: error: redefinition of 'x'
+rdf3.cpp:2: error: redefinition of 'x'
+rdf4.cpp:2: error: redefinition of 'x' with a different type: 'long' vs 'int'
+rdf5.cpp:2: error: redefinition of 'f'
+rdf6.cpp:2: error: redefinition of 'f'
+rdf7.cpp:2: error: redefinition of 'f'
+rdf8.cpp:2: error: redefinition of 'x' with a different type: 'int[3]' vs 'int[2]'
+rdf9.cpp:2: error: redefinition of 'g'
+rdf10.cpp:2: error: redefinition of 'S'
+rdf11.cpp:2: error: redefinition of 'c'
+rdf12.cpp:2: error: redefinition of 'f'
+rdf13.cpp:2: error: redefinition of 'f'
+rdf14.cpp:2: error: redefinition of 'E'
+rdf15.cpp:2: error: redeclaration of 'x' with a different type: 'long' vs 'int'
+rdf16.cpp:2: error: redefinition of 'f'
+rdf17.cpp:2: error: redefinition of 'f'
+rdf18.cpp:2: error: redefinition of 'v'
+rdf19.cpp:2: error: redefinition of 'E2'
+rdf20.cpp: builds
+rdf21.cpp: builds
+rdf22.cpp: builds
+rdf23.cpp: builds
+rdf24.cpp: builds
+rdf25.cpp: builds
+rdf26.cpp: builds"
 # A VOID VALUE IS NO VALUE (1.6.14; C17 6.3.2.2/1): an initializer, an assignment, an argument, a return, an operand, a
 # condition, a cast, an argument through an ellipsis, a member's item, a step, an indirection, an address, a subscript and
 # a switch over one are refused in clang's words at the line, and so are the operands beside them that C refuses: a switch
@@ -700,6 +836,13 @@ exit 0
 badinc.c:1: error: expected \"FILENAME\" or <FILENAME>
 cicilang: 1 error(s)
 exit 1"
+# ... AND -E STOPS AT ITS FILE'S OWN #include THAT FINDS NO FILE OR NAMES NONE (1.6.24; pp_e_top_file/1, dr_pp_thrown/2), as
+# clang -E does; a header's is passed over still
+check "-E stops at its file's own #include that finds no file or names none, in clang's words (1.6.24)" "$("$CICILI" -E usenope.c 2>&1 > /dev/null; echo "exit $?"; "$CICILI" -E badinc.c 2>&1 > /dev/null; echo "exit $?"; "$CICILI" -E passnope.c > /dev/null 2>&1; echo "exit $?")" "usenope.c:1: fatal error: 'nope.h' file not found
+exit 1
+badinc.c:1: error: expected \"FILENAME\" or <FILENAME>
+exit 1
+exit 0"
 case $(uname -s) in Linux)   # glibc's headers: <limits.h> holds <sys/cdefs.h>, whose raw read threw; <getopt.h> two headers that were read in part
 check "no header of the C library is named under an error that is not its own (0.290)" "$(printf '#include <stdio.h>\n#include <limits.h>\n#include <getopt.h>\n#include <netdb.h>\nint main(void) { return nope_value(); }\n' > nonote.c; "$CICILI" -fsyntax-only nonote.c 2>&1; echo "exit $?")" "nonote.c:5: error: call to undeclared function 'nope_value'; ISO C99 and later do not support implicit function declarations
 cicilang: 1 error(s)

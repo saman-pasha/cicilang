@@ -98,7 +98,7 @@ dr_cpp_ext(F) :- member(E, [cpp, cc, cxx, 'C', cppm, ccm, cxxm, ixx, mpp]), dr_e
 
 %% a .c: read (headers, macros, := ...), the safe part, the IR, then what the options ask
 dr_c(F, Options, _, Objs, Objs) :- memberchk(preprocess, Options), !,                   % -E: the flattened text, cocolog's preprocessor (no clang)
-    dr_say(['preprocess ', F]),
+    dr_say(['preprocess ', F]), nb_setval('$dr_expansions', []),   % no expansion to note under an error of the run (1.6.24)
     (   dr_catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
 dr_c(F, Options, Flags, Objs, Objs1) :-
     dr_say(['read ', F]), nb_setval('$dr_expansions', []), dr_macro_trace(F, Options),
@@ -154,11 +154,62 @@ dr_macro_trace(F, Options) :-
 %% the file through the preprocessor standalone -- its includes pulled in, every macro
 %% expanded -- spelled back as text (ccl_pp_spell/2): to -o FILE, else the answer itself
 dr_preprocess(F, Options) :-   % ... its literals, numbers, digraphs and alternative tokens as written (0.228, pp_norm_toks/2)
-    ccl_ensure_globals, ccl_set_lang(F), nb_setval('$pp_spelled_out', yes),
-    ( catch(ccl_pp_file(F, Tokens, _), E, ( nb_setval('$pp_spelled_out', no), throw(E) )) -> nb_setval('$pp_spelled_out', no) ; nb_setval('$pp_spelled_out', no), fail ),
+    ccl_ensure_globals, ccl_set_lang(F), nb_setval('$pp_spelled_out', yes), nb_setval('$pp_e_top', F),
+    (   catch(ccl_pp_file(F, Tokens, _), E, ( nb_setval('$pp_spelled_out', no), nb_setval('$pp_e_top', none), dr_pp_thrown(F, E) ))
+    ->  nb_setval('$pp_spelled_out', no), nb_setval('$pp_e_top', none)
+    ;   nb_setval('$pp_spelled_out', no), nb_setval('$pp_e_top', none), fail ),
     ccl_pp_spell(Tokens, Codes),
     (   memberchk(out(O), Options) -> write_file_from_codes(O, Codes)
     ;   atom_codes(A, Codes), write(A) ).
+%% the preprocessor's own throw, at the -E file's line (1.6.24): `fatal error: 'nope.h' file not found' and `expected
+%% "FILENAME" or <FILENAME>', as the build's words
+dr_pp_thrown(F, pp_fatal(L, M)) :- !, throw(error(pp_fatal(M), here(F, L))).
+dr_pp_thrown(F, pp_error(L, M)) :- !, throw(error(pp_error(M), here(F, L))).
+dr_pp_thrown(_, E) :- throw(E).
+%% THE LIBRARY FUNCTIONS THAT CLANG KNOWS BY NAME (1.6.24): a call of one that nothing declares is clang's `call to undeclared
+%% library function 'printf' with type 'int (const char *, ...)'; ...', and a note names the header that declares it -- the
+%% type as clang 23 spells it, `__size_t' and its `aka' among them, each taken from clang 23's own words; another name has
+%% a call's words, `call to undeclared function 'puts'; ...', as clang's has for a name it does not know so
+dr_lib_fn(printf, '''int (const char *, ...)''', 'stdio.h').
+dr_lib_fn(sprintf, '''int (char *restrict, const char *restrict, ...)''', 'stdio.h').
+dr_lib_fn(snprintf, '''int (char *restrict, __size_t, const char *restrict, ...)'' (aka ''int (char *restrict, unsigned long, const char *restrict, ...)'')', 'stdio.h').
+dr_lib_fn(scanf, '''int (const char *restrict, ...)''', 'stdio.h').
+dr_lib_fn(sscanf, '''int (const char *restrict, const char *restrict, ...)''', 'stdio.h').
+dr_lib_fn(malloc, '''void *(__size_t)'' (aka ''void *(unsigned long)'')', 'stdlib.h').
+dr_lib_fn(calloc, '''void *(__size_t, __size_t)'' (aka ''void *(unsigned long, unsigned long)'')', 'stdlib.h').
+dr_lib_fn(realloc, '''void *(void *, __size_t)'' (aka ''void *(void *, unsigned long)'')', 'stdlib.h').
+dr_lib_fn(free, '''void (void *)''', 'stdlib.h').
+dr_lib_fn(strlen, '''__size_t (const char *)'' (aka ''unsigned long (const char *)'')', 'string.h').
+dr_lib_fn(strcpy, '''char *(char *, const char *)''', 'string.h').
+dr_lib_fn(strncpy, '''char *(char *, const char *, __size_t)'' (aka ''char *(char *, const char *, unsigned long)'')', 'string.h').
+dr_lib_fn(strcmp, '''int (const char *, const char *)''', 'string.h').
+dr_lib_fn(strncmp, '''int (const char *, const char *, __size_t)'' (aka ''int (const char *, const char *, unsigned long)'')', 'string.h').
+dr_lib_fn(strcat, '''char *(char *, const char *)''', 'string.h').
+dr_lib_fn(strchr, '''char *(const char *, int)''', 'string.h').
+dr_lib_fn(strrchr, '''char *(const char *, int)''', 'string.h').
+dr_lib_fn(strstr, '''char *(const char *, const char *)''', 'string.h').
+dr_lib_fn(memcpy, '''void *(void *, const void *, __size_t)'' (aka ''void *(void *, const void *, unsigned long)'')', 'string.h').
+dr_lib_fn(memmove, '''void *(void *, const void *, __size_t)'' (aka ''void *(void *, const void *, unsigned long)'')', 'string.h').
+dr_lib_fn(memset, '''void *(void *, int, __size_t)'' (aka ''void *(void *, int, unsigned long)'')', 'string.h').
+dr_lib_fn(memcmp, '''int (const void *, const void *, __size_t)'' (aka ''int (const void *, const void *, unsigned long)'')', 'string.h').
+dr_lib_fn(exit, '''void (int) __attribute__((noreturn))''', 'stdlib.h').
+dr_lib_fn(abort, '''void (void) __attribute__((noreturn))''', 'stdlib.h').
+dr_lib_fn(abs, '''int (int)''', 'stdlib.h').
+dr_lib_fn(labs, '''long (long)''', 'stdlib.h').
+dr_lib_fn(sqrt, '''double (double)''', 'math.h').
+dr_lib_fn(pow, '''double (double, double)''', 'math.h').
+dr_lib_fn(fabs, '''double (double)''', 'math.h').
+dr_lib_fn(sin, '''double (double)''', 'math.h').
+dr_lib_fn(cos, '''double (double)''', 'math.h').
+dr_lib_fn(floor, '''double (double)''', 'math.h').
+dr_lib_fn(ceil, '''double (double)''', 'math.h').
+dr_lib_fn(strtol, '''long (const char *, char **, int)''', 'stdlib.h').
+dr_lib_fn(strtoul, '''unsigned long (const char *, char **, int)''', 'stdlib.h').
+dr_lib_fn(isdigit, '''int (int)''', 'ctype.h').
+dr_lib_fn(isalpha, '''int (int)''', 'ctype.h').
+dr_lib_fn(isspace, '''int (int)''', 'ctype.h').
+dr_lib_fn(toupper, '''int (int)''', 'ctype.h').
+dr_lib_fn(tolower, '''int (int)''', 'ctype.h').
 %% ---- the IR beside the units in the store (M4) ----------------------------------------
 %% A unit's IR is kept under a predicate of its own, '$ccl_ir:<Path>'(Index,
 %% Chunk) -- chunks of 3500 characters, well under the store's clause budget
@@ -291,8 +342,12 @@ dr_note_expansion(F, L) :-
     -> write(F), write(':'), write(L), write(': note: expanded from macro \''), write(N), write('\' on '), dr_args(As), nl
     ; true ).
 dr_args([]).
-dr_args([A]) :- !, writeq(A).
-dr_args([A|As]) :- writeq(A), write(', '), dr_args(As).
+dr_args([A]) :- !, dr_arg_write(A).
+dr_args([A|As]) :- dr_arg_write(A), write(', '), dr_args(As).
+%% A TYPE ARGUMENT AS ITS TYPE'S TEXT (1.6.24), as the messages name types: `expanded from macro 'vector' on int', where it
+%% was `on base([],[int])'; an expression's argument keeps its form
+dr_arg_write(A) :- compound(A), ( A = base(_, _) ; A = ptr(_, _) ; A = arr(_, _) ; A = fn(_, _, _) ), catch(ck_c_type_text(A, T), _, fail), atom(T), !, write(T).
+dr_arg_write(A) :- writeq(A).
 
 %% ---- diagnostics, clang's shape ---------------------------------------------------------
 %% once: the callers' recovery fails after reporting, and must not report twice
@@ -310,6 +365,7 @@ dr_diag(_, syntax_error(cicilang_ast(File, char(C), line(L))), _) :- !, dr_hex4(
     ( catch(ccl_id_cp(more, C), _, fail) -> W = ' not allowed at the start of an identifier' ; W = ' not allowed in an identifier' ),
     dr_error(File, L, ['character <U+', H, '>', W]).
 dr_diag(F, cannot_infer(N, E), here(_, L)) :- !, dr_error(F, L, ['cannot infer the type of ', N, ' from ', E]).
+dr_diag(F, pp_fatal(M), here(_, L)) :- !, dr_fatal(F, L, [M]).                      % -E's #include that finds no file (1.6.24)
 dr_diag(F, pp_error(M), here(_, L)) :- !, dr_error(F, L, [M]).                      % the file's own #error, its text; an #embed of nothing
 dr_diag(F, static_assert_failed(T), here(_, L)) :- !, ( T == '' -> dr_error(F, L, ['static assertion failed']) ; dr_error(F, L, ['static assertion failed: ', T]) ).
 dr_diag(F, list_literal(M), here(_, L)) :- !, dr_error(F, L, [M]).   % a list or map literal refused at its read (0.263)
@@ -332,6 +388,9 @@ dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Tex
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
 dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
+dr_diag(F, not_lowered(redefinition(N)), where(_, line(L))) :- !, dr_error(F, L, ['redefinition of ''', N, '''']).   % C++: a second definition at file scope (1.6.24)
+dr_diag(F, not_lowered(redef_type(K, N, A, B)), where(_, line(L))) :- !, dr_error(F, L, [K, ' of ''', N, ''' with a different type: ''', A, ''' vs ''', B, '''']).
+dr_diag(F, not_lowered(kind_redefinition(N)), where(_, line(L))) :- !, dr_error(F, L, ['redefinition of ''', N, ''' as different kind of symbol']).   % C++: a name of the file scope declared again as another kind (1.6.24, cpp_kind_clashes/1)
 dr_diag(F, not_lowered(not_contextually_bool(T)), where(_, line(L))) :- !, dr_error(F, L, ['value of type ''', T, ''' is not contextually convertible to ''bool''']).   % C++: a condition over a plain struct (1.6.22, cpp_cond_bool/2)
 dr_diag(F, not_lowered(unary_operand(T)), where(_, line(L))) :- !, dr_error(F, L, ['invalid argument type ''', T, ''' to unary expression']).   % a unary `-' or `~' over a record, in clang's words (0.286), and `-', `+' or `~' over a pointer and `~' over a floating value (1.6.1, ir_unary_operand/3)
 dr_diag(F, not_lowered(binary_operands(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['invalid operands to binary expression (''', A, ''' and ''', B, ''')']).   % THE OPERANDS THAT AN OPERATOR DOES NOT TAKE (1.6.1, ir_binary_operands/5), in clang's words
@@ -339,6 +398,7 @@ dr_diag(F, not_lowered(scalar_required(A)), where(_, line(L))) :- !, dr_error(F,
 dr_diag(F, not_lowered(scalar_statement(A)), where(_, line(L))) :- !, dr_error(F, L, ['statement requires expression of scalar type (''', A, ''' invalid)']).   % a record as the condition of if, while, do or for (1.6.1)
 dr_diag(F, not_lowered(const_var(N, A)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified type ''', A, '''']).   % C: a const place, in clang's words (1.6.22, ir_c_const_place/2)
 dr_diag(F, not_lowered(const_member(M, A)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to non-static data member ''', M, ''' with const-qualified type ''', A, '''']).
+dr_diag(F, not_lowered(const_method_member(M)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to non-static data member within const member function ''', M, '''']).   % C++: a const member function's write of a member (1.6.24)
 dr_diag(F, not_lowered(const_data_member(N, M)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified data member ''', M, '''']).
 dr_diag(F, not_lowered(read_only), where(_, line(L))) :- !, dr_error(F, L, ['read-only variable is not assignable']).
 dr_diag(F, not_lowered(member_not_constructed(_, C, _)), where(_, line(L))) :- atom(C), \+ sub_atom(C, _, _, _, '.'), !, dr_error(F, L, ['no matching constructor for initialization of ''', C, '''']).   % C++: a member's initializer that no constructor takes, in clang++'s words (1.6.22); an instance's or a keyed class's name keeps the term
@@ -359,9 +419,18 @@ dr_diag(F, not_lowered(designator_negative(K)), where(_, line(L))) :- !, dr_erro
 %% A CALL OF ANOTHER COUNT OF ARGUMENTS THAN ITS PROTOTYPE'S (0.302, ir_arg_count/4), and an integer and a pointer converted as if
 %% by assignment (ir_int_ptr_check/4), in clang's words; C++'s call that no overload fits (cpp_call/4)
 dr_diag(F, not_lowered(instance_refused(I, W0)), Where) :- atom(I), dr_inner_worded(W0, W), !, dr_diag(F, not_lowered(W), Where).   % AN INSTANCE'S REFUSAL IN THE BODY'S WORDS (1.6.22), where the body's refusal has words of its own
+dr_diag(F, not_lowered(undeclared_call(N)), where(_, line(L))) :- atom(N), dr_lib_fn(N, Ty, H), !,   % A LIBRARY FUNCTION THAT NOTHING DECLARES, in clang's words and its note of the header (1.6.24, dr_lib_fn/3)
+    dr_error(F, L, ['call to undeclared library function ''', N, ''' with type ', Ty, '; ISO C99 and later do not support implicit function declarations']),
+    write(F), write(':'), write(L), write(': note: include the header <'), write(H), write('> or explicitly provide a declaration for '''), write(N), write(''''), nl.
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_error(F, L, Ps).
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_error(F, L, Ps).   % A VOID VALUE AND THE OPERANDS BESIDE IT (1.6.14, dr_value_text/2)
 dr_diag(F, not_lowered(ptr_conversion(K, Site, A, B)), where(_, line(L))) :- !, dr_int_conv_site(Site, A, B, Ps), ( K == function -> W = 'incompatible function pointer types ' ; W = 'incompatible pointer types ' ), dr_error(F, L, [W|Ps]).   % C: pointers of incompatible types, in clang's words (1.6.23, ir_ptr_clash/4)
+dr_diag(F, not_lowered(no_viable_assign(Op)), where(_, line(L))) :- !, dr_error(F, L, ['no viable overloaded ''', Op, '''']).   % C++: an assignment over a class that no operator= takes (1.6.24)
+dr_diag(F, not_lowered(incompatible_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['assigning to ''', A, ''' from incompatible type ''', B, '''']).   % C++: an array or a function for an integer (1.6.24)
+dr_diag(F, not_lowered(init_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize a variable of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
+dr_diag(F, not_lowered(int_conversion_amp(Dir, Site, A, B)), where(_, line(L))) :- !,   % C++: an lvalue whose address is the place's type, named (1.6.24)
+    ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),
+    dr_int_conv_site(Site, A, B, Ps), append([K|Ps], ['; take the address with &'], Ps1), dr_error(F, L, Ps1).
 dr_diag(F, not_lowered(int_conversion(Dir, Site, A, B)), where(_, line(L))) :- !,
     ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),
     dr_int_conv_site(Site, A, B, Ps), dr_error(F, L, [K|Ps]).
@@ -529,7 +598,7 @@ dr_error(F, L, Parts) :- dr_error_as(F, L, error, Parts).
 dr_fatal(F, L, Parts) :- dr_error_as(F, L, 'fatal error', Parts).
 dr_error_as(F, L, K, Parts) :-
     nb_getval('$dr_errors', N), N1 is N + 1, nb_setval('$dr_errors', N1),
-    write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': '), write(K), write(': '), dr_write(Parts), nl,
+    write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': '), write(K), write(': '), dr_parts_text(Parts, M), write(M), nl,
     ( L > 0 -> dr_note_expansion(F, L) ; true ),
     dr_why_stop(F, L, Parts).
 %% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the
@@ -558,4 +627,11 @@ dr_join_codes([], []).
 dr_join_codes([P|Ps], Cs) :- ( atom(P) -> atom_codes(P, C) ; term_to_atom(P, A), atom_codes(A, C) ), dr_join_codes(Ps, Cs1), append(C, Cs1, Cs).
 dr_write([]).
 dr_write([P|Ps]) :- ( atomic(P) -> write(P) ; writeq(P) ), dr_write(Ps).
+%% an error's text, its parts written as dr_write/1 writes them, and each `(aka ...)' closed (1.6.24): the lowering's type
+%% `J' (aka 'int', a mark of code 1 after it, between the message's own quotes, is `'J' (aka 'int')' -- the parenthesis
+%% after the quote that ends it; a text of the driver's own table that holds its `(aka ...)' whole has no mark
+dr_parts_text(Parts, M) :- findall(A, ( member(P, Parts), ( atomic(P) -> A = P ; format(atom(A), '~q', [P]) ) ), As), atomic_list_concat(As, M0), dr_aka_close(M0, M).
+dr_aka_close(M0, M) :- char_code(K, 1), atomic_list_concat([P|Ps], K, M0), dr_aka_join(Ps, Qs), atomic_list_concat([P|Qs], M).
+dr_aka_join([], []).
+dr_aka_join([X|Xs], [Y|Ys]) :- ( sub_atom(X, 0, 1, _, '''') -> sub_atom(X, 1, _, 0, R), atom_concat(''')', R, Y) ; atom_concat(')', X, Y) ), dr_aka_join(Xs, Ys).
 dr_say(Parts) :- ( nb_getval('$dr_verbose', yes) -> write('cicilang: '), dr_write(Parts), nl ; true ).

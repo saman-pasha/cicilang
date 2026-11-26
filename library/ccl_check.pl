@@ -2774,8 +2774,8 @@ ck_const_type(T) :- ( T = base(Q, _), memberchk(const, Q) -> true ; catch(ccl_re
 %% or a function was its term in the message
 ck_c_type_text(T, Text) :- ck_c_decl_text(T, '', B, D),
     ( D == '' -> Text = B ; sub_atom(D, 0, 1, _, '[') -> atom_concat(B, D, Text) ; atomic_list_concat([B, ' ', D], Text) ).
-ck_c_decl_text(T0, D0, B, D) :- ck_c_ptr_glyph(T0, Q, T, G), !, ( memberchk(const, Q) -> atom_concat(G, const, P) ; P = G ),   % a pointer's `*', Apple's block pointer's `^' (1.6.14)
-    ( D0 == '' -> D1 = P ; memberchk(const, Q) -> atomic_list_concat([P, ' ', D0], D1) ; atom_concat(P, D0, D1) ),
+ck_c_decl_text(T0, D0, B, D) :- ck_c_ptr_glyph(T0, Q, T, G), !, ck_c_ptr_quals(Q, G, P),   % a pointer's `*', Apple's block pointer's `^' (1.6.14)
+    ( D0 == '' -> D1 = P ; P \== G, \+ sub_atom(D0, 0, 1, _, '[') -> atomic_list_concat([P, ' ', D0], D1) ; atom_concat(P, D0, D1) ),   % `const char *const[2]', as clang spells it
     ck_c_decl_text(T, D1, B, D).
 ck_c_decl_text(ref(_, T), D0, B, D) :- !, atom_concat('&', D0, D1), ck_c_decl_text(T, D1, B, D).   % C++'s `int &', `int *&' (1.6.14)
 ck_c_decl_text(rref(_, T), D0, B, D) :- !, atom_concat('&&', D0, D1), ck_c_decl_text(T, D1, B, D).
@@ -2786,7 +2786,10 @@ ck_c_decl_text(arr(N, T), D0, B, D) :- !, ck_c_bound_text(N, K),
 ck_c_decl_text(fn(R, Ps, V), D0, B, D) :- !, ck_c_params_text(Ps, V, PT),
     ( ck_c_ptr_decl(D0) -> atomic_list_concat(['(', D0, ')(', PT, ')'], D1) ; atomic_list_concat([D0, '(', PT, ')'], D1) ),
     ck_c_decl_text(R, D1, B, D).
-ck_c_decl_text(base(Q, S), D, B, D) :- ck_c_spec_text(S, B0), ( memberchk('_Atomic', Q) -> atomic_list_concat(['_Atomic(', B0, ')'], B1) ; B1 = B0 ), ( memberchk(const, Q) -> atom_concat('const ', B1, B) ; B = B1 ).   % `_Atomic(int)', as clang spells it (1.6.14)
+ck_c_decl_text(base(Q, S), D, B, D) :- ck_c_spec_text(S, B0), ( memberchk('_Atomic', Q) -> atomic_list_concat(['_Atomic(', B0, ')'], B1) ; B1 = B0 ), ( memberchk(volatile, Q) -> atom_concat('volatile ', B1, B2) ; B2 = B1 ), ( memberchk(const, Q) -> atom_concat('const ', B2, B) ; B = B2 ).   % `_Atomic(int)', as clang spells it (1.6.14)
+%% ... a pointer's qualifiers after its glyph, in clang's order, `int *const volatile restrict' (1.6.24: `volatile' and
+%% `restrict' were left out, `'int' vs 'int'' for clang's `'int' vs 'volatile int''), and a base's, `const volatile int'
+ck_c_ptr_quals(Q, G, P) :- findall(W, ( member(W, [const, volatile, restrict]), memberchk(W, Q) ), Ws), atomic_list_concat(Ws, ' ', WT), atom_concat(G, WT, P).
 ck_c_bound_text(int(K), K) :- !.
 ck_c_bound_text(_, '').
 %% ... a pointer's declarator and its glyph: `*', and `^' of Apple's block pointer, `void (^)(void)' as clang spells it (1.6.14),
@@ -2796,7 +2799,7 @@ ck_c_ptr_glyph(block(Q, T), Q, T, '^').
 ck_c_ptr_decl(D) :- ( sub_atom(D, 0, 1, _, '*') -> true ; sub_atom(D, 0, 1, _, '^') ).
 %% a function type's parameters: `void' where it has none and a prototype, nothing where it has none and no prototype
 %% (`int (*)()'), `...' after the last where it is variadic
-ck_c_params_text([], V, T) :- !, ( ck_c_noproto(V) -> T = '' ; ck_c_variadic(V) -> T = '...' ; T = void ).
+ck_c_params_text([], V, T) :- !, ( ck_c_noproto(V) -> T = '' ; ck_c_variadic(V) -> T = '...' ; ccl_lang(cpp) -> T = '' ; T = void ).   % C++'s `int ()', as clang++ spells it (1.6.24)
 ck_c_params_text(Ps, V, T) :- findall(PT, ( member(P, Ps), ( P = param(X, _) -> true ; P = param(X, _, _) ), ck_c_type_text(X, PT) ), Ts),
     length(Ps, N), length(Ts, N), ( ck_c_variadic(V) -> append(Ts, ['...'], Ts1) ; Ts1 = Ts ), atomic_list_concat(Ts1, ', ', T).
 ck_c_variadic(V) :- ( V == true -> true ; nonvar(V), V = q(W, _), W == true ).
