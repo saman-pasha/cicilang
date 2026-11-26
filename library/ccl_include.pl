@@ -811,7 +811,12 @@ ccl_parts_batch(Ps, _, [], Ps).
 %% names (cpp_index_name/2); an item with none is never asked for by name and is left out.
 ccl_ast_file(F, A) :- atom_length(F, N), N1 is N - 4, sub_atom(F, 0, N1, 4, B), atom_concat(B, '.ast.pl', A).
 ccl_ast_write(F, unit(Is)) :- ccl_ast_file(F, A), ccl_flat_items([], Is, Flat), cpp_ns_quals(Flat, Qs),
-    ccl_tmp_name(A, T), write_file_from_codes(T, []), ccl_ast_chunks(Flat, Qs, 100, T), rename_file(T, A).
+    ccl_ast_head(H), ccl_tmp_name(A, T), write_file_from_codes(T, H), ccl_ast_chunks(Flat, Qs, 100, T), rename_file(T, A).
+%% THE FILE DECLARES ITS TWO PREDICATES DISCONTIGUOUS (1.6.21): an item's clause and its path's stand side by side, and
+%% cocolog 3.67.0's loads say what the style check leaves on -- `Clauses of $cpp_hdr_ast_ns/2 are not together in the
+%% source-file', a warning a pair, every time a build loaded a summary's AST (cpp_load_ast/1), which the driver's
+%% diagnostics kept from the user and a query's load printed
+ccl_ast_head(H) :- atom_codes(':- discontiguous(\'$cpp_hdr_ast\'/2).\n:- discontiguous(\'$cpp_hdr_ast_ns\'/2).\n', H).
 %% THE TEXT IS BUILT A HUNDRED ITEMS AT A TIME, each chunk inside \+ \+: cocolog reclaims the heap on backtracking only,
 %% and term_to_atom over three thousand items in one deterministic run held a gigabyte of intermediates beside the two
 %% megabytes of text it was making (the cold read of <iostream>: 2598 MB). A CHUNK'S TEXT IS THE ATOMS term_to_atom/2

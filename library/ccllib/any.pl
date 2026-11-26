@@ -35,7 +35,7 @@ ccllib_any_holes(Name, F, ['F' = name(F), 'T' = type(T)]) :- ccllib_any_word(Nam
 ccllib_any_holes(_, F, ['F' = name(F)]).
 %% a function's C text by its name. `of_<word>' and `any_cast_<word>' are the two whose type is the call's: the word is
 %% resolved to the type here, and the C text names it
-ccllib_any_text(Name, F, Text) :- ccllib_any_word(Name, W, T), W \== none, !, ccllib_any_tag(W, K),
+ccllib_any_text(Name, _F, Text) :- ccllib_any_word(Name, W, _T), W \== none, !, ccllib_any_tag(W, K),
     (   atom_concat(of_, _, Name)
     ->  atomic_list_concat(['any @F(@T x) { any a; a.p = malloc(sizeof x); if (!a.p) abort(); *(@T *)a.p = x; a.size = sizeof x; a.tag = ', K, '; return a; }'], Text)
     ;   atom_concat(any_cast_, _, Name)

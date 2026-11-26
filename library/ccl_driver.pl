@@ -186,7 +186,7 @@ dr_ir_sig(F, AST, Sig) :-
     findall(P-K, ( member(P, [F|Ds]), ( ccl_kb_key(P, K) -> true ; K = none ) ), Keys),
     ( nb_current('$ccl_debug', Dbg0) -> true ; Dbg0 = none ), ( nb_current('$ccl_debug_kind', DK) -> true ; DK = none ), Dbg = Dbg0-DK,   % -g's IR is another IR (0.128), and the line tables alone a third (0.130)
     ( nb_current('$ccl_debug_macros', events(_)) -> DM = macros ; DM = none ),   % -fdebug-macro's IR is another again (0.134)
-    term_to_atom(sig(LV, Arch, Keys, Dbg, DM), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
+    ir_llvm_major(LM), term_to_atom(sig(LV, Arch, Keys, Dbg, DM, LM), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.   % an IR is its LLVM's input, its forms the embedded LLVM's (1.6.21)
 %% two folds under 2^31 (cocolog's arithmetic is not exact past 2^52), a pair for 62 bits
 dr_fold([], S, _, S).
 dr_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, dr_fold(Cs, S1, M, S).
@@ -229,7 +229,7 @@ dr_cxx_ir_file(F, AST, P) :-
     ( nb_current('$ccl_debug', Dbg0) -> true ; Dbg0 = none ), ( nb_current('$ccl_debug_kind', DK) -> true ; DK = none ),
     ( nb_current('$ccl_debug_macros', events(_)) -> DM = macros ; DM = none ),
     dr_unit_deps(AST, Ds0), sort(Ds0, Ds), dr_cxx_key_deps(Ds, Keys0), sort(Keys0, Keys),
-    term_to_atom(cxxir(LV, RV, Arch, Std, CK, TK, GK, FK, Dbg0-DK, DM, F, T1-T2, Keys), A), atom_codes(A, Ks),
+    ir_llvm_major(LM), term_to_atom(cxxir(LV, RV, Arch, Std, CK, TK, GK, FK, Dbg0-DK, DM, LM, F, T1-T2, Keys), A), atom_codes(A, Ks),
     ccl_fold(Ks, 7, 131, S1), ccl_fold(Ks, 13, 137, S2),
     ccl_sum_dir(SD), atomic_list_concat(Parts, '/', F), last(Parts, Base), atomic_list_concat([SD, '/ir/', Base, '-', S1, '-', S2, '.ll'], P).
 %% A KEY THAT A COLD READ AND A WARM ONE GIVE ALIKE (0.221): a library header read cold is its preprocessed unit, whose items

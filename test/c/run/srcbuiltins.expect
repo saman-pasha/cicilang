@@ -3,4 +3,6 @@ srcbuiltins.c srcbuiltins.c
 15 10
 main 4
 assert held
+srcbuiltins.c
+other.c 200
 exit 0

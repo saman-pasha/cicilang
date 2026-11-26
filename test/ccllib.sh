@@ -75,6 +75,13 @@ CXXRUN=""; [ -n "$LLVM" ] && [ -f "$LLVM/lib/libc++.so.1" ] && CXXRUN="-Wl,-rpat
 # its command is a file, so that test/cost.c runs it as it runs the two others
 { echo '#!/bin/sh'; echo "exec \"$CXXREF\" ${CXXSDK:+-isysroot \"$CXXSDK\"} -std=$CCLLIB_STD -stdlib=libc++ -w $CXXRUN \"\$@\""; } > "$D/twin"; chmod +x "$D/twin"
 ccl_twin() { "$D/twin" "$@"; }
+# ccl_twin_needs NAME: NAME.needs, where there is one, holds over the twin's tree -- a condition over <version>, as the C++
+# gate's NAME.needs (1.6.21): libc++ 18 has no floating from_chars, which libc++ 20 added, and two twins call it
+ccl_twin_needs() {
+  [ -f "$T/$1.needs" ] || return 0
+  printf '#include <version>\n#if %s\nccl_needs_met\n#endif\n' "$(cat "$T/$1.needs")" > "$D/needs.cpp"
+  ccl_twin -E "$D/needs.cpp" 2>/dev/null | grep -q ccl_needs_met
+}
 printf '#include <vector>\n#include <version>\nint main() { std::vector<int> v; v.push_back(_LIBCPP_VERSION); return v.size() != 1; }\n' > "$D/ref.cpp"
 twin=no; if command -v "$CXXREF" > /dev/null 2>&1 && ccl_twin "$D/ref.cpp" -o "$D/ref" > "$D/ref.log" 2>&1 && "$D/ref"; then twin=yes; fi
 if [ "$twin" = yes ]; then
@@ -125,7 +132,7 @@ for src in "$T"/*.c; do
   else bad "$n.c builds as C++ at the twin's level ($CCLLIB_STD)" "$(cat "$D/${n}_std.log")"; fi
   rm -f "$D/${n}_std"
   # the twin, which made NAME.expect
-  if [ "$twin" = yes ]; then
+  if [ "$twin" = yes ] && ccl_twin_needs "$n"; then
     if ccl_twin "$T/$n.cpp" -o "$D/${n}_twin" > "$D/${n}_twin.log" 2>&1; then
       ccl_ran "$D/${n}_twin" "$D/${n}_twin.out"
       if cmp -s "$D/${n}_twin.out" "$want"; then ok "$n.cpp, the twin over std::, built by $who, prints $n.expect"

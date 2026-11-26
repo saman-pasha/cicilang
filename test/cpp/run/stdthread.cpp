@@ -4,9 +4,11 @@
 // (the constructors), `&__thread_proxy<_Gp>' (the address of a function template-id), a free `operator==' of a class that a header defines
 // (thread::id), a shipped function's prototype declared in the frame of the first instance that called it -- the second kind of thread met a call
 // of no type -- and the thread's call of `bump(Counter &, int)' through a function reference, which gave the callee the std::ref wrapper's address
-// as the Counter (the four threads then waited on four mutexes of their own; fnptrargs.cpp). The output is the main thread's alone, after the joins
+// as the Counter (the four threads then waited on four mutexes of their own; fnptrargs.cpp). The output is the main thread's alone, after the joins.
+// <functional> declares std::ref, which libc++ 23's <thread>, <mutex> and <vector> no longer include (1.6.21)
 #include <atomic>
 #include <cstdio>
+#include <functional>
 #include <mutex>
 #include <thread>
 #include <vector>

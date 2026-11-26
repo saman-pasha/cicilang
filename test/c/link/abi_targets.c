@@ -1,8 +1,9 @@
 /* abi_targets.c: THE CALLING CONVENTIONS AND THE LAYOUTS OF THREE MACHINES (0.244) -- x86-64 Linux, Linux's aarch64 and Apple's
    arm64 -- as clang has them: integers narrower than 32 bits, `_Bool', `char', `long double', aggregates by value and returned
    (small ones, HFAs, ones passed in memory), a variadic definition and variadic calls, the zero-width bit-fields and the
-   alignments. No header: the driver gate builds it for each machine with cicilang and with clang to IR, and compares the
-   functions' conventions (test/abisig.awk) and the table `sizes' line for line. */
+   alignments, and a _BitInt past 64 bits (1.6.21: AAPCS64's quadwords on both arm64 machines, as clang 21 and later lay
+   them, the psABI's eightbytes on x86-64). No header: the driver gate builds it for each machine with cicilang and with
+   clang to IR, and compares the functions' conventions (test/abisig.awk) and the table `sizes' line for line. */
 typedef __SIZE_TYPE__ size_t;
 typedef __WCHAR_TYPE__ wchar_t;
 int printf(const char *, ...);
@@ -70,6 +71,7 @@ enum usmall f_eus(enum usmall v) { return v; }
 enum plain f_ep(enum plain v) { return v; }
 _BitInt(7) f_bi7(_BitInt(7) v) { return v; }
 unsigned _BitInt(17) f_bu17(unsigned _BitInt(17) v) { return v; }
+unsigned _BitInt(128) f_bu128(int pad, unsigned _BitInt(128) v) { (void)pad; return v; }
 int f_i(int v) { return v; }
 #define OFF(t, m) __builtin_offsetof(t, m)
 struct zb { char a; int : 0; char b; };
@@ -89,6 +91,8 @@ struct dbl { char c; double d; };
 struct ll { char c; long long l; };
 struct ptrs { char c; void *p; };
 struct f16 { char c; _Float16 h; };
+struct bi100 { char c; _BitInt(100) v; };
+struct bi65 { char c; unsigned _BitInt(65) v; char d; };
 size_t sizes[] = {
   sizeof(struct zb), _Alignof(struct zb), OFF(struct zb, b),
   sizeof(struct zb2), _Alignof(struct zb2), OFF(struct zb2, b),
@@ -105,6 +109,8 @@ size_t sizes[] = {
   sizeof(struct boolstr), _Alignof(struct boolstr),
   sizeof(struct dbl), _Alignof(struct dbl), sizeof(struct ll), _Alignof(struct ll), sizeof(struct ptrs),
   sizeof(struct f16), _Alignof(struct f16), OFF(struct f16, h),
+  sizeof(struct bi100), _Alignof(struct bi100), OFF(struct bi100, v), sizeof(_BitInt(100)), _Alignof(_BitInt(100)),
+  sizeof(struct bi65), _Alignof(struct bi65), OFF(struct bi65, v), OFF(struct bi65, d),
   sizeof(long), sizeof(void *), sizeof(_Bool), _Alignof(double), _Alignof(long long),
   (char) -1 < 0, (__WCHAR_TYPE__) -1 < 0, sizeof(size_t), sizeof(__PTRDIFF_TYPE__), sizeof(__INTMAX_TYPE__),
 };

@@ -25,7 +25,7 @@ ccllib_stream_type(N, Items) :-
 %% -- what every kind has: the file it writes to or reads from, and the tests of its state. good where no read failed,
 %% the file has no error and no read met its end; fail where a read failed or the file has an error; clear puts both
 %% back (1.6.3: good was true after a failed read)
-ccllib_stream_common_fn('_f', D, "static FILE *@{N}__f(const @N *o) { return o->f ? ccllib_file_of(o->f) : @D; }").
+ccllib_stream_common_fn('_f', _D, "static FILE *@{N}__f(const @N *o) { return o->f ? ccllib_file_of(o->f) : @D; }").
 ccllib_stream_common_fn(good, _, "int @{N}_good(const @N *o) { return @{N}__f(o) && !ferror(@{N}__f(o)) && !feof(@{N}__f(o)) && !o->fail; }").
 ccllib_stream_common_fn(bad, _, "int @{N}_bad(const @N *o) { return ferror(@{N}__f(o)) != 0; }").
 ccllib_stream_common_fn(fail, _, "int @{N}_fail(const @N *o) { return o->fail || ferror(@{N}__f(o)) != 0; }").

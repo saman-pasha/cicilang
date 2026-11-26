@@ -798,6 +798,11 @@ ccl_bit_builtin('__builtin_popcountg', ctpop).  ccl_bit_builtin('__builtin_popco
 %% each answers the unsigned integer of its width (the lowering's ir_call/4 reads this table: LLVM's `llvm.bswap'); they were undeclared
 ccl_bswap_builtin('__builtin_bswap16', 16, base([], [unsigned, short])).  ccl_bswap_builtin('__builtin_bswap32', 32, base([], [unsigned, int])).
 ccl_bswap_builtin('__builtin_bswap64', 64, base([], [unsigned, long])).   ccl_bswap_builtin('__builtin_bswap128', 128, base([], [unsigned, '__int128'])).
+%% THE INTEGER ABSOLUTE VALUES (1.6.21), clang's `__builtin_abs', `__builtin_labs' and `__builtin_llabs': each answers its
+%% parameter's type (the lowering's ir_call/4 reads this table: LLVM's `llvm.abs'). C refused them as undeclared, and C++
+%% called the C library's abs, labs and llabs by name, a name that libc++ 23's `template <class = int> int abs(int)'
+%% resolved to its own overloads: std::abs(-4) beside <chrono> instantiated chrono's abs over an int (`template_argument_free')
+ccl_abs_builtin('__builtin_abs', base([], [int])).  ccl_abs_builtin('__builtin_labs', base([], [long])).  ccl_abs_builtin('__builtin_llabs', base([], [long, long])).
 %% THE SATURATING SUM AND DIFFERENCE (0.227), clang's `__builtin_elementwise_add_sat' and `__builtin_elementwise_sub_sat' over two
 %% integers, which libc++ 22 writes std::add_sat and std::sub_sat on (from `_LIBCPP_CLANG_VER >= 2101'): each answers its first
 %% operand's type, the exact value clamped to that type's range (the lowering's ir_call/4 reads this table: `llvm.sadd.sat' and kin)
@@ -865,6 +870,8 @@ ccl_type_of(call(id(B), [_, _|_]), base([], [long])) :- memberchk(B, ['__builtin
 ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's source-location builtins (0.201)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_bswap_builtin(B, _, T), !.   % a byte swap answers the unsigned integer of its width (0.206)
+ccl_type_of(call(id(B), _), T) :- ccl_abs_builtin(B, T), !.   % an integer absolute value answers its parameter's type (1.6.21)
+ccl_type_of(call(id('__builtin_bswapg'), [X]), T) :- !, ccl_type_of(X, T0), ccl_unref(T0, T).   % clang 23's generic byte swap answers its argument's own type (1.6.21; libc++ 23's std::byteswap)
 ccl_type_of(call(id(B), [X, _]), T) :- ccl_sat_builtin(B, _), !, ccl_type_of(X, T0), ccl_unref(T0, T).   % a saturating sum or difference answers its first operand's type (0.227)
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
@@ -1172,8 +1179,11 @@ ccl_size_align(base(Q, S), N, A) :- memberchk('_Atomic', Q), !, ccl_delete_one(Q
 ccl_size_align(base(Q, S), N, A) :- memberchk(packed, Q), !, ccl_size_align(base([], S), N, _), ccl_q_align(Q, 1, A).   % a PACKED MEMBER (GCC's, 0.203): its own size, aligned at one or at what its `aligned' says
 ccl_size_align(base(Q, S), N, A) :- memberchk(taligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, _), ccl_q_align(Q, A0, A).   % a TYPEDEF's own (0.203): its size unchanged, as clang has it
 ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, A1), A is max(A0, A1).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment -- and THE SIZE UNCHANGED (0.112): an alignment specifier moves where an object or a member lies, never how big it is; rounded, `_Alignas(16) int x' had `sizeof x' 16, the member after it lay 16 bytes on, and on an array, whose element carries the qualifier, every element counted at the alignment: `alignas(S) unsigned char buf[sizeof(S)]' was 192 bytes to sizeof for 24, and a loop over it wrote past the stack slot
-ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W),     % _BitInt(N): the smallest integer type that holds it up to 64 bits; past that, whole eightbytes aligned 8 (the psABI)
-    ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
+ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W),     % _BitInt(N): the smallest integer type that holds it up to 64 bits; past that, whole eightbytes aligned 8 (the psABI), or on arm64 quadwords aligned 16 (AAPCS64, ccl_bitint_quads/0)
+    (   W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; W =< 64 -> N = 8
+    ;   ccl_bitint_quads -> N is ((W + 127) // 128) * 16
+    ;   N is ((W + 63) // 64) * 8 ),
+    ( N =< 8 -> A = N ; ccl_bitint_quads -> A = 16 ; A = 8 ).
 ccl_size_align(base(_, S), N, A) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ccl_size_align(R, A, _), N is 2 * A.   % a complex: two components, aligned as one (0.100; an integer's too, 0.103)
 ccl_size_align(base(_, S), N, A) :- ccl_basic_size(S, N), !, A = N.
 ccl_size_align(base(_, [vec(K, C, E)]), N, N) :- !, ( K == ext, ccl_vector_bool_elem(E) -> Raw is (C + 7) // 8 ; ccl_size_of(E, ES), Raw is C * ES ), ccl_pow2_at_least(Raw, 1, N).   % a vector (0.162): its elements' bytes (a bool vector's bits packed) rounded up to a power of two, aligned at its size, as clang lays it
@@ -1225,6 +1235,13 @@ ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
 ccl_long_double(K) :- nb_current('$ccl_ldbl', K0), !, K = K0.
 ccl_long_double(K) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),   % the target's (0.131): an IEEE quad on Linux aarch64, a double on Apple's arm64, x87's on x86-64
     ( A == arm64, once(catch(pp_os(linux), _, fail)) -> K0 = quad ; A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
+%% A _BitInt PAST 64 BITS IS QUADWORDS ON ARM64 (AAPCS64's mapping, 2023Q3; 1.6.21): one of 65 to 128 bits is the smallest
+%% fundamental integer type that holds it, __int128, 16 bytes aligned 16, and one past 128 bits is laid out as an
+%% `unsigned __int128[M]', M * 128 >= N -- on Linux's aarch64 and on Apple's arm64, as clang 21, 22 and 23 lay both (clang
+%% 18 aligned one of 65 to 128 bits at 8, and cicilang with it: c23b.c's alignof(_BitInt(100)) under the cross gate);
+%% clang refuses one past 128 bits there, and the mapping is AAPCS64's words alone. x86-64's psABI keeps eightbytes
+%% aligned 8
+ccl_bitint_quads :- once(catch(pp_arch(arm64), _, fail)).
 %% PLAIN CHAR AND wchar_t ARE UNSIGNED ON LINUX AARCH64 (AAPCS64; 0.131), as clang has them (`__CHAR_UNSIGNED__', `__WCHAR_UNSIGNED__')
 ccl_char_unsigned :- once(catch(pp_arch(arm64), _, fail)), once(catch(pp_os(linux), _, fail)).
 %% A ZERO-WIDTH BIT-FIELD ALIGNS THE STRUCT ON LINUX AARCH64 (AAPCS64; 0.244), as clang lays it (`UseZeroLengthBitfieldAlignment'):

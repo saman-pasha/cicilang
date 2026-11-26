@@ -36,21 +36,21 @@ fn_atomic(Name, [T], Items) :- ccl_instance_name(atomic, [T], N), ccllib_atomic_
 %% the object is a scalar: an integer, a floating number, a pointer or an enum
 ccllib_atomic_scalar(What, T) :- ccl_holds_pointer(T), !,
     ccl_arg_words([T], [W]), atomic_list_concat([What, ' is a scalar, and ', W, ' holds a pointer'], M), ccl_macro_error(M).
-ccllib_atomic_scalar(What, T) :-
+ccllib_atomic_scalar(_What, T) :-
     ( ccl_is_integer(T) ; ccl_is_float(T) ; catch(ccl_resolve_type(T, base(_, [enum(_, _)])), _, false) ), !.
 ccllib_atomic_scalar(What, _) :- atomic_list_concat([What, ' is an integer, a floating number or an enum'], M), ccl_macro_error(M).
 
-ccllib_atomic_fn(load, T, "@T @{N}_load(const @N *a) { return __atomic_load_n(&a->a_, 5); }").
-ccllib_atomic_fn(store, T, "void @{N}_store(@N *a, @T x) { __atomic_store_n(&a->a_, x, 5); }").
-ccllib_atomic_fn(exchange, T, "@T @{N}_exchange(@N *a, @T x) { return __atomic_exchange_n(&a->a_, x, 5); }").
-ccllib_atomic_fn(is_lock_free, T, "int @{N}_is_lock_free(const @N *a) { (void)a; return 1; }").
+ccllib_atomic_fn(load, _T, "@T @{N}_load(const @N *a) { return __atomic_load_n(&a->a_, 5); }").
+ccllib_atomic_fn(store, _T, "void @{N}_store(@N *a, @T x) { __atomic_store_n(&a->a_, x, 5); }").
+ccllib_atomic_fn(exchange, _T, "@T @{N}_exchange(@N *a, @T x) { return __atomic_exchange_n(&a->a_, x, 5); }").
+ccllib_atomic_fn(is_lock_free, _T, "int @{N}_is_lock_free(const @N *a) { (void)a; return 1; }").
 ccllib_atomic_fn(fetch_add, T, "@T @{N}_fetch_add(@N *a, @T x) { return __atomic_fetch_add(&a->a_, x, 5); }") :- ccl_is_integer(T).
 ccllib_atomic_fn(fetch_sub, T, "@T @{N}_fetch_sub(@N *a, @T x) { return __atomic_fetch_sub(&a->a_, x, 5); }") :- ccl_is_integer(T).
 ccllib_atomic_fn(fetch_and, T, "@T @{N}_fetch_and(@N *a, @T x) { return __atomic_fetch_and(&a->a_, x, 5); }") :- ccl_is_integer(T).
 ccllib_atomic_fn(fetch_or, T, "@T @{N}_fetch_or(@N *a, @T x) { return __atomic_fetch_or(&a->a_, x, 5); }") :- ccl_is_integer(T).
 ccllib_atomic_fn(fetch_xor, T, "@T @{N}_fetch_xor(@N *a, @T x) { return __atomic_fetch_xor(&a->a_, x, 5); }") :- ccl_is_integer(T).
-ccllib_atomic_fn(compare_exchange_strong, T, "int @{N}_compare_exchange_strong(@N *a, @T *e, @T d) { return __atomic_compare_exchange(&a->a_, e, &d, 0, 5, 5); }").
-ccllib_atomic_fn(compare_exchange_weak, T, "int @{N}_compare_exchange_weak(@N *a, @T *e, @T d) { return __atomic_compare_exchange(&a->a_, e, &d, 0, 5, 5); }").
+ccllib_atomic_fn(compare_exchange_strong, _T, "int @{N}_compare_exchange_strong(@N *a, @T *e, @T d) { return __atomic_compare_exchange(&a->a_, e, &d, 0, 5, 5); }").
+ccllib_atomic_fn(compare_exchange_weak, _T, "int @{N}_compare_exchange_weak(@N *a, @T *e, @T d) { return __atomic_compare_exchange(&a->a_, e, &d, 0, 5, 5); }").
 
 %% -- atomic_flag: no type argument, tested and set as one byte
 type_atomic_flag([], base([], [typedef(N)]), Items) :- ccl_instance_name(atomic_flag, [], N),

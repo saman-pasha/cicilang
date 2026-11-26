@@ -322,7 +322,7 @@ cpp_decltype_auto_ret_(Ctx, Ps, Body0, Ret) :- ccl_declare_params(Ps), cpp_body_
     (   cpp_first_return_in(Ctx, Body, E00)
     ->  ( E00 = paren(E) -> Paren = yes ; E = E00, Paren = no ),
         ( catch(cpp_unevaluated(cpp_expr(Ctx, E, E1)), error(not_lowered(W), _), ( cpp_trace(lambda_ret_refused(W)), fail )) -> true ; E1 = E ),   % unevaluated, as the `auto' road's (0.206)
-        ( Paren == yes, cpp_decltype_paren(E1, T) -> Ret = T ; cpp_decltype_auto_of(E1, T) -> Ret = T ; Ret = none )   % `return (x);' is decltype((x)), a reference to x (0.197)
+        ( Paren == yes, cpp_decltype_paren_src(E, E1, T) -> Ret = T ; cpp_decltype_auto_of(E1, T) -> Ret = T ; Ret = none )   % `return (x);' is decltype((x)), a reference to x (0.197)
     ;   Ret = base([], [void]) ).
 cpp_decltype_auto_of(E, T) :- cpp_decltype_of(E, T0), T0 \== unknown, !,
     (   ( T0 = ref(_, _) ; T0 = rref(_, _) ) -> T = T0

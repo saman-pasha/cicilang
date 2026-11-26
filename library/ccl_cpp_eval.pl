@@ -156,6 +156,7 @@ cpp_eval_stmt(declare(_, _), Env, Env, next) :- !.   % a type a body declares, a
 cpp_eval_stmt(eh_cleanup(_, _), Env, Env, next) :- !.   % a constructor's cleanup of what it built (0.201): run only while an exception unwinds, which a constant evaluation never does
 cpp_eval_stmt(try(_, B, _), Env0, Env, R) :- !, cpp_eval_block(B, Env0, Env, R).   % A TRY BLOCK (C++20's P1002; 0.257): its block runs, and a handler never does -- a throw is no step the evaluator takes (C++26's P3068 is not done), so a throw in the block fails the evaluation
 cpp_eval_stmt(static_assert(_, _, _), Env, Env, next) :- !.
+cpp_eval_stmt(using(_, _), Env, Env, next) :- !.   % A USING-DECLARATION OR -DIRECTIVE IN A BODY (1.6.21) names, and does nothing: libc++ 23's __split_buffer swaps by `using std::swap; swap(__begin_, __begin);', and every push_back that grows a vector was no constant (as the check's and the lowering's using(_, _))
 cpp_eval_stmt(assume(_, _), Env, Env, next) :- !.
 cpp_eval_stmt(declaration(_, _, _, Vars), Env0, Env, next) :- !, cpp_eval_decls(Vars, Env0, Env).
 cpp_eval_stmt(expr(_, bind_ref(P, E)), Env, Env, next) :- !, cpp_eval_arg(ref([], none), E, Env, '$val'(A)), cpp_eval_store(P, A, Env, _).   % A REFERENCE MEMBER BOUND in a constructor (0.257): its slot holds the referent's address, as the lowering binds it (ir_bind_ref/2) -- std::vector's `__destroy_vector(vector &__vec) : __vec_(__vec)'

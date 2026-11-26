@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.20 the versions are: the module 1.6.20 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 209 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 189 (`ccl_lowering_version/1`,
+At 1.6.21 the versions are: the module 1.6.21 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 210 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 190 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -561,8 +561,9 @@ test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
                             the decimal runtime against libgcc's (decrt.c, 0.243), three machines' calling conventions
-                            and layouts against clang's (abi_targets.c, 0.244); two units that both make vector<int>
-                            (inst_a.c, inst_b.c over ../run/tvector.pl, 0.261); two units over <vector.pl>, each
+                            and layouts against clang's (abi_targets.c, 0.244; a _BitInt past 64 bits, 1.6.21); two
+                            units that both make vector<int> (inst_a.c, inst_b.c over ../run/tvector.pl, 0.261); two
+                            units over <vector.pl>, each
                             with the functions that it calls (vec_a.c, vec_b.c, 0.274); two units over <memory.pl>
                             that share a handle, over the program's one pool (sp_a.c, sp_b.c, 1.6.5); a function and an
                             extern object that a block declares, another unit defining them (blockfn_main.c,
@@ -627,7 +628,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             and as C++, and refilled.c, pointers that a free or a null test left holding nothing, given
                             new memory by getline through their address (1.6.18); looppasses.c, loops whose next pass
                             finds what the last left, built as C and as C++ (1.6.19); nulldecls.c, pointers declared
-                            null that the path a goto jumps over gives new memory, built as C and as C++ (1.6.20)
+                            null that the path a goto jumps over gives new memory, built as C and as C++ (1.6.20);
+                            builtinabs.c, clang's integer absolute values, LLVM's llvm.abs (1.6.21)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -730,9 +732,14 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             C++ (1.6.14); noreturncpp.cpp, calls that do not return and loops that do not end in C++
                             (1.6.15); nsfunctions.cpp, what is right in a namespace's and an `extern "C"' block's
                             functions (1.6.16); noreturnthrow.cpp, a throw that ends its path, and [[noreturn]]
-                            functions that throw, rethrow, abort or loop (1.6.17)
+                            functions that throw, rethrow, abort or loop (1.6.17); decltypemember.cpp, decltype((E)) of a
+                            member access over any object, dautoinst.cpp, a function template's deduced results,
+                            visitlambda.cpp, std::visit over generic lambdas, nsaliases.cpp, namespace aliases over the
+                            names that two namespaces declare, and constexprusing.cpp, a using in a constant evaluation
+                            and a vector grown there (1.6.21)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
+                            NAME.needs, a condition of the twin's tree (1.6.21);
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
                             surface of <vector.pl> (0.274); array.c, of <array.pl> (0.275); deque.c, of <deque.pl>
                             (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278);

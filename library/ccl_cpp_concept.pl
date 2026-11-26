@@ -57,7 +57,7 @@ cpp_requirements_hold([]).
 cpp_requirements_hold([R|Rs]) :- ( cpp_requirement_holds(R) -> true ; cpp_trace(requirement_unmet(R)), fail ), cpp_requirements_hold(Rs).
 cpp_requirement_holds(expr(E)) :- cpp_req_ctx(X), cpp_unevaluated(cpp_expr(X, E, E1)), ccl_type_of(E1, T), T \== unknown, \+ cpp_bare_template_type(T).
 cpp_requirement_holds(type(T0)) :- cpp_type(T0, T), ccl_resolve_type(T, R), \+ R = base(_, [typedef(_)]).
-cpp_requirement_holds(compound(E, C)) :- cpp_req_ctx(X), cpp_unevaluated(cpp_expr(X, E, E1)), ccl_type_of(E1, T0), T0 \== unknown, \+ cpp_bare_template_type(T0), ( C == none -> true ; cpp_decltype_paren(E1, T), cpp_concept_of(C, T) ).
+cpp_requirement_holds(compound(E, C)) :- cpp_req_ctx(X), cpp_unevaluated(cpp_expr(X, E, E1)), ccl_type_of(E1, T0), T0 \== unknown, \+ cpp_bare_template_type(T0), ( C == none -> true ; cpp_decltype_paren_src(E, E1, T), cpp_concept_of(C, T) ).
 cpp_requirement_holds(nested(E)) :- cpp_satisfied(E).
 %% A COMPOUND REQUIREMENT'S TYPE IS decltype((e)) ([expr.prim.req.compound]; 0.109): an lvalue is `T &', a call its
 %% declared reference -- `{ __lhs = std::forward<_Rhs>(__rhs) } -> same_as<_Lhs>' is assignable_from's, with _Lhs a
@@ -72,9 +72,24 @@ cpp_fn_result(ref(_, T), R) :- !, cpp_fn_result(T, R).
 cpp_fn_result(rref(_, T), R) :- !, cpp_fn_result(T, R).
 cpp_fn_result(ptr(_, T), R) :- cpp_fn_result(T, R).
 cpp_decltype_paren(E, T) :- cpp_decltype_of(E, T0), ( T0 = ref(_, _) ; T0 = rref(_, _) ), !, T = T0.
+%% A MEMBER OF AN RVALUE IS AN XVALUE ([expr.ref]/6.2, [basic.lval]/4; 1.6.21): `decltype((std::move(a).val))' is `double &&', and
+%% so is a member of a class prvalue, `decltype((f().val))'; an rvalue's const is the member's as an lvalue's is
+cpp_decltype_paren(member(X, M), rref([], T)) :- cpp_rvalue_object(X), ccl_type_of(member(X, M), T0), T0 \== unknown, !,
+    ( \+ cpp_type_const(T0), cpp_obj_const(member(X, M), const) -> ccl_add_quals([const], T0, T) ; T = T0 ).
 cpp_decltype_paren(E, ref([], T)) :- ( E = id(N), atom(N), \+ ccl_enum_value(N, _) ; E = member(_, _) ; E = arrow(_, _) ; E = deref(_) ; E = index(_, _) ; E = assign(_, _, _) ; E = preinc(_) ; E = predec(_) ), ccl_type_of(E, T0), T0 \== unknown, !,
     ( ( E = member(_, _) ; E = arrow(_, _) ), \+ cpp_type_const(T0), cpp_obj_const(E, const) -> ccl_add_quals([const], T0, T) ; T = T0 ).   % A MEMBER OF A CONST OBJECT IS CONST ([expr.ref]/6.2; 0.206): `decltype((c.m))' was `int &'
 cpp_decltype_paren(E, T) :- ccl_type_of(E, T0), cpp_prvalue_type(T0, T).
+cpp_rvalue_object(X) :- cpp_xvalue_object(X), !.
+cpp_rvalue_object(member(Y, _)) :- !, cpp_rvalue_object(Y).
+cpp_rvalue_object(call(id(F), _)) :- atom(F), ccl_declared(F, fn(R, _, _)), \+ R = ref(_, _), \+ R = rref(_, _), \+ cpp_raw_type(R).   % a call whose declared result is no reference: a prvalue
+cpp_rvalue_object(compound_lit(_, _)).                                       % `T{...}', a temporary: a prvalue, as clang++ takes a compound literal
+cpp_rvalue_object(stmt_expr(B)) :- \+ cpp_lvalue(stmt_expr(B)).                % `T(...)' of a class, the temporary that the block builds
+%% ... AND A MEMBER OF `std::move(x)' IS ONE WHERE THE DESUGARING DROPPED THE MOVE (1.6.21): the move of a const object is
+%% the object itself by then, and `decltype((std::move(c).val))' was `const double &' where it is `const double &&'; the
+%% operand as written says it (E), unless the member is itself a reference, whose access is an lvalue
+cpp_decltype_paren_src(E, E1, T) :- cpp_decltype_paren(E1, T0),
+    ( T0 = ref(Q, TT), cpp_moved_member(E), \+ ( cpp_decltype_of(E1, DT), ( DT = ref(_, _) ; DT = rref(_, _) ) ) -> T = rref(Q, TT) ; T = T0 ).
+cpp_moved_member(member(X, _)) :- ( cpp_std_move_call(X, _) -> true ; cpp_moved_member(X) ).
 %% A PRVALUE OF NON-CLASS TYPE HAS NO TOP-LEVEL CV-QUALIFIER ([expr.type]/2): `__j + __n' over a `const char *const' is a
 %% `const char *', which random_access_iterator's `{ __j + __n } -> same_as<_Ip>' asks -- typed with the operand's own
 %% const it was unmet, no `const char *' was a contiguous iterator, and std::format's replacement-field parser had no

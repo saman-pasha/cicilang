@@ -3,10 +3,10 @@
 # taken at its latest master every time (the owner's rule, 0.259), and a pin moves in the step that runs the chain over it.
 CICILI_COMMIT=3ba2ca4
 CICILI_VERSION=3.3.0
-COCOLOG_COMMIT=bf956d1
-COCOLOG_VERSION=3.62.3
-ZIGURATIP_COMMIT=2a65f81
+COCOLOG_COMMIT=86ad08c
+COCOLOG_VERSION=3.78.18
+ZIGURATIP_COMMIT=655fa38
 # the embedded LLVM (module/build-llvm.sh, over llvm-c) and the C gates' clang
-LLVM_MAJOR=18
+LLVM_MAJOR=23
 # the libc++ trees the C++ gates read, one pass each: LLVM=/usr/lib/llvm-N sh test/libcxx.sh, then test/cpp.sh
-LIBCXX_TREES="18 21 22"
+LIBCXX_TREES="18 21 22 23"

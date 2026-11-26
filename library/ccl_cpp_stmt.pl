@@ -524,6 +524,20 @@ cpp_glvalue_arg(E) :- cpp_xvalue_object(E), !.
 cpp_glvalue_arg(E) :- cpp_arg_lvalue(E).
 cpp_cast_made(T, X1, X2) :- X2 \== X1, X2 = stmt_expr(_), cpp_class_of_type(T, _).   % a cast to a class that MADE its prvalue is that prvalue, which the elisions see (0.201)
 cpp_conv_op(How, C, T, Name, Hops) :- ccl_resolve_type(T, RT), cpp_conv_member(How, C, RT, CT0, _), cpp_method(C, operator(conv(CT0)), [], Name, Hops), !.
+cpp_conv_op(How, C, T, Name, []) :- ccl_resolve_type(T, RT), cpp_conv_template(How, C, RT, Name), !.
+%% A CONVERSION FUNCTION TEMPLATE ([temp.deduct.conv]/1, [over.match.conv]; 1.6.21): its template arguments are deduced
+%% from the target type, its result type the parameter and the target the argument, and the instance is the one an
+%% explicit template-id would name (cpp_member_explicit_instance/4: the arguments bound, the defaults, the constraints);
+%% the class's own, after its plain conversion functions. libc++ 23's `__in_out_result' converts to
+%% `ranges::in_out_result<_InIter2, _OutIter2>' so, and `ranges::copy' returned it raw: `no conversion from
+%% 'std::__in_out_result<...>' to 'std::ranges::in_out_result<...>'' over <format>'s, <print>'s and the ranges' copies
+cpp_conv_template(How, C, RT, Name) :-
+    '$cpp_mt'(C, operator(conv(Pat)), TPs, method(_, Qs, _, _, [], _, _)), ( How == explicit -> true ; \+ cpp_is_explicit(C, Qs) ),
+    catch(cpp_in_class(C, cpp_match(Pat, RT, TPs, [], B)), _, fail), cpp_conv_targs(TPs, B, Explicit),
+    catch(cpp_member_explicit_instance(C, operator(conv(Pat)), Explicit, Name), error(not_lowered(_), _), fail), !.
+cpp_conv_targs([], _, []).
+cpp_conv_targs([tparam(_, P, _)|TPs], B, [A|As]) :- !, memberchk(P-A, B), cpp_conv_targs(TPs, B, As).
+cpp_conv_targs([_|TPs], B, As) :- cpp_conv_targs(TPs, B, As).   % a requires-clause's entry, which the explicit candidate holds to
 cpp_conv_result(C, T, RCT) :- ccl_resolve_type(T, RT), cpp_conv_member(implicit, C, RT, _, RCT), !.
 %% THE CONVERSION FUNCTION WHOSE RESULT IS THE TARGET ITSELF comes first ([over.match.conv], [over.ics.rank]/3.3: the identity beats a
 %% standard conversion of the result): a class with `operator int()' and `operator long()' (`operator T()' of S<long>) converts to a

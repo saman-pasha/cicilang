@@ -481,7 +481,7 @@ pp_header_macro_in(list(KL), _, N, Ps, A) :- ccl_hml_list(KL, N, Ps, A).
 pp_raw_macro(L, N, Ps, A) :-                                                       % the line as written, its `.' off; parsed into a FRESH term: term_to_atom given a bound one compares
     atom_length(L, Len), L1 is Len - 1, sub_atom(L, 0, L1, 1, A0), term_to_atom(T, A0), T = macro(N, Ps, text(A)).
 pp_builtin_name(N) :- memberchk(N, ['__has_include', '__has_include_next', '__has_feature', '__has_extension', '__has_attribute', '__has_cpp_attribute',
-    '__has_c_attribute', '__has_embed', '__has_declspec_attribute', '__has_builtin', '__has_warning', '__is_identifier', '__building_module', '__FILE__', '__LINE__',
+    '__has_c_attribute', '__has_embed', '__has_declspec_attribute', '__has_builtin', '__has_warning', '__is_identifier', '__building_module', '__FILE__', '__FILE_NAME__', '__LINE__',
     '__COUNTER__', '__DATE__', '__TIME__', '__is_target_arch', '__is_target_vendor', '__is_target_os', '__is_target_environment']).
 
 %% the predefined macros, pp_predef(Name, any | Arch | cpp, Text) at the end of
@@ -719,6 +719,9 @@ pp_hs_meet([], _, []).
 pp_hs_meet([N|Ns], RHS, Out) :- ( memberchk(N, RHS) -> Out = [N|Out1] ; Out = Out1 ), pp_hs_meet(Ns, RHS, Out1).
 pp_builtin_obj('__LINE__', L, [tok(int, P, L)]) :- pp_presumed(L, P, _).
 pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), ccl_atom_bytes(F, Cs).   % a string's value in bytes (0.211)
+%% clang's `__FILE_NAME__' (1.6.21): the presumed file's last part after its last `/', as __builtin_FILE_NAME() answers;
+%% libc++ 23's `_LIBCPP_ASSERT' writes it where libc++ 22's wrote `__FILE__', and a hardened `<vector>' lost its class
+pp_builtin_obj('__FILE_NAME__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), atomic_list_concat(Ps, '/', F), last(Ps, B), ccl_atom_bytes(B, Cs).
 pp_builtin_obj('__COUNTER__', L, [tok(int, C, L)]) :- nb_getval('$pp_counter', C), C1 is C + 1, nb_setval('$pp_counter', C1).
 pp_builtin_obj('__DATE__', L, [tok(str, Cs, L)]) :- atom_codes('Jan  1 2026', Cs).
 pp_builtin_obj('__TIME__', L, [tok(str, Cs, L)]) :- atom_codes('00:00:00', Cs).

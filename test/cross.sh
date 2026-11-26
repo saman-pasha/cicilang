@@ -74,7 +74,10 @@ ccl_xcapped() {   # ccl_xcapped CMD...: one build under the time cap XSECS and t
 CLANGXX=$(command -v "$XR/bin/clang++" || command -v clang++)
 if [ -f "$XS/include/c++/v1/vector" ] && [ -f "$XS/lib/libc++.so.1" ] && [ -n "$CLANGXX" ] && command -v aarch64-linux-gnu-g++ > /dev/null 2>&1; then
   echo "-- C++ for aarch64 Linux over $XS, run under qemu beside clang++'s build"
-  XREF="$CLANGXX $T -stdlib=libc++ -nostdinc++ -isystem $XS/include/c++/v1 -w -L$XS/lib -Wl,-rpath-link,$XS/lib -Wl,-rpath,$XR/lib"
+  # libc++abi named where the tree has one (1.6.21): apt.llvm.org's arm64 libc++ 23 keeps no linker script in llvm-N/lib, and
+  # its libc++.so is the library itself, so `__cxa_throw' was `DSO missing from command line', as ccl_cxxabi_lib/2 says
+  XABI=""; [ -e "$XS/lib/libc++abi.so" ] && XABI=-lc++abi
+  XREF="$CLANGXX $T -stdlib=libc++ -nostdinc++ -isystem $XS/include/c++/v1 -w -L$XS/lib -Wl,-rpath-link,$XS/lib -Wl,-rpath,$XR/lib $XABI"
   CR="$ROOT/test/cpp/run"
   for src in "$ROOT/test/cpp/hello.cpp" "$ROOT/test/cpp/classes.cpp" "$ROOT/test/cpp/templates.cpp" "$CR/counter.cpp" "$CR/shapes.cpp" \
              "$CR/lambdas.cpp" "$CR/bag.cpp" "$CR/stdvector.cpp" "$CR/stdstring.cpp" "$CR/stdmap.cpp" "$CR/stdunorderedmap.cpp" \

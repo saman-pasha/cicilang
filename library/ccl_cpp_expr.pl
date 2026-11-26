@@ -793,7 +793,12 @@ cpp_array_cookie(T, Ck) :- cpp_class_of_type(T, C), ( cpp_dtor(C, _) -> true ; c
 cpp_array_cookie(_, 0).
 cpp_local(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), !.
 %% the way to a member: o.$base...n by value, p->n or p->$base...n through a pointer
-cpp_hops(X, [], X).
+cpp_hops(X, [], X) :- !.
+%% AN XVALUE'S BASE IS AN XVALUE (1.6.21): over `std::move(x)' a base's member is reached through x's base, the move kept
+%% outside, `move(member(x, '$base'))', which cpp_object_arg/3 takes off as it takes it off x itself -- libc++ 23 defines
+%% optional's `operator*() &&' in its base `__optional_storage_base', and `*std::move(r)' asked the place of
+%% `member(move(r), '$base')' (`not lowered yet: lvalue(move(id(r)))', <format>'s vformat and the parallel algorithms)
+cpp_hops(move(X), Hs, move(B)) :- !, cpp_hops(X, Hs, B).
 cpp_hops(X, [H|Hs], B) :- cpp_hops(member(X, H), Hs, B).
 cpp_access(P, N, [], arrow(P, N)) :- !.
 cpp_access(P, N, Hops, member(B, N)) :- cpp_hops(deref(P), Hops, B).
@@ -874,6 +879,9 @@ cpp_call(Ctx, arrow(X0, M), As, E) :- !,
         ;   cpp_hops_class(C, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot) -> ( Hops == [] -> P0 = X ; cpp_hops(deref(X), Hops, B0), P0 = addr(B0) ), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), P0), V, Slot, As1, E)   % an override of a VIRTUAL base's slot (0.139)
         ;   Hops \== [], cpp_hops_class(C, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot) -> cpp_hops(deref(X), Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)   % a virtual method of a BASE the class does not name: that base's table (a virtual base's, the diamond's final overrider behind it)
         ;   ( Hops == [] -> P = X ; cpp_hops(deref(X), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]) )
+    ;   atom(M), cpp_pointee_class_of(X, C), cpp_data_member(C, M, DH), cpp_hops(deref(X), DH, B), XM = member(B, M),   % ... AND THROUGH A POINTER, `p->f(x)' (1.6.21): `this->m_(a, b)' was `call(arrow(id(this), m_))'
+        cpp_class_of_type_of(XM, FC), cpp_method(FC, operator('()'), As, Name, _)
+    ->  cpp_fill_defaults(Name, As, As1), cpp_object_arg(Name, addr(XM), Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2])
     ;   atom(M), cpp_scalar_arrow(X, XT) -> cpp_refuse(0, no_member(M, XT))   % `p->f()' over a pointer to a scalar, or over no pointer at all (0.127)
     ;   cpp_callee_count_wrong(arrow(X, M), As, W) -> cpp_refuse_prog(W)   % a pointer member called with another count of arguments than its type's (0.302)
     ;   E = call(arrow(X, M), As) ).
@@ -895,6 +903,14 @@ cpp_call(Ctx, id(M), As, E) :- cpp_closure_this(Ctx, EC), \+ cpp_local(M), lengt
     cpp_fill_defaults(Name, As, As1), cpp_closure_object(Hops, P),
     (   cpp_slot_call(EC, M, N, Name, Slot) -> cpp_dispatch(Name, P, EC, Slot, As1, E)
     ;   cpp_object_arg(Name, P, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]) ).
+%% ... AND THE ENCLOSING CLASS'S CALLABLE DATA MEMBER (1.6.21), as its member function calls one (below): through its own class's
+%% operator(), or through the pointer where it is a pointer to function. libc++ 23's mdspan::operator[] is a lambda over `[&]'
+%% that writes `__map_(...)', the mapping's operator(), and the name was undeclared (`undeclared('__map_')')
+cpp_call(Ctx, id(F), As, call(id(Name), [Obj|As2])) :- cpp_closure_this(Ctx, EC), \+ cpp_local(F), cpp_data_member(EC, F, Hops),
+    cpp_closure_member(F, Hops, X), cpp_class_of_type_of(X, C), cpp_method(C, operator('()'), As, Name, _), !,
+    cpp_fill_defaults(Name, As, As1), cpp_ref_args_of(Name, As1, As2), cpp_object_arg(Name, addr(X), Obj).
+cpp_call(Ctx, id(F), As, call(X, As)) :- cpp_closure_this(Ctx, EC), \+ cpp_local(F), cpp_data_member(EC, F, Hops),
+    cpp_closure_member(F, Hops, X), catch(ccl_type_of(X, T), _, fail), ccl_resolve_type(T, ptr(_, FT)), ccl_resolve_type(FT, fn(_, _, _)), !.
 cpp_call(Ctx, scoped([std], move), [X], E) :- !, cpp_expr(Ctx, move(X), E).                     % std::move is Cicili's move: the fields go, the source is emptied; of an int, the int
 cpp_call(_, scoped(Path, tmpl(F, TArgs)), As, E) :- \+ cpp_scope_class(Path, _), !, ( atom(F), cpp_ns_key(Path, F, K) -> F1 = K ; F1 = F ), cpp_without_using(F1, cpp_call(none, tmpl(F1, TArgs), As, E)).        % std::swap<int>(a, b): the namespace flattens -- to a deeper namespace's KEY where the name collided (0.112): `__elements::__fn<0>{}', views::keys, is no bare `__fn'
 cpp_call(Ctx, scoped(Path, F), As, E) :- atom(F), Path \== [], cpp_ns_key(Path, F, K), \+ ( catch(cpp_scope_class(Path, SC), _, fail), cpp_has_member(SC, F) ), !,   % A NAMESPACE'S KEY BEFORE A CLASS OF THE SAME NAME (0.109): namespaces flatten here, and libc++ has both `ranges::views::__all', the namespace of `__all::__fn', and a class template `__all' -- taken as that class's member, `views::all' was built as the wrong `__fn'; the key the header indexed is the namespace's own, unless the class truly has such a member
@@ -1289,11 +1305,11 @@ cpp_builtin_call('__builtin_memcpy', As, call(id(memcpy), As)).
 %% <unordered_map>'s closure declares no `ceilf'. The long double form is libm's (`sqrtl'), a long double being x87's
 %% 80 bits on x86-64 since 0.108; the prototype is emitted once, as a mangled declaration is (cpp_use_mangled).
 cpp_builtin_call(B, As, call(id(F), As)) :- atom(B), atom_concat('__builtin_', F0, B), cpp_math_fn(F0, F, Ret, Ps), !, cpp_math_declared(F, Ret, Ps).
-%% THE INTEGER ABSOLUTE VALUES (0.117) are the C library's too: libc++'s <stdlib.h> writes `abs(long)' as `__builtin_labs(__x)', which
-%% `std::abs(-4L)' met as an undeclared name
-cpp_builtin_call('__builtin_abs', As, call(id(abs), As)) :- cpp_math_declared(abs, base([], [int]), [param(base([], [int]), anon)]).
-cpp_builtin_call('__builtin_labs', As, call(id(labs), As)) :- cpp_math_declared(labs, base([], [long]), [param(base([], [long]), anon)]).
-cpp_builtin_call('__builtin_llabs', As, call(id(llabs), As)) :- cpp_math_declared(llabs, base([], [long, long]), [param(base([], [long, long]), anon)]).
+%% THE INTEGER ABSOLUTE VALUES (0.117, 1.6.21) are the lowering's builtins, `llvm.abs' (ccl_abs_builtin/2): libc++'s <stdlib.h>
+%% writes `abs(long)' as `__builtin_labs(__x)', which `std::abs(-4L)' met as an undeclared name, and from 0.117 to 1.6.20
+%% they were the C library's abs, labs and llabs by name -- a name that libc++ 23's `template <class = int> int abs(int)'
+%% resolved to the C++ overloads of its own scope, chrono's template among them
+cpp_builtin_call(B, As, call(id(B), As)) :- ccl_abs_builtin(B, _), !.
 cpp_builtin_call('__builtin_memmove', As, call(id(memmove), As)).
 cpp_builtin_call('__builtin_memset', As, call(id(memset), As)).
 cpp_builtin_call('__builtin_memcmp', As, call(id(memcmp), As)).

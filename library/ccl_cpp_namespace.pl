@@ -141,6 +141,8 @@ cpp_ns_rewrite_units([unit(Is)|Us], Qs, [unit(Is1)|Us1]) :- cpp_ns_rewrite_items
 cpp_ns_rewrite_items([], _, _, []).
 cpp_ns_rewrite_items([namespace(L, N, Js)|Is], P, Qs, [namespace(L, N, Js1)|Is1]) :- !, cpp_ns_path(P, N, P1), cpp_ns_rewrite_items(Js, P1, Qs, Js1), cpp_ns_rewrite_items(Is, P, Qs, Is1).
 cpp_ns_rewrite_items([include(L, S, file(F, raw, unit(Js)))|Is], P, Qs, [include(L, S, file(F, raw, unit(Js1)))|Is1]) :- !, cpp_ns_rewrite_items(Js, P, Qs, Js1), cpp_ns_rewrite_items(Is, P, Qs, Is1).
+cpp_ns_rewrite_items([using(L, namespace_alias(N, Q))|Is], P, Qs, [using(L, namespace_alias(N, Q))|Is1]) :- cpp_ns_named_path(P, NP), cpp_alias_segs(Q, NP, Qs, Segs), !,
+    cpp_ns_alias_subst(Is, N, Segs, Is0), cpp_ns_rewrite_items(Is0, P, Qs, Is1).   % a namespace alias at file or namespace scope: the items after it (1.6.21)
 cpp_ns_rewrite_items([using(L, U)|Is], P, Qs, [using(L, U)|Is1]) :- cpp_ns_named_path(P, NP), cpp_using_map(U, NP, Qs, Map), Map \== [], !,
     cpp_rename_names(Is, Map, Is0), cpp_ns_rewrite_items(Is0, P, Qs, Is1).   % a using-declaration or -directive at file or namespace scope: the items after it (0.139)
 cpp_ns_rewrite_items([I|Is], P, Qs, [I3|Is1]) :-
@@ -181,8 +183,25 @@ cpp_using_blocks_l([], _, _, []).
 cpp_using_blocks_l([A|As], NP, Qs, [A1|As1]) :- cpp_using_blocks(A, NP, Qs, A1), cpp_using_blocks_l(As, NP, Qs, As1).
 cpp_using_stmts([], _, _, []).
 cpp_using_stmts([S|Ss], NP, Qs, [S1|Ss1]) :-
-    ( S = using(_, U), cpp_using_map(U, NP, Qs, Map), Map \== [] -> cpp_rename_names(Ss, Map, Ss0) ; Ss0 = Ss ),
+    ( S = using(_, U), cpp_using_map(U, NP, Qs, Map), Map \== [] -> cpp_rename_names(Ss, Map, Ss0) ; S = using(_, namespace_alias(N, Q)), cpp_alias_segs(Q, NP, Qs, Segs) -> cpp_ns_alias_subst(Ss, N, Segs, Ss0) ; Ss0 = Ss ),
     cpp_using_blocks(S, NP, Qs, S1), cpp_using_stmts(Ss0, NP, Qs, Ss1).
+%% A NAMESPACE ALIAS ([namespace.alias]; 1.6.21): `namespace x = b::in;' at file or namespace scope, or in a block, makes `x::'
+%% in the items or the statements after it `b::in::', its namespace found from the scope's own outwards as a using-directive's is
+%% (cpp_alias_segs/4), and a qualified name resolves through it (cpp_ns_key/3). An alias was an item that did nothing (0.109), and
+%% where two of the program's namespaces declare one name `x::v()' was the bare one's -- `namespace z = b::in; z::v()' called
+%% a::in::v, a silent wrong answer
+cpp_alias_segs(Q, NP, Qs, Cand) :- cpp_using_ns_segs(Q, Segs), Segs \== [],
+    (   Segs = [global|Cand] -> true
+    ;   length(NP, Len), between(0, Len, J), K0 is Len - J, length(Pre, K0), append(Pre, _, NP), append(Pre, Segs, Cand), memberchk(q(_, _, Cand), Qs) -> true
+    ;   Cand = Segs ), !.
+cpp_ns_alias_subst(T, _, _, T) :- \+ compound(T), !.
+cpp_ns_alias_subst(using(L, namespace_alias(M, N)), N, Segs, using(L, namespace_alias(M, Q))) :- !, cpp_segs_qname(Segs, Q).   % an alias of the alias, `namespace gb = fb;'
+cpp_ns_alias_subst(using(L, namespace(N)), N, Segs, using(L, namespace(Q))) :- !, cpp_segs_qname(Segs, Q).                   % ... and a using-directive over it
+cpp_ns_alias_subst(scoped([N|R], X), N, Segs, scoped(P1, X1)) :- !, cpp_ns_alias_subst(R, N, Segs, R1), append(Segs, R1, P1), cpp_ns_alias_subst(X, N, Segs, X1).
+cpp_ns_alias_subst(T, N, Segs, T1) :- T =.. [F|As], cpp_ns_alias_subst_l(As, N, Segs, As1), T1 =.. [F|As1].
+cpp_ns_alias_subst_l([], _, _, []).
+cpp_ns_alias_subst_l([A|As], N, Segs, [A1|As1]) :- cpp_ns_alias_subst(A, N, Segs, A1), cpp_ns_alias_subst_l(As, N, Segs, As1).
+cpp_segs_qname(Segs, Q) :- append(P, [X], Segs), !, ( P == [] -> Q = X ; Q = scoped(P, X) ).
 %% TWO NAMESPACES' ENUMS OF ONE NAME, OR OF ONE ENUMERATOR NAME (0.127): `namespace n1 { enum { x = 7 }; }' beside `namespace n2 { enum { x = 8 }; }'
 %% read n1's 7 inside n2 and through `n2::x', and two enums `Mode' were one tag. The tag and an unscoped enum's enumerators are keyed and renamed as a
 %% function's or a class's name is (the uses inside the namespace by cpp_qualify_body, a qualified one by cpp_ns_key)

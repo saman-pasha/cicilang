@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 /* clang's source-location builtins in C: `__builtin_FILE()', `__builtin_FILE_NAME()', `__builtin_LINE()',
-   `__builtin_COLUMN()' and `__builtin_FUNCTION()' at their own place; `assert' over glibc's `__FILE__' */
+   `__builtin_COLUMN()' and `__builtin_FUNCTION()' at their own place; `assert' over glibc's `__FILE__'; clang's `__FILE_NAME__', under `#line' too */
 static const char *base(const char *p) {
   const char *s = strrchr(p, '/');
   return s ? s + 1 : p;
@@ -18,5 +18,10 @@ int main(void) {
   printf("%s %zu\n", f, sizeof(__builtin_LINE()));
   assert(where() == 10);
   puts("assert held");
+#ifdef __FILE_NAME__
+  printf("%s\n", __FILE_NAME__);
+#endif
+#line 200 "lib/dir/other.c"
+  printf("%s %d\n", __FILE_NAME__, __LINE__);
   return 0;
 }

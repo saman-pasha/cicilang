@@ -57,8 +57,14 @@ tc_pin() {   # tc_pin NAME DIR PIN: the checkout's commit beside its pin, by the
 }
 tc_major() { echo "$1" | grep -o '[0-9][0-9]*\.[0-9][0-9.]*' | head -1 | cut -d. -f1; }
 case "$(uname -s)" in Darwin) tc_os=macos ;; *) tc_os=linux ;; esac
-# LLVM N's tree, and the package that brings a tool: Debian's and Ubuntu's, or Homebrew's
-tc_llvm() { if [ "$tc_os" = macos ]; then echo "$(brew --prefix 2>/dev/null || echo /usr/local)/opt/llvm@$1"; else echo "/usr/lib/llvm-$1"; fi; }
+# LLVM N's tree, and the package that brings a tool: Debian's and Ubuntu's, or Homebrew's -- its llvm where N is its newest
+# major, which it names with no version (23, 1.6.21), as test/ci.sh's ci_llvm
+tc_llvm() {
+  if [ "$tc_os" = linux ]; then echo "/usr/lib/llvm-$1"; return 0; fi
+  _tc_bp=$(brew --prefix 2>/dev/null || echo /usr/local)
+  if [ ! -d "$_tc_bp/opt/llvm@$1" ] && [ -x "$_tc_bp/opt/llvm/bin/llvm-config" ] && [ "$("$_tc_bp/opt/llvm/bin/llvm-config" --version | cut -d. -f1)" = "$1" ]; then echo "$_tc_bp/opt/llvm"
+  else echo "$_tc_bp/opt/llvm@$1"; fi
+}
 tc_get() { if [ "$tc_os" = macos ]; then echo "brew install $2"; else echo "apt-get install $1"; fi; }
 tc_lib() {   # tc_lib DIR NAME: the library NAME in the tree DIR, Debian's lib/NAME.so or Homebrew's lib/c++/NAME.dylib
   for _tc_f in "$1"/lib/$2.so* "$1"/lib/c++/$2.*dylib "$1"/lib/$2.*dylib; do [ -e "$_tc_f" ] && return 0; done; return 1
@@ -132,7 +138,11 @@ tc_tree_l=$(tc_llvm "$LLVM_MAJOR")
 if [ -x "$tc_tree_l/bin/llvm-config" ]; then tc_ok "llvm-config" "$("$tc_tree_l/bin/llvm-config" --version) at $tc_tree_l (module/build-llvm.sh)"
 else tc_missing "llvm-config" "no $tc_tree_l/bin/llvm-config ($(tc_get "llvm-$LLVM_MAJOR-dev" "llvm@$LLVM_MAJOR")): module/build-llvm.sh builds against it"; fi
 for t in clang clang++; do   # a Mac's are Apple's, the system's own C and C++ compilers, as clang is Linux's
-  if command -v "$t" >/dev/null 2>&1; then tc_ok "$t" "$("$t" --version 2>&1 | head -1)"
+  # LINUX'S PLAIN NAMES ARE LLVM_MAJOR'S (1.6.21): a distribution's own clang is its LLVM's (Ubuntu 24.04's 18), and a gate
+  # that holds the compiler to clang holds it to the pin's (test/ci.sh's ci_llvm_names links them first on PATH)
+  if command -v "$t" >/dev/null 2>&1 && [ "$tc_os" = linux ] && [ "$(tc_major "$("$t" --version 2>&1 | head -1)")" != "$LLVM_MAJOR" ]; then
+    tc_differs "$t" "$("$t" --version 2>&1 | head -1) at $(command -v "$t"), the pin is $LLVM_MAJOR: put $tc_tree_l/bin's first on PATH"
+  elif command -v "$t" >/dev/null 2>&1; then tc_ok "$t" "$("$t" --version 2>&1 | head -1)"
   elif [ "$tc_os" = macos ]; then tc_missing "$t" "not on PATH (the Xcode command line tools: xcode-select --install): the gates hold the compiler to it"
   else tc_missing "$t" "not on PATH (apt-get install clang-$LLVM_MAJOR): the gates hold the compiler to it"; fi
 done

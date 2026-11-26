@@ -332,6 +332,9 @@ cpp_instantiate_function_(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name) :-
         (   catch(\+ \+ cpp_instantiate_function_emit(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name), E, ( nb_setval('$cpp_making', M0), throw(E) ))   % inside `\+ \+': the instance's items go to the facts, its walk is reclaimed
         ->  nb_setval('$cpp_making', M0), cpp_instance_note(Name, F), cpp_dbg_note_targs(Name, TPs, B)
         ;   nb_setval('$cpp_making', M0), cpp_refuse(0, function_not_emitted(Name)) ) ).
+%% AN INSTANCE'S `decltype(auto)' RESULT IS ITS FIRST RETURN'S decltype ([dcl.type.auto.deduct]/5; 1.6.21), as a plain
+%% function's is (cpp_fn_auto_ret/4): it was deduced as `auto', decayed, and `template <class A> decltype(auto) f(A &&a) {
+%% return std::forward<A>(a); }' returned a copy where clang++ returns the reference -- `f(a).val += 1' changed the copy
 cpp_instantiate_function_emit(F, TPs, B, L0, Sto00, Ret, Ps, V0, Body, Name) :-
     cpp_lib_origin(F, Lib), cpp_nx_sto(Sto00, StoP, Cond0),
     cpp_where(subst(F), cpp_subst(fn(Ret, Ps, nxb(Cond0, Body)), B, fn(Ret10, Ps10, nxb(Cond10, Body10)))),   % ITS NOEXCEPT CONDITION TOO (0.199), under the instance's bindings, the parameter packs' among them
@@ -339,7 +342,7 @@ cpp_instantiate_function_emit(F, TPs, B, L0, Sto00, Ret, Ps, V0, Body, Name) :-
     ;   Sto0 = StoP ),
     (   cpp_fspec_for(F, TPs, B, Ret10, Ps10, function(L, Sto, Ret1, _, Ps1, V, Body1)) -> cpp_deleted_body_check(Body1, function, F), cpp_trace(explicit_specialization(F, Name)), ISig = fsig(free, none, F, Ret1, Ps1, V, [], none)   % the instance IS the explicit specialization (0.129)
     ;   L = L0, Sto = Sto0, Ret1 = Ret10, Ps1 = Ps10, V = V0, Body1 = Body10, ISig = fsig(free, none, F, Ret, Ps, V0, [], ta(TPs, B)) ),   % what its own name says (0.166): the pattern, with its arguments
-    cpp_as_lib(Lib, ( cpp_with_fsig(inst(Name, ISig), cpp_isolated(( cpp_plain_params(Ps1, Ps2), ( Ret1 = base(_, [auto]) -> cpp_lambda_ret(Ps2, Body1, Ret2) ; cpp_decltype_ret(Ret1, Ps1, Ret2) -> true ; cpp_type(Ret1, Ret2) ),
+    cpp_as_lib(Lib, ( cpp_with_fsig(inst(Name, ISig), cpp_isolated(( cpp_plain_params(Ps1, Ps2), ( Ret1 = base(Q1, [auto]) -> ( memberchk(decltype_auto, Q1) -> cpp_decltype_auto_ret(none, Ps2, Body1, Ret2), ( Ret2 == none -> cpp_refuse(0, auto_result(F)) ; true ) ; cpp_lambda_ret(Ps2, Body1, Ret2) ) ; cpp_decltype_ret(Ret1, Ps1, Ret2) -> true ; cpp_type(Ret1, Ret2) ),
                                      ccl_declare(Name, fn(Ret2, Ps2, V)), cpp_note_defaults(Name, Ps1),
                                      ( Body1 == none -> cpp_nx_sto(Sto, StoD, CondD), ( CondD == none -> true ; assertz('$cpp_nxdef'(Name, none, CondD, Ps2)) ),
                                                         Items = [declaration(L, StoD, Ret2, [var(Name, fn(Ret2, Ps2, V), none)])]   % declared, not defined: a declaration, never a bodyless function

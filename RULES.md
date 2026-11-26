@@ -72,15 +72,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.62.3 `bf956d1`, Cicili
-  3.3.0 `3ba2ca4`, ZiguratIP 1.0.2 `2a65f81` -- the embedded LLVM's major version (18) and the libc++ trees the C++
-  gates read (18, 21 and 22, the third since 0.227). A pin moves in the step that runs the chain over it, and since
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.78.18 `86ad08c`,
+  Cicili 3.3.0 `3ba2ca4`, ZiguratIP 1.0.4 `655fa38` -- the embedded LLVM's major version, which is the C gates' clang's
+  too (23 since 1.6.21, 18 before), and the libc++ trees the C++ gates read (18, 21, 22 and 23; the third since 0.227,
+  the fourth since 1.6.21). A pin moves in the step that runs the chain over it, and since
   0.259 cocolog is taken at its latest master every time (the owner's rule, `CLAUDE.md`), so that its pin moves in each
   step that finds a new one: cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, at 0.254, from 2.14.1 `1e48013`, beside
   Cicili's (from `9b825b7`, its `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255,
   from 3.16.0 `e965a6e`, at 0.256, from 3.18.0 `914e98a`, at 0.259, from 3.19.2 `81579bd`, beside ZiguratIP's (from
-  `5f058e7`, 1.0.1), at 0.292, from 3.37.0 `74183ae`, and at 0.293, from 3.62.2 `7e4bac2` (the Findings). (0.223, 0.226,
-  0.227, 0.254, 0.255, 0.256, 0.259, 0.292, 0.293)
+  `5f058e7`, 1.0.1), at 0.292, from 3.37.0 `74183ae`, at 0.293, from 3.62.2 `7e4bac2`, and at 1.6.21, from 3.62.3
+  `bf956d1`, beside ZiguratIP's (from `2a65f81`, 1.0.2) and the LLVM pins (the Findings). (0.223, 0.226, 0.227, 0.254,
+  0.255, 0.256, 0.259, 0.292, 0.293, 1.6.21)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines, ON REQUEST AND ON A PULL
   REQUEST ALONE (the owner's rules, 0.271: "Do not run github CI after each change", then "disable nightly run"; from
   0.223 to 0.270 each push to main ran the smoke job, three machines a commit, and each night ran the full job and the
@@ -89,13 +91,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   gates and the proof), since 0.224 on two machines and since 0.246 on three, each a job of its own that never waits for
   the others -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB, not root), macOS 26 on Intel (`macos-26-intel`:
   x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it) and macOS 15 on Apple silicon (`macos-15`: arm64,
-  3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux on request (all ten gates over libc++ 18, the
-  cross gate's C++ part among them since 0.246 and the ccllib gate the tenth since 0.273, valgrind among the job's
-  packages for it, then the library read and the C++ gate over libc++ 21 and over 22,
-  0.227); `cpp` on the Intel Mac on request (0.246: the library read and the C++ gate over libc++ 18, three lanes, a
+  3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux on request (all ten gates over LLVM_MAJOR's
+  libc++, 23 since 1.6.21 and 18 before, the cross gate's C++ part among them since 0.246 and the ccllib gate the tenth
+  since 0.273, valgrind among the job's packages for it, then the library read and the C++ gate over each other tree,
+  0.227); `cpp` on the Intel Mac on request (0.246: the library read and the C++ gate over LLVM_MAJOR's libc++, three lanes, a
   launch below 6000 MB summed, the pool killed past 10000, caps that fit 14 GB). `test/ci.sh JOB setup` installs the
   packages where asked (`CI_PACKAGES=1`: apt-get,
-  each libc++ tree past LLVM 18's unpacked from apt.llvm.org's packages, and in the full job that machine's libc++ under
+  LLVM_MAJOR's from apt.llvm.org where the distribution ships none -- 23, which Ubuntu 24.04 has not (1.6.21) -- each
+  other libc++ tree unpacked, a distribution's (Ubuntu's 18) and apt.llvm.org's alike (The libc++ trees, the
+  Includes topic), the plain names `clang`, `clang++` and `llvm-dwarfdump` linked to LLVM_MAJOR's tree in
+  `CI_ROOT/.ci-bin`, first on PATH (`ci_llvm_names`; a distribution's own are its LLVM's, Ubuntu's 18's, and the
+  toolchain check holds their major to the pin on Linux), and in the full job that machine's libc++ under
   the cross sysroot, both below; on a Mac Homebrew), clones the neighbours at their pins into `CI_ROOT` (default
   `~/Projects/GitHub`; it moves no checkout it did not make and stops at one off its pin), builds them with cocolog's
   own installer, `install/install-linux.sh` or `install/install-macos.sh` (Quicklisp and the Lisp systems Cicili is
@@ -114,8 +120,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   NOT EXPECT: a gate that finds no cocolog or no module prints SKIP and exits 0, so each gate's output is read, and a
   line that starts with SKIP is RED but the reader gate's optional files (`SKIP FILE (not here)`). The cross gate's C++
   part, a SKIP there until 0.246, is held as the rest now that the full job puts that machine's libc++ under the cross
-  sysroot (`ci_arm64_libcxx`): the six arm64 packages of LLVM 18's libc++ (The C gates) from `ports.ubuntu.com`, where
-  Ubuntu serves arm64, fetched by an apt of the job's own -- that one source and both architectures, its lists and its
+  sysroot (`ci_arm64_libcxx`): the six arm64 packages of LLVM_MAJOR's libc++ (The C gates) from `ports.ubuntu.com`, where
+  Ubuntu serves arm64 -- from apt.llvm.org's arm64 packages, by their names, where LLVM_MAJOR is apt.llvm.org's (23,
+  1.6.21) -- fetched by an apt of the job's own -- that one source and both architectures, its lists and its
   cache in a directory of its own, the runner's sources and dpkg left as they are -- and extracted by `dpkg-deb -x`; run
   on this box into a scratch sysroot, the same files as this box's tree. The workflow is actionlint 1.7.12-clean, the
   scripts shellcheck 0.11.0-clean at the warning level (0.223, again at 0.246). Run on this box as the
@@ -158,8 +165,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   into the logs, `crash/`: there the C library ends a program by `abort()` with no line of its own where a check fails
   -- `_FORTIFY_SOURCE`'s, the stack protector's: `abort_report_np` writes the reason to the crash log alone -- and three
   fixtures that died there showed `exit N` and nothing else (Not done).
-- THE MAC'S JOB (0.224). Homebrew's `llvm@18` is the embedded LLVM and the libc++ that the driver gate's C++ checks
-  read: a keg, `$(brew --prefix)/opt/llvm@18` (brew links no versioned formula), installed only from a bottle --
+- THE MAC'S JOB (0.224). Homebrew's LLVM of LLVM_MAJOR is the embedded LLVM and the libc++ that the driver gate's C++
+  checks read: `llvm@N`, a keg, `$(brew --prefix)/opt/llvm@N` (brew links no versioned formula), or `llvm` where N is
+  Homebrew's newest major, which it names with no version -- LLVM 23 since 1.6.21, `llvm` 23.1.6, whose bottles are
+  Apple silicon's and Linux's alone, so the Intel Mac's setup stops at the check below (`ci_llvm`, `tc_llvm`; `llvm@18`
+  until 1.6.21) -- installed only from a bottle --
   Homebrew has built no Intel bottles since September 2026 and LLVM from source is hours, so the setup stops where the
   formula data names none for Intel (`brew info --json=v2`). The job keeps the formula data the runner image was built
   with (`HOMEBREW_NO_AUTO_UPDATE`, as cocolog's does): its data names one bottle of `llvm@18` 18.1.8, sonoma's, which
@@ -268,11 +278,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   runs nothing and takes a minute: a mis-edit that it can see (a call that nothing answers, a name given twice) stops
   the chain there, where the C++ gate met it after an hour. The ccllib gate is last: its C++ builds read the summaries
   that the library read left warm. (0.105, 0.144, 0.273)
-- THE CHAIN RUNS OVER A LIBC++: `LLVM=/usr/lib/llvm-18 sh test/gates.sh` and `LLVM=/usr/lib/llvm-21 sh test/gates.sh` (or the
-  last two gates alone at 21: `test/libcxx.sh`, `test/cpp.sh`; the C gates do not read libc++). The tree is read and linked
-  (`ccl_cxx_dirs`); without `$LLVM` the newest installed one is, libc++ 22 on the Ubuntu box, which no gate has run. The
-  library read wipes the HOME's summaries (`LX_HOME`), so give each pass a HOME of its own to keep both warm (the summaries
-  are keyed by the header's path, so two trees never clash). (0.122, 0.126)
+- THE CHAIN RUNS OVER A LIBC++: `LLVM=/usr/lib/llvm-23 sh test/gates.sh`, then the library read, the C++ gate and the
+  ccllib gate over each other tree, `LLVM=/usr/lib/llvm-18`, `-21` and `-22` (the C gates do not read libc++). The tree
+  is read and linked (`ccl_cxx_dirs`); without `$LLVM` the newest installed one is, libc++ 23 on the Ubuntu box. The
+  library read wipes the HOME's summaries (`LX_HOME`), so give each pass a HOME of its own to keep both warm (the
+  summaries are keyed by the header's path, so two trees never clash). (0.122, 0.126, 1.6.21)
 - `GATES_JOBS` (default 4) sets `FLOW_JOBS`, `LX_JOBS` and `CPP_JOBS`, the lanes of the three parallel phases. (0.105,
   0.144)
 - By hand: build, then `test/flow.sh`, `test/reader.sh`, `test/compile.sh`, `test/driver.sh`, `test/objects.sh`,
@@ -531,7 +541,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `test/libcxx.sh` is one cold parallel pass. It wipes `$WARMHOME/.cicilang/cpp` (`LX_HOME`, else `$HOME`). It reads
   each asserted header at its level whole, each in its own `--local` process (`test/readhdr.pl`'s `readhdr_main`,
   with `CCL_HDR`, `CCL_STD`, `CCL_MIN`). It checks the item count against the list's minimum, a floor under libc++ 18's
-  counts, and leaves the summaries written for the C++ gate. (0.105)
+  counts, and leaves the summaries written for the C++ gate. (0.105) The floors are a fourth column, `min23`, where the
+  tree read is libc++ 23 or later (`lx_notrans`, by its `_LIBCPP_VERSION`), which includes no header transitively.
+  After the reads the largest AST file written is loaded alone, as one job of the pool and under `timeout`, and any
+  warning is RED: an AST file declares its two predicates discontiguous (`ccl_ast_head/1`), and with no head
+  `<format>`'s printed 32,360 warning lines at its load, which the driver passes on to no one. (1.6.21)
 - The 23 asserted reads: `vector`, `string`, `iostream`, `map`, `set`, `unordered_map`, `unordered_set`, `optional`,
   `memory`, `functional`, `tuple` at C++17; `compare`, `vector`, `string`, `iostream`, `set`, `map`, `unordered_map`,
   `unordered_set`, `ranges` at C++20; `optional` and `string` at C++23; `optional` at C++26. A header at a level is a
@@ -727,10 +741,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   another level), its run path the tree's `lib` where the tree has a libc++, as cicilang++'s link names it. The three
   print the same lines, `NAME.expect`, which the twin made; with `NAME.count`, the count of a longer run (`first
   10000000`), the three print the same line for that run too. A box where no clang++ builds a three-line `<vector>`
-  program over libc++ prints `SKIP NAME.cpp (not here)` and holds the two cicilang builds to the `.expect`. cicilang++
-  builds `NAME.c` AT THE TWIN'S LEVEL too (0.284; `-std=$CCLLIB_STD`, c++23), and that build prints `NAME.expect`: no
-  gate built a ccllib program at C++23 until then, where an instance's `v[i]` was C++'s own (the macro files' topic).
-  (0.273, 0.284)
+  program over libc++ prints `SKIP NAME.cpp (not here)` and holds the two cicilang builds to the `.expect`, and so does
+  a twin whose `NAME.needs`, a condition over `<version>` as the C++ gate's, its tree does not meet (1.6.21;
+  `ccl_twin_needs`): libc++ 18 has no floating `from_chars`, which libc++ 20 added, and the twins of `charconv` and
+  `numbers` call it (`_LIBCPP_VERSION >= 200000`). cicilang++ builds `NAME.c` AT THE TWIN'S LEVEL too (0.284;
+  `-std=$CCLLIB_STD`, c++23), and that build prints `NAME.expect`: no gate built a ccllib program at C++23 until then,
+  where an instance's `v[i]` was C++'s own (the macro files' topic). (0.273, 0.284, 1.6.21)
 - EVERY BLOCK IS FREED: where valgrind is, each of the three runs under it (`--leak-check=full`), as it stands and,
   with a `NAME.count`, with a count of 5000 -- no error, and `All heap blocks were freed`: each object is dropped where
   its scope ends, a moved one by who took it (the autodrop of 0.262, whose own fixtures the compile gate runs on every
@@ -1289,16 +1305,22 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   links naming none. (M2, M5, 0.251)
 - `ccl_link_libs/1`: on Linux, ` -lc++` for C++ and ` -lm` for C; on macOS, nothing. Why: on Linux `c++` is g++, whose
   library is libstdc++, and glibc keeps `sqrt`, `creal` and `cabs` in libm. The C++ link names the library of the tree
-  the program was READ from, ` -L<root>/lib -Wl,-rpath,<root>/lib -lc++` (`ccl_cxx_dirs`): two or three libc++ are
-  installed side by side on the Ubuntu box (`/usr/lib/llvm-18`, `-21`, `-22`), chosen by `$LLVM`, and the headers of one
-  with the library of another do not link. Without `$LLVM` the NEWEST tree is read, 22 here: the gates run with
-  `LLVM=/usr/lib/llvm-18`, `-21` and `-22`. ONE TREE IS APT'S, THE OTHERS UNPACKED (0.227): every `libc++-N-dev`,
+  the program was READ from, ` -L<root>/lib -Wl,-rpath,<root>/lib -lc++` (`ccl_cxx_dirs`): four libc++ are installed
+  side by side on the Ubuntu box (`/usr/lib/llvm-18`, `-21`, `-22`, `-23`), chosen by `$LLVM`, and the headers of one
+  with the library of another do not link. Without `$LLVM` the NEWEST tree is read, 23 here: the gates run with
+  `LLVM=/usr/lib/llvm-23`, `-18`, `-21` and `-22`. ONE TREE IS APT'S, THE OTHERS UNPACKED (0.227): every `libc++-N-dev`,
   Ubuntu's and apt.llvm.org's, provides and conflicts with `libc++-x.y-dev`, and apt.llvm.org's runtimes are one
   package, `libc++1`, so apt holds one tree at a time -- installing 22's removed 21's here, and the full job's one
   install of 18's and 21's could never be made. A tree beside apt's is its packages, development and runtime, fetched at
   its own source's version and unpacked, the headers under `<root>/include` and the runtime libraries, as files, under
-  `<root>/lib` (`ci_unpack_libcxx` in `test/ci.sh`; by hand here, 18 and 21 beside 22), which the link names with its
-  rpath.
+  `<root>/lib` (`ci_unpack_libcxx` in `test/ci.sh`: 18, 21 and 22 beside 23 since 1.6.21, 21 and 22 beside 18 before),
+  which the link names with its rpath. Since 1.6.21 the apt tree is LLVM_MAJOR's, apt.llvm.org's 23, and Ubuntu's own 18
+  is unpacked: the two sources name the runtimes apart (apt.llvm.org's `libc++1`, `libc++abi1` and `llvm-libunwind1`,
+  Ubuntu's `libc++1-18`, `libc++abi1-18` and `libunwind-18`, told by `apt-cache madison`'s exact version, as `apt-cache
+  show NAME=VERSION` answers 0 for a version that NAME has not) and lay them out apart (apt.llvm.org's files in the
+  machine's lib directory and links to them in `llvm-N/lib`, Ubuntu's the other way), so each name of both places is
+  copied as the file it names, `llvm-N/lib`'s first, and `libc++.so` is the linker script, never the ELF file that
+  apt.llvm.org's `llvm-N/lib/libc++.so` links to.
   LIBC++ABI IS NAMED after `-lc++` where the tree has one (0.181;
   ` -lc++abi`, `ccl_cxxabi_lib/2`): libc++ 18's `libc++.so` is a linker script, `INPUT(libc++.so.1 -lc++abi -lunwind)`,
   which names it, and libc++ 21's and 22's is the library itself, so the link through g++ found the program's
@@ -1306,8 +1328,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   code asked libc++abi -- two runtimes in one process, and `std::current_exception()` captured nothing
   (`exceptionptr.cpp`). Over libc++ 18 the libraries and their bindings are the same as without. For another machine
   (0.161), ` -lm` in C and, in C++, its libc++ under the sysroot: ` -L<sysroot><root>/lib
-  -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lm`, the rpath where that machine keeps the library,
-  which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100, 0.122, 0.161, 0.181, 0.227)
+  -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lc++abi -lm`, the rpath where that machine keeps the
+  library, which `qemu-aarch64 -L <sysroot>` finds under the sysroot, and libc++abi named as the host's is (1.6.21): the
+  arm64 libc++ 23 under the sysroot is apt.llvm.org's, whose `llvm-23/lib/libc++.so` links to the library itself, and
+  clang++'s and this compiler's links for aarch64 both stopped at `undefined reference to symbol '__cxa_throw'` ...
+  `libc++abi.so.1: error adding symbols: DSO missing from command line`; the cross gate's reference names it too.
+  (0.93, 0.100, 0.122, 0.161, 0.181, 0.227, 1.6.21)
 - THE EXPERIMENTAL LIBRARY OF THE TREE (0.251; `ccl_link_flags/2`, `ccl_link_flag/2`): `-lc++experimental`
   (`-fexperimental-library`) is the archive of the tree the program was read from, by its path -- `<root>/lib/c++`,
   where Homebrew keeps libc++, or `<root>/lib` -- in the link flags. libc++'s experimental part has no stable ABI and
@@ -1673,7 +1699,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   was included, in a header or in the user's file (the User's file topic). `test/c/run/ppinclude.c` (C23: the standard's
   EXAMPLE of `INCFILE`, `#embed INCFILE`), `test/cpp/run/ppinclude.cpp`. (0.211)
 - `#line N "file"` (C 6.10.4) and GNU's `# N "file"` set the presumed line and file per file (`pp_presumed`,
-  `'$pp_linemap'`) for `__LINE__` and `__FILE__`; a diagnostic names the physical place. (0.108)
+  `'$pp_linemap'`) for `__LINE__` and `__FILE__`; a diagnostic names the physical place. (0.108) Clang's `__FILE_NAME__`
+  is the presumed file's last part after its last `/`, as `__builtin_FILE_NAME()` answers (`pp_builtin_obj/3`;
+  1.6.21): libc++ 23's `_LIBCPP_ASSERT` writes it where libc++ 22's wrote `__FILE__`, and under the fast hardening mode
+  `<vector>` lost its class, `template_without_body(vector)` (`hardening.cpp` over libc++ 23). `srcbuiltins.c`.
 - In the user's file `#error` throws `pp_error(L, Text)`, and `#warning` goes to `'$pp_warnings'`, printed by the
   driver after the read (`dr_pp_warnings`). In a header `#error` stops that file (`'$pp_errors'`, unread) and
   `#warning` is nothing. Why: a program's own `#error` compiled to `cicilang: ok`. (0.93)
@@ -3713,8 +3742,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   after it was g's second, and g read 0 (`linkdecl.cpp`), and a file-scope asm's definition of the symbol clashed with
   it (`gnuasm.cpp`). (0.71, 0.215)
 - A namespace is `namespace(L, N | inline(N), Items)`. `namespace A::B { }` and `namespace A::inline B { }` nest
-  (`ccl_ns_segs//1`, `ccl_ns_nest/4`). A namespace alias is `using(L, namespace_alias(N, Q))`, which does nothing, since
-  namespaces flatten. (0.100, 0.109)
+  (`ccl_ns_segs//1`, `ccl_ns_nest/4`). A namespace alias is `using(L, namespace_alias(N, Q))`, at file scope, in a
+  namespace and in a block (a block-declaration, `ccl_block_item//3`; reader 210, 1.6.21: `namespace di = deep::inner;`
+  in a body was a syntax error); the desugaring's namespace pass resolves a name through it (the topic of libc++, the
+  program's namespaces). (0.100, 0.109, 1.6.21)
 - `using enum E` is `using(L, enum(Q))`; `using namespace N`, `using(L, namespace(Q))`; `using N::f;`,
   `using(L, name(Q))`. `using T = type;` is a `typedef` at file scope, in a class, in a block and in an init-statement.
   An alias's right side whose normal read fails is read again with a function template's template-id taken as a type
@@ -6582,7 +6613,16 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   (x);` is a reference so too (the reader's `return(L, paren(E))`, `cpp_decltype_auto_ret_/4`), and the desugaring takes
   `paren(E)` as E everywhere else. The reader kept no parentheses, and `decltype((x))` was `decltype(x)`. `decltypeparen.cpp`.
   A member of a const object is const there ([expr.ref]/6.2; `cpp_obj_const/2` in `cpp_decltype_paren/2`; 0.206):
-  `decltype((c.m))` was `int &`. `aligndecl.cpp`.
+  `decltype((c.m))` was `int &`. `aligndecl.cpp`. THE PARENTHESES ARE KEPT AROUND A MEMBER ACCESS OVER ANY OBJECT, and a
+  member of an rvalue is an xvalue, `T &&` ([expr.ref]/6.2, [basic.lval]/4; reader 210; 1.6.21; `cpp_rvalue_object/1`,
+  `cpp_decltype_paren_src/3`): a member of `std::move(x)`, of a call whose result is an rvalue reference or no reference,
+  of `T{...}` and of `T(...)`, and of `std::move` over a const object, which the desugaring has made the object itself
+  by then -- so the operand as written says it -- unless the member is itself a reference. The parentheses were kept
+  only over a chain from a name: `decltype((std::forward<A>(a).val))` was the member's declared type, `double` where
+  clang++ gives `double &`, and libc++ 23's `__value_visitor`, whose result is `invoke_result_t<_Visitor &&,
+  decltype((std::forward<_Alts>(__alts).__value))...>`, asked a generic lambda's `auto &` parameter to take a prvalue:
+  every `std::visit` over one was refused (`joinwith.cpp` over libc++ 23). A requirement's `{ E } -> C` is
+  `C<decltype((E))>` so too. `decltypemember.cpp`, `visitlambda.cpp`.
 - An `auto` result comes from the first return that ONE walk finds (`cpp_first_return_in`), for methods
   (`cpp_method_ret`) and for free functions, instances and lambdas (`cpp_lambda_ret`). The locals before it are in
   scope (`cpp_declare_only`); an `if constexpr` that folds is entered only on its KEPT branch ([stmt.if]/2); nested
@@ -6618,7 +6658,10 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   taken as `return x;`. A free function's trailing `-> decltype(auto)`, `-> auto &` and `-> auto &&` on a definition are
   its result (`ccl_trailing_ret`, `ccl_auto_shape/1`), where the plain `auto` stood before. Why: join_view's iterator
   takes its inner range through `[&]() -> decltype(auto) { return *__get_outer(); }`, and the lambda returned a COPY of
-  the inner vector, so `++it` compared with the copy's end for ever. `decltypeauto.cpp`.
+  the inner vector, so `++it` compared with the copy's end for ever. `decltypeauto.cpp`. A FUNCTION TEMPLATE'S INSTANCE
+  TOO (1.6.21; `cpp_instantiate_function_emit/10`): its `decltype(auto)` was deduced as `auto`, decayed, and `template
+  <class A> decltype(auto) f(A &&a) { return std::forward<A>(a); }` returned a copy, so `f(a).val += 1` changed the copy;
+  an untyped first return is refused `auto_result(F)`. `dautoinst.cpp`.
 - A FORWARDING REFERENCE, `auto &&x = e` (cv-unqualified), GIVEN AN LVALUE IS `T &` (0.132; [dcl.spec.auto.general]/4,
   [temp.deduct.call]/3; `cpp_fwd_auto/4`): it was `T &&` whatever e was, so `std::forward<decltype(x)>(x)` moved from an
   lvalue, and a call returning a reference was taken for a temporary to extend -- join_view's `auto &&__inner = [this]()
@@ -8273,7 +8316,10 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `cpp_eval_reduce/3` does: `squares()[3]` and `r[3]` over `std::array`'s `operator[]` (`constexprstore.cpp`). `nullptr`
   reduces to 0. (0.257)
 - C++20'S CONSTANT EVALUATION (0.257, on the owner's choice; `constexpr20.cpp`, whose static assertions passed unasked
-  until then). A TRY BLOCK runs its block and a handler never (P1002): a throw fails the evaluation, C++26's P3068 not
+  until then). A USING-DECLARATION, A USING-DIRECTIVE AND A NAMESPACE ALIAS in a body do nothing there, as in the check
+  and the lowering (1.6.21; `cpp_eval_stmt/4` of `using(_, _)`): libc++ 23's `__split_buffer` swaps by `using std::swap;
+  swap(__begin_, __begin);`, and every `push_back` that grows a vector was no constant (`constexpr20.cpp` over libc++
+  23, `constexprusing.cpp`). A TRY BLOCK runs its block and a handler never (P1002): a throw fails the evaluation, C++26's P3068 not
   done. A UNION'S VALUE is `uni(Active, Members)`: a designated item names its member (`UU u{.i = 3}`); a store into a
   member of an inactive member begins its lifetime ([class.union.general]/6: `__r_.first().__s.__size_ = n`,
   `cpp_eval_upd/4`), the address of such a place taking its shape from the member's type (`cpp_eval_shape/2`); a read of
@@ -9716,7 +9762,10 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   constructed in it ([dcl.fct.def.coroutine]/5, /10; 0.205, `coro_promise/3`: it was constructed first); 3. `coro_ret`:
   `get_return_object()`, converted as a return is; 4. the initial suspend's await; 5. `coro_body`, with a fall-off
   `return_void()` where the promise has one; 6. the final suspend's await; 7. `coro_done`: the defers, `llvm.coro.free`,
-  the frame given back to its deallocation function, `llvm.coro.end`. (0.108, 0.202, 0.205)
+  the frame given back to its deallocation function, `llvm.coro.end` -- whose result is the embedded LLVM's (1.6.21;
+  `ir_coro_end_type/1` over `ir_llvm_major/1`): none from LLVM 22, as clang 22 and 23 declare it, an `i1` before; LLVM
+  23 refused the `i1` (`intrinsic return type expected void, but got i1`), 18 and 21 refuse the `void`, and nothing
+  reads it. (0.108, 0.202, 0.205, 1.6.21)
 - THE COROUTINE STATE'S ALLOCATION ([dcl.fct.def.coroutine]/9-12; `cpp_coro_alloc/5`, `cpp_coro_dealloc/1`; 0.202): the
   promise type's `operator new`, a member or a base's, over the frame's size (`coro_size`, `llvm.coro.size.i64`) and the
   coroutine's arguments, else over the size alone, else the global one; a promise with
@@ -10093,7 +10142,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   scope: the keyed ones are renamed to their keys in the items or statements that follow (`cpp_using_map/4`,
   `cpp_using_blocks/4`, in the same pass; the namespace it names found from the scope's own outwards,
   `cpp_abs_ns_path`). `using b::f; ... f()` called a::f, and `using namespace b; S s; g(2)` was a's S and a's g: silent
-  wrong answers. `nsusing.cpp`. ... AND OF A HEADER'S KEYED NAMES (0.160; `cpp_hdr_using/2`, `cpp_using_key/2`): `using
+  wrong answers. `nsusing.cpp`. A NAMESPACE ALIAS of the program (1.6.21; [namespace.alias]; `cpp_alias_segs/4`,
+  `cpp_ns_alias_subst/4`, in the same pass), at file scope, in a namespace or in a block, makes `x::` `b::in::` in the
+  items or the statements after it, its namespace found from the scope's own outwards as a directive's is; an alias of
+  the alias and a using-directive over one take its namespace too. An alias did nothing (0.109), and `namespace z =
+  b::in; z::v()` called a::in's v, a silent wrong answer. `nsaliases.cpp`. ... AND OF A HEADER'S KEYED NAMES (0.160; `cpp_hdr_using/2`, `cpp_using_key/2`): `using
   namespace std::chrono;` or `using std::chrono::floor;` puts that namespace's keyed functions and objects in force, at
   namespace scope for the rest of the unit -- or of the namespace it stands in -- and in a block to its end
   (`'$cpp_usings'`), and a bare CALL of such a name takes its key first and the bare name's own road where the key's
@@ -10309,8 +10362,12 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - The math builtins are libm's (`cpp_math_fn`, `cpp_math_stem`, `cpp_math_shape`): `f` float, `l` libm's own long double
   function, each declared once where no header did (`cpp_math_declared`): the rehash's `__builtin_ceilf`. `scalbn` and
   `ldexp` take (T, int), `frexp` (T, int *), `modf` (T, T *), and `ilogb` answers an int (`cpp_math_odd/4`):
-  `<complex>`'s division calls `std::scalbn` and `std::logb`. `__builtin_abs`, `labs` and `llabs` are the C library's
-  too (libc++'s `<stdlib.h>` writes `abs(long)` through `__builtin_labs`). (0.81, 0.108, 0.117)
+  `<complex>`'s division calls `std::scalbn` and `std::logb`. `__builtin_abs`, `labs` and `llabs` are LLVM's `llvm.abs`
+  over the parameter's type, in C and in C++ (`ccl_abs_builtin/2`, an `ir_call/4` clause; 1.6.21): they were the C
+  library's abs, labs and llabs, and libc++ 23 writes `template <class = int> int abs(int __x) { return
+  __builtin_abs(__x); }` beside an abs template over `_BitInt(_Np)`, so the call of the C library's name met the
+  templates and was refused, `template_argument_free('_Rep')` (`stdabs.cpp` over libc++ 23). `test/c/run/builtinabs.c`.
+  (0.81, 0.108, 0.117, 1.6.21)
 - `__builtin_popcount` and its forms fold where their argument folds, over the type's width (`cpp_popcount`): libc++'s
   `digits`. `__builtin_offsetof` comes from the layout (`cpp_trait`, `cpp_offsetof`). (0.45, 0.60, 0.94)
 
@@ -13626,7 +13683,13 @@ in the first topic (The ccllib gate).
   components (`ir_leaves/3`): SSE leaves for a floating one, INTEGER for an integer one, X87 and X87UP for a long
   double one. (0.100, 0.101, 0.108)
 - `_BitInt(N)` is exactly `iN` (`ir_base`), sized by the psABI: the smallest of 1, 2, 4 or 8 bytes up to 64 bits, and
-  whole eightbytes aligned 8 past that. (0.93)
+  whole eightbytes aligned 8 past that -- on x86-64. ON ARM64, Linux's and Apple's, a `_BitInt` past 64 bits is AAPCS64's
+  quadwords (its mapping, 2023Q3; `ccl_bitint_quads/0`; 1.6.21): one of 65 to 128 bits is `__int128`, 16 bytes aligned
+  16, and one past 128 bits is laid out as an `unsigned __int128[M]`, M * 128 >= N, as clang 21, 22 and 23 lay them.
+  clang 18 aligned one of 65 to 128 bits at 8, and so did this compiler until the cross gate held `c23b.c`'s
+  `alignof(_BitInt(100))` to clang 23's 16; clang refuses one past 128 bits there, so that size is AAPCS64's words
+  alone. The driver gate holds the layouts on the three machines to clang's (`test/c/link/abi_targets.c`: a member of 100
+  bits after a `char`, one of 65 between two). (0.93, 1.6.21)
 - `wchar_t` is a signed `i32`, `char16_t` an unsigned `i16` and `char32_t` an unsigned `i32` (LP64). A wide string
   literal is a constant of its decoded code points (`ir_wstring/3`, `ir_utf8_decode/2`). `sizeof` of a string literal
   is its array's bytes, one element per code point for a wide one (`ccl_literal_bytes/2`). (0.92, 0.93, 0.103)
@@ -14017,8 +14080,15 @@ in the first topic (The ccllib gate).
   `DILexicalBlock`, and LLVM's DWARF writer (18's, 21's and 22's `llc` alike, in
   `DwarfCompileUnit::getOrCreateGlobalVariableDIE`) died of SIGSEGV on it, the command with it (the Ambitious session's
   finding 17); the driver gate builds one at a function's top, in an `if`, a loop, a `case`'s block, two of one name in
-  two blocks and an array, with -g, in C and as C++, and reads their names out of the DWARF. A name the compiler made
-  (`$tmp1`, `$ret`) is not described. (0.130, 0.294)
+  two blocks and an array, with -g, in C and as C++, and reads their names out of the DWARF. A STATIC LOCAL IS LISTED
+  WHERE THE EMBEDDED LLVM TAKES IT (1.6.21; `ir_dbg_locals_form/1` over `ir_llvm_major/1`, `ir_dbg_retain/3`): from LLVM
+  23 in its function's `retainedNodes`, as clang 23 lists one, and before 23 in the compile unit's `globals:`. LLVM 23's
+  verifier says of one among the unit's globals `function-local variables are not allowed in a DICompileUnit's global
+  variables list`, and strips the debug information of the WHOLE module, every function's lines and variables with it,
+  where 18, 21 and 22 say `invalid retained nodes` of the other: the driver gate's two checks met an object with no
+  `.debug_*` section at all over LLVM 23, and a program with no static local was not touched. The IR caches' keys fold
+  the major (`dr_ir_sig/3`, `dr_cxx_ir_file/3`), so that no IR kept for one LLVM is served to another. A name the
+  compiler made (`$tmp1`, `$ret`) is not described. (0.130, 0.294, 1.6.21)
 - THE TYPES (0.130), DWARF's from the C types, each described once per module (`ir_dbg_type/2` over `'$ir_dbg_types'`,
   keyed by `ir_dbg_key/2`: a tag by its kind and name and a C++ class name by its tag, so `struct point` named through a
   pointer, a typedef and itself is one type): the base types by their encoding (`ir_dbg_encoding/2`: boolean, complex,
@@ -14476,7 +14546,40 @@ in the first topic (The ccllib gate).
   SEMICOLON OR AN ARROW IS WRITTEN IN PARENTHESES, `(public)`, the form that standard Prolog reads as the atom (3.37.0
   does, and 3.62.2: the chain of 0.292). The seven places where such an atom stands before a closing parenthesis (`A0 =
   public )`) are as they were: the report's load took them. (0.290, 0.292)
-- cocolog is at 3.62.3 since 0.293, taken at its latest master on the owner's word ("Pull latest cocolog. First pull
+- cocolog is at 3.78.18 since 1.6.21 (`86ad08c`), taken at its latest master on the user's word ("Update pins to latest
+  versions"): fifty-eight commits past 3.62.3, fifty-one versions of cocolog's own, from 3.62.4 -- the 1.6.x steps ran on
+  3.65.0 (`c7e3103`, then `6af52f8`) with the pin left at 3.62.3 -- and the rest its documents and benchmarks; beside
+  ZiguratIP 1.0.4 (`655fa38`; 1.0.3 and 1.0.4, which cocolog 3.62.6 and 3.62.7 build against, a store under an
+  address-space limit and a refused allocation under the engine's locks) and Cicili 3.3.0 (`3ba2ca4`), which has no new
+  commit. What reaches cicilang: 3.73.1 answers a backtrackable global's atomic value as the value, which mends 1.1.2's
+  finding (below); 3.66.0 loads a module of cocolog's at the first call of a name that nothing defines, and no name of
+  this library is such a call (the flow gate's chart names none); 3.67.0's `style_check/1` and loads' words are swipl's,
+  and three ccllib modules written after 0.293's load check, `any.pl`, `atomic.pl` and `iostream_impl.pl`, said
+  `Singleton variables` -- a C text's parameter that the clause's head names and the text names by its hole, `@T` --,
+  each now `_T`, `_What`, `_D` or `_F`, so the 76 loads (the library in one process, then each of ccllib's 43 modules,
+  the fixtures' 19 macro files, the 10 gate programs and the 3 lessons alone, a `cocolog run` each, under the caps) are
+  silent; 3.68.0 to 3.78.0 add builtins (`nb_delete/1`, `term_variables/3`, `unifiable/3`, `divmod/4`, `flag/3`,
+  `shell/1,2`, `at_halt/1`, `findnsols/4,5`, `call_with_depth_limit/3`, `predsort/3`, `format_time/3`,
+  `source_file/1,2` and the rest), and no clause of the repository's Prolog defines one of them; 3.75.0 reads
+  `aggregate_all(count(T), ...)` as swipl does, and no clause calls it so; 3.73.2's `consult(library(N))` reads the file
+  again, and the macro files load by `ensure_loaded/1`, whose `if(not_loaded)` loads once as before; 3.78.12 and 3.78.13
+  change single-sided rules (`=>`), which no clause writes (the `'<=>'` of the desugaring is C++'s operator, an atom);
+  3.78.2 and 3.78.16 mend what `nb_setarg/3`, `setarg/3` and `b_setval/2` leave behind a failure or a collection, and
+  the library's 892 `b_setval/2` and 557 `b_getval/2` give the chain's answers as before; 3.78.17 and 3.78.18, master's
+  commits while the step ran, take out stores that a clause's entry, a frame's push and a meta-predicate's call made
+  into lines that every worker reads, and seal a clause's code compiled while a world shares the store -- the engine's
+  own, with no change of what a query answers, and the SDK's structures moved, so both modules are built again over
+  it. Built by the CI's setup over this box (`CI_PACKAGES=1 sh test/ci.sh full setup`): cocolog's installer over clang
+  18 first, its checkouts then cleaned and built again over clang 23.1.6 for LLVM 23 (The CI job), and over 3.78.18 by
+  the same setup (`sh test/ci.sh full setup`); the toolchain check strict GREEN over each.
+- A CALL IN A HOT LOOP COSTS THE LOOP ITS LOADS, EVEN WHERE IT NEVER RUNS (cocolog's finding, relayed with 3.78.16, in
+  its Cicili code that clang compiles): clang reloads the pointers that the loop reads at every turn, as the call may
+  write them; `(weak) (cold)` on the callee did not help, and an inline DEFMACRO that only reads memory cost one register
+  instead; each layout that moved the new code disturbed another loop's register allocation by more. Nothing in Cicili
+  changed with it. It is LLVM's rule over any caller, this compiler's IR among them: a call whose callee may write memory
+  ends what the optimizer may keep in registers across it. Not measured here: this library's two modules are Cicili
+  (the native lexer's loops), and the lowering's calls in loops were not counted for it. (1.6.21)
+- cocolog was at 3.62.3 from 0.293 to 1.6.20, taken at its latest master on the owner's word ("Pull latest cocolog. First pull
   cocolog then run gates") -- `bf956d1`, six commits past 3.62.2, one version of cocolog's own and the rest its
   reasoning library's (1.0.35 to 1.0.37) and the merge of that library's branch --, beside ZiguratIP 1.0.2 (`2a65f81`)
   and Cicili 3.3.0 (`3ba2ca4`), which have no new commit. 3.62.3 gives a program short of memory its answer, the error
@@ -15145,7 +15248,10 @@ in the first topic (The ccllib gate).
   b_setval(k, u([x|U]))` stores `u([x])`, and `b_getval(k, o(Q))` of `o(no)` keeps `no` after the next `b_setval/2`. The
   reader's notes of 1.1.2 ran out of stack (`resource_error(stack)`) at the first note made over `[]`, and its saved
   flag of a C text's read was the next one's. Its backtrackable globals hold compounds, `u(Notes)`, `o(Flag)` and
-  `p(Names)` (the C reader's topic of the symbol table). A finding for cocolog's owner.
+  `p(Names)` (the C reader's topic of the symbol table). A finding for cocolog's owner, MENDED IN COCOLOG 3.73.1
+  (`633f590`, "b_getval/2 of an atomic value is the value"), from the report of another session of the owner's: the
+  read hands out the value in a cell of its own, and `b_setval(k, 1), b_getval(k, V), b_setval(k, 2)` leaves V = 1, as
+  swipl's. The compounds stay: they are right over either cocolog. (1.1.2, 1.6.21)
 ### Measurement and the instruments
 
 - An instrument that answers without measuring the thing asked answers confidently and wrongly. The tell is an answer
@@ -15354,7 +15460,8 @@ in the first topic (The ccllib gate).
   0.90, all GREEN (cocolog 1.2.18). Since 0.224 the CI's Mac job runs the six small gates there, on GitHub's
   `macos-26-intel` over Homebrew's `llvm@18` (The toolchain, its pins and the CI job); the C++ gates have run on Linux
   only since 0.93.
-- Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
+- Ubuntu 24.04 on x86_64 (clang and LLVM 23 since 1.6.21, apt.llvm.org's, and Ubuntu's 18 before; glibc; libc++ 18,
+  21, 22 and 23) is a host since 0.87. Every gate but the C++
   one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
   not; the others were gated by the steps after them). The last full run is 0.295's chain, over the finished phase 1a of
@@ -16531,6 +16638,13 @@ Declarations topic of the C++ reader).
   difference that they hold. A rule over the inference's type, `p - x` of no known type where x's is not known, did not
   cure the reduction and broke another program (HISTORY.md's 1.6.1). `autoptrdiff.cpp` holds the form.
 
+- A NAME OF A LIBRARY HEADER THAT THE UNIT DOES NOT INCLUDE IS REFUSED, BUT NOT IN CLANG++'S WORDS (found at 1.6.21):
+  libc++ 23 includes no header transitively, and `std::ref(c)` with no `<functional>` is clang++'s `no member named 'ref'
+  in namespace 'std'`; the desugaring makes it a call of the bare `ref`, which has no type, and the refusal names what
+  met that later -- `auto(r)` for `auto r = std::ref(c);`, `kind_mismatch('_Tp')` for `v.emplace_back(std::ref(c))` --
+  where a name that no header declares is `undeclared(nothere)`. `stdthread.cpp` forgot `<functional>`, and libc++ 18 to
+  22 brought it through `<thread>`; it includes it now.
+
 ### libc++ modules
 
 - Range views: `filter`, `transform`, `reverse`, `iota`, `take`, `drop`, `take_while`, `keys`, `values` and their chain
@@ -16594,6 +16708,16 @@ Declarations topic of the C++ reader).
   after it in its eightbyte as `i64` (clang's `i32`), a `byval` struct's tail padding, an `__int128` in registers as
   `i128` (clang's two `i64`) -- 25 of 867 conventions over 128 C run fixtures (0.244). `bin/cicilang` refuses three of
   clang's arguments: `-isystem` (a CMake build passes it), `-P` and `-dM`.
+- A `_BitInt` PAST 64 BITS CROSSES A CALL AS ITS `iN` (found at 1.6.21, when `abi_targets.c` took a `_BitInt` past 64
+  bits; older than it, as clang 18 coerces as clang 23 does): on x86-64 one of 65 to 128 bits is `i100`, say, where clang
+  passes and returns two `i64`, the same registers as the first argument but not after five `long` arguments, where one
+  register is left -- LLVM 23's `llc` puts the `i100`'s low half in `r9` and its high half on the stack, and clang's
+  code passes the whole value in memory (`byval`), as the psABI's classification does; one PAST 128 bits is `i129` in
+  registers where the psABI's MEMORY class (clang's `byval` and `sret`) puts it in memory, and on Linux's aarch64 alike,
+  where AAPCS64 passes a composite of more than 16 bytes by reference (clang refuses one there). A call of such a
+  function between this compiler's code and another compiler's reads a wrong value; within one program it is
+  consistent. `abi_targets.c` holds the layouts and an `unsigned _BitInt(128)` after an `int` on the three machines;
+  the conventions past 64 bits are a step of their own. (1.6.21)
 - A floating constant converted to an integer type it does not fit wraps (0.108, `ccl_w_cast/3`), where clang's fold
   saturates, as LLVM's APFloat converts (the type's maximum, its minimum or 0, a NaN 0): both are allowed, the
   conversion being undefined (C 6.3.1.4), but a program that does it prints otherwise than clang's. 0.248 met it in

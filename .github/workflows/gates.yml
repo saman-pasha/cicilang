@@ -5,19 +5,23 @@
 # github CI after each change", then "disable nightly run"): the smoke job ran on each push to main from 0.223 to 0.270,
 # three machines a commit, and the full job and the C++ job each night (`schedule', cron `37 2 * * *').
 #
-#   linux        ubuntu-24.04 (x86-64, 4 CPUs, 16 GB)     install/install-linux.sh, LLVM 18 and libc++ 18 from Ubuntu
-#   macos-intel  macos-26-intel (x86-64, 4 CPUs, 14 GB)   install/install-macos.sh, LLVM 18 and libc++ 18 from Homebrew
-#   macos-arm    macos-15 (arm64, 3 CPUs, 7 GB)           install/install-macos.sh, LLVM 18 and libc++ 18 from Homebrew
+#   linux        ubuntu-24.04 (x86-64, 4 CPUs, 16 GB)     install/install-linux.sh, LLVM 23 and libc++ 23 from apt.llvm.org
+#   macos-intel  macos-26-intel (x86-64, 4 CPUs, 14 GB)   install/install-macos.sh, LLVM 23 and libc++ 23 from Homebrew
+#   macos-arm    macos-15 (arm64, 3 CPUs, 7 GB)           install/install-macos.sh, LLVM 23 and libc++ 23 from Homebrew
+#
+# LLVM 23 SINCE 1.6.21 (LLVM 18 until then, Ubuntu's own): test/toolchain.pins' LLVM_MAJOR. Homebrew's LLVM 23 is its
+# formula llvm, 23.1.6, whose bottles are Apple silicon's and Linux's alone: the Intel Mac's setup stops at its check
+# that the formula data names an Intel bottle (test/ci.sh), as LLVM from source is hours.
 #
 # The Intel Mac is the owner's machine, macOS 26 on x86-64, as cocolog's CI has it; Homebrew there as the runner image
 # has it (HOMEBREW_NO_AUTO_UPDATE): its formula data still names Intel bottles, which Homebrew has built none of since
 # September 2026. Apple silicon (0.246) is this compiler's first run on Apple's arm64: the driver gate holds that
 # machine's conventions to clang's IR on every machine (0.244), and there the compile gate runs each program beside
-# Apple clang's build of it; cocolog's CI runs that machine too. The full job -- all ten gates over libc++ 18, the
-# cross gate's C++ part over that machine's libc++ (0.246), then the library read and the C++ gate over libc++ 21 and
-# over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux on request; so
-# does the C++ job, the library read and the C++ gate over libc++ 18 on the Intel Mac (0.246), where they had not run
-# since 0.90. Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's
+# Apple clang's build of it; cocolog's CI runs that machine too. The full job -- all ten gates over libc++ 23, the
+# cross gate's C++ part over that machine's libc++ (0.246), then the library read and the C++ gate over libc++ 18, 21
+# and 22 (0.227, 1.6.21), each tree but 23's unpacked beside the others (test/ci.sh) -- runs on Linux on request; so
+# does the C++ job, the library read and the C++ gate over LLVM_MAJOR's libc++ on the Intel Mac (0.246), where they had
+# not run since 0.90. Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's
 # installer, Quicklisp kept in the Actions cache between runs; a SKIP the job does not expect is RED (test/ci.sh), and
 # the logs are the run's artifact for 14 days. The shape follows cocolog's own CI (its .github/workflows/ci.yml,
 # 2026-10-29).
@@ -132,7 +136,7 @@ jobs:
         with:
           path: ~/quicklisp
           key: ${{ steps.quicklisp.outputs.cache-primary-key }}
-      - name: Every gate over libc++ 18, the C++ gates over 21 and 22
+      - name: Every gate over libc++ 23, the C++ gates over 18, 21 and 22
         run: sh test/ci.sh full gates
         env:
           CI_LOGS: ${{ runner.temp }}/logs
@@ -177,7 +181,7 @@ jobs:
         with:
           path: ~/quicklisp
           key: ${{ steps.quicklisp.outputs.cache-primary-key }}
-      - name: The library read and the C++ gate over libc++ 18
+      - name: The library read and the C++ gate over libc++ 23
         run: sh test/ci.sh cpp gates
         env:
           CI_LOGS: ${{ runner.temp }}/logs

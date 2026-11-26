@@ -108,9 +108,9 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   `std::bind`, `<algorithm>`, `std::cout`, `std::cin`, `std::getline`,
   `std::stringstream`, `std::fstream`, `std::bitset`, `std::complex`,
   `std::span`, `std::byte` and the manipulators all compile from libc++'s
-  own bodies and run, on Linux with libc++ 18, with libc++ 21 and, since 0.227, with libc++ 22 (the gates run the three,
-  `LLVM=/usr/lib/llvm-18`, `-21` or `-22` chooses the tree), on aarch64 Linux under qemu over that machine's libc++ 18
-  in the cross sysroot, and, as of 0.90, on macOS (libc++ 21).
+  own bodies and run, on Linux with libc++ 18, with libc++ 21, since 0.227 with libc++ 22 and since 1.6.21 with libc++
+  23 (the gates run the four, `LLVM=/usr/lib/llvm-18`, `-21`, `-22` or `-23` chooses the tree), on aarch64 Linux under
+  qemu over that machine's libc++ in the cross sysroot, and, as of 0.90, on macOS (libc++ 21).
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
@@ -151,7 +151,8 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
 cicilang needs the three neighbours checked out beside it (the paths are
 the `CICILI`, `COCOLOG` and `ZIGURATIP` variables, defaulting to
 `~/Projects/GitHub/<name>`), an LLVM with its C API (Homebrew's `llvm@18` or
-`llvm` on macOS, `llvm-18-dev` or newer on Debian and Ubuntu), a `cc` and a `c++`
+`llvm` on macOS, `llvm-18-dev` or newer on Debian and Ubuntu; the gates' pin is
+LLVM 23 since 1.6.21), a `cc` and a `c++`
 for the link, and libc++ for the C++ side. `test/toolchain.pins` names the
 neighbours' commits and the LLVM and libc++ versions the gates last passed
 on, and `sh test/toolchain.sh` checks a box against it, each tool's version
