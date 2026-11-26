@@ -1071,7 +1071,11 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
         ;   nb_setval('$pp_mt_line', L), pp_include_file(Path, Out0, Out) )
     ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
     ;   Out0 = Out ).
-pp_do_include(_, _, _, _, Out, Out).
+%% AN #include WHOSE OPERAND IS NO NAME, AS WRITTEN OR AS ITS MACROS MAKE IT, IS REFUSED IN THE PROGRAM'S FILE (1.6.22; C17
+%% 6.10.2/4): clang's `expected "FILENAME" or <FILENAME>' at its line, where it was dropped with no word and the program
+%% failed at the header's first name -- `#include \"x.h\"', which a slip of a shell wrote. A header's own run
+%% passes it over, as before
+pp_do_include(_, _, _, L, Out, Out) :- ( nb_getval('$pp_top', yes) -> throw(pp_error(L, 'expected "FILENAME" or <FILENAME>')) ; true ).
 %% AN #include INSIDE AN ITEM OF THE TOP RUN IS ITS FILE'S TEXT IN PLACE (0.310; C17 6.10.2/3, the directive replaced by
 %% the entire contents of the file): where the run's output stands inside braces, parentheses or brackets, or after `='
 %% (pp_top_inner/0), the file is run in the run, as a header's run takes an #include, under the macros in force -- an

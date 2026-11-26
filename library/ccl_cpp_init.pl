@@ -133,9 +133,18 @@ cpp_prvalue_init(base(_, [typedef(X)]), braced_temp(call(id(X), Vs)), init(Items
 %% (it needs one initialization per thread), an `extern' declaration, a class, an array, a reference.
 cpp_dynamic_scalars(_, _, _, _, [], [], []).
 cpp_dynamic_scalars(L, Ctx, Sto, B, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
-    (   cpp_dyn_scalar(Ctx, Sto, B, R, N, T, I, E) -> cpp_dynamic_assign(L, Ctx, Sto, N, E), I1 = none
+    (   cpp_dyn_scalar(Ctx, Sto, B, R, N, T, I, E) -> cpp_constexpr_folds(L, B, N, I), cpp_dynamic_assign(L, Ctx, Sto, N, E), I1 = none
     ;   I1 = I ),
     cpp_dynamic_scalars(L, Ctx, Sto, B, Rs, Vs, Ws).
+%% A CONSTEXPR VARIABLE WHOSE INITIALIZER CALLS A FUNCTION THAT IS NOT CONSTEXPR IS REFUSED ([dcl.constexpr]/10: its
+%% initialization's full-expression is a constant expression; 1.6.22), in clang++'s words, `constexpr variable 'g' must be
+%% initialized by a constant expression': `constexpr int g = h();' over `int h()' built and ran h at run time; SO IS ONE WHOSE
+%% EVALUATION REACHES A TRAP. The fold is asked again and refused only where the evaluator met such a call or a trap
+%% ('$cpp_eval_why', cpp_eval_call/5, cpp_eval_reduce/3); any other fold
+%% that fails keeps the run-time road, since the evaluator does not take every constant expression (a long double's)
+cpp_constexpr_folds(L, base(Q, _), N, I) :- memberchk(constexpr, Q), !, nb_setval('$cpp_eval_why', none),
+    ( catch(cpp_with_ce(cpp_const_value(I, _)), _, fail) -> true ; nb_getval('$cpp_eval_why', Why), ( Why = nce(_) ; Why = trap(_) ) -> ( L == 0 -> cpp_refuse_stmt(constexpr_not_constant(N)) ; cpp_refuse(L, constexpr_not_constant(N)) ) ; true ).
+cpp_constexpr_folds(_, _, _, _).
 cpp_dyn_scalar(Ctx, Sto, B, var(_, _, I0), N, T, I, E) :-
     atom(N), Sto \== extern, I \== none, \+ ( B = base(Q, _), memberchk(thread_local, Q) ),
     cpp_in_class_if(Ctx, cpp_dyn_scalar_type(T)),

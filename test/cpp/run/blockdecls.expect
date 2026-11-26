@@ -1,0 +1,9 @@
+ov(int) 2
+ov(int) 3
+ov(double) 2.5
+q(int) 2
+ar(int *) 6
+q(double) 2.5
+ov(double) 4
+11 22 6
+exit 0

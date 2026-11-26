@@ -338,6 +338,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.19 | A loop's body walked again until its state settles | the record of 1.6.17 closed for the loops: each pass starts from the join of the last one's start and its end, until the join is the start, eight passes at most and a loop that does not settle refused by name; each pass starts with the labels noted at the loop's start; a setjmp that a later pass reaches again replaces its note -- a leak in a later pass, an owner written over, a goto over a free and a jump to an earlier pass's setjmp were taken; a plain pointer declared null, in no frame, recorded (lowering 188) | nets GREEN: flow, reader 173, compile 412, driver 111, objects 29, cross 233, ccllib 625 (621 and two failures at first, born_held.c), the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 253 |
 | 1.6.20 | A plain pointer declared null is a key of its frame | the record of 1.6.19 closed: `char *q = NULL;` declares q `none`, so a label's join no longer takes it for a declaration that a goto jumped over -- a goto past new memory that the label's path frees was refused, in C and in C++; a static local kept as it was; a volatile local keeps its value across a longjmp, no key changed since the setjmp (lowering 189) | nets GREEN: flow, reader 173, compile 417, driver 111, objects 29, cross 234, ccllib 625, the C++ pools 383 over 22, 21 and 18, the heavier 506 (14 skipped), cppnet 254 |
 | 1.6.21 | The pins at the latest versions: cocolog 3.78.18, ZiguratIP 1.0.4, LLVM 23 and libc++ 23 | at the user's word "Update pins to latest versions" and "Add 23 and move LLVM to 23": cocolog 3.62.3 to 3.78.18, ZiguratIP 1.0.2 to 1.0.4, the embedded LLVM and the C gates' clang 18 to 23, libc++ 23 a fourth tree; LLVM 23's faults mended -- a static local's debug record, `_BitInt`'s alignment, a coroutine's end, the cross link's libc++abi --, libc++ 23's 27 failures of the C++ gate mended -- `decltype((E))` of any member access, an instance's `decltype(auto)`, a block's namespace alias, the evaluator's `using`, a callable data member called, the abs builtins as `llvm.abs`, `__builtin_bswapg`, `__FILE_NAME__`, a summary's AST file declared discontiguous --, three older silent wrong answers among them; a `_BitInt` past 64 bits across a call recorded; a ccllib twin's `NAME.needs` (reader 210, lowering 190) | the chain GREEN over libc++ 22, 21 and 18 (18's ccllib gate RED on its tree first: two twins call the floating `from_chars`, which libc++ 18 has not, and the box had no TSan runtime for clang 18), and over LLVM 23 ten gates: flow 684 s, reader 173, compile 418, driver 111, objects 29, cross 274, the C++ gate 1228 over 22, 1225 over 21, 1217 over 18 and 1228 over 23, ccllib 625, 625 and 623; the ccllib gate over 23 ran at the commit, made then at the user's word; 24 broken copies caught |
+| 1.6.22 | Twelve records of Not done closed, three narrowed, each against clang; cocolog 3.78.21 | at the user's words: GNU's `x ?: y`, a block's function declarations hiding outer overloads, a call's prvalue no place in C++, a local class defined in its object's declaration, a store through a reference to a pointer, an operator's value no lvalue in C, a call's result's address, a parenthesized callee and the argument's namespace's overloads joined, a member's initializer and a template's body in clang++'s words, a missing and a malformed `#include` refused; C's const places, a constexpr variable over a call or a trap and a C++ condition over a plain struct refused; the folds' arguments converted, an older silent wrong answer; cocolog 3.78.18 to 3.78.21 (reader 211, lowering 191) | committed while its nets ran, at the user's word: flow 522 s and reader 173 GREEN over LLVM 23, the other nine gates running; the copy's driver 117, reader 173 and compile 419, the constant pool 56; 27 broken copies caught, two clauses that none could break taken out, six more running; 1.6.21's ccllib gate over 23 GREEN, 625 |
 
 ## M5 — the C++ mode
 
@@ -25112,3 +25113,133 @@ runs, 189 refused and 21 alone over each tree. No CI job ran, by the owner's rul
   README.md (the trees, the LLVM), CCLLIB.md (cocolog's version).
 
 The module 1.6.21, the reader 210 and the lowering 190.
+
+## 1.6.22 — Twelve records of Not done closed, three narrowed, each against clang; cocolog 3.78.21
+
+**1.6.22: at the user's words "Do many of the not done tasks" and "After the chain pull cocolog, pin, do many of the not
+done list": twelve records of RULES.md's Not done closed and three made narrower, each form held to clang's or clang++'s
+answer at its line; three of them were silent wrong answers or a run that did what clang refuses, and the probes found
+an older silent wrong answer of the constant folds, mended. cocolog from 3.78.18 to its latest master, 3.78.21. By the
+user's word "try to run less chain and do more tasks before every chain", the step's proof is the eleven gates over LLVM
+23 and the broken copies, not the chain over the four trees. The step was committed while its nets ran, at the user's
+word "To prevent code lost, first commit and push": it claims nothing GREEN of them, and the next step's commit carries
+them.**
+
+THE RECORDS CLOSED.
+
+1. GNU'S CONDITIONAL WITH NO MIDDLE OPERAND, `x ?: y`, in C and in C++ (`ccl_cond_expr//1`, `ccl_gnu_cond/3`; the reader
+   211): x evaluated once. An operand that no evaluation changes is read twice, which keeps a constant one a constant
+   (`enum { E = 0 ?: 4 }`) and C++'s lvalue of two names; any other is held in a temporary of its type, a statement
+   expression. It was `syntax error: could not read this item`. And the check takes such a block: A STATEMENT EXPRESSION
+   OF DECLARATIONS ALONE, THEN ITS VALUE, gives that value with each local's initializer in its place (`ck_block_value/2`),
+   so `pick(1) ?: "none"` over a pick whose every return is static storage is static storage, where it was `plain pointer
+   not consumed`; each initializer has the earlier locals' in their places (`ck_block_map/3`), so that a local of the
+   block never names an outer local of its name -- the copy's first form refused a correct program so, found by a
+   probe beside it. `test/c/run/gnucond.c`.
+2. C++: A FUNCTION THAT A BLOCK DECLARES HIDES THE NAME'S OUTER OVERLOADS to the block's end (`'$cpp_blkfns'`,
+   `cpp_blk_hidden/2`): `{ void ov(int); ov(2.5); }` called the file's ov(double), a silent wrong answer.
+   `test/cpp/run/blockdecls.cpp`.
+3. C++: A CALL'S PRVALUE IS NO PLACE AND HAS NO ADDRESS (`cpp_scalar_prvalue_call/2`, `cpp_assignable/1`): `h() = 4`,
+   `h() += 1` and `++h()` over `int h()` ran on a temporary, and `&h()` was the safe part's `plain pointer not consumed`;
+   each is clang++'s words at the statement's line now.
+4. C++: A NAMED LOCAL CLASS DEFINED IN ITS OBJECT'S DECLARATION, `struct S2 { ... } o;`, is the class and then its objects
+   by its name, each object's type too (`cpp_subst_term/4`): `o.m(1)` was `no_member(m, ...)`.
+   `test/cpp/run/blockdecls.cpp`.
+5. A STORE THROUGH A REFERENCE TO A POINTER (`ck_ref_view/2`): `int *&q = p; *q = 9;` was typed as p itself, `no owner
+   behind: '*q'`; and the address of what a returned reference names is no new memory (`ck_ref_rooted/1`).
+   `test/cpp/run/refplaces.cpp`, which holds `decltype(mm)(5)`, a functional cast to a decltype type, too.
+6. A MEMBER READ OFF THE VALUE OF AN ASSIGNMENT, and AN OPERATOR'S VALUE IS NO LVALUE IN C (`ccl_c_rvalue_form/1`):
+   `(a + b) = 3`, `(!a)++`, `&(a + b)`, an assignment to a cast, and `->` over no pointer are clang's words, where they were
+   `lvalue(bin(...))` and `not_a_pointer(...)`.
+7. THE ADDRESS OF A CALL'S RESULT, in C and in C++: clang's `cannot take the address of an rvalue of type 'int'`.
+8. C++: A PARENTHESIZED CALLEE IS CALLED AS ITS NAME, with no argument-dependent lookup ([basic.lookup.argdep]/1; the
+   reader 211's `paren_callee(id(N))`); and THE ARGUMENT'S NAMESPACE'S OVERLOADS JOIN THE ORDINARY ONES where two of the
+   program's namespaces declare the name (`cpp_adl_joined/4`): `g(a)` of an `N::A` called the global `g(...)` beside
+   `N::g(A)`, 2 where clang++ gives 1, a silent wrong answer. `test/cpp/run/adljoin.cpp`.
+9. C++: A MEMBER'S INITIALIZER THAT NO CONSTRUCTOR TAKES is clang++'s `no matching constructor for initialization of 'M'`
+   at its line, where it was `member_not_constructed(m, 'M', 2)` (`dr_diag/3`).
+10. A REFUSAL IN THE BODY OF A PROGRAM'S FUNCTION TEMPLATE has the body's words where the driver's tables word them
+   (`dr_inner_worded/2`): `mk<M>()` over `T0(f())` with a void f is clang++'s `no matching conversion for functional-style
+   cast from 'void' to 'M'`, where it was `instance_refused('mk.M', void_cast_class(functional, 'M'))`.
+11. AN `#include` OF THE PROGRAM'S FILE THAT FINDS NO FILE STOPS THE BUILD at its line, clang's `fatal error: 'nope.h' file
+   not found` (`dr_missing_include/2`, `dr_fatal/3`; `bin/cicilang` passes the line): it was passed over, and a build
+   that used nothing of the header ran. One in a group that a conditional skips is not looked for.
+12. AN `#include` THAT NAMES NO FILE, as written or as its macros make it, is clang's `expected "FILENAME" or <FILENAME>`
+   (`pp_do_include/6`), where `#include \"x.h\"` was dropped with no word.
+
+And a C++ CONDITION OVER A PLAIN STRUCT (`cpp_cond_bool/2`, `cpp_logic_bool/5`): an `if`'s, a loop's and a conditional's
+condition and an operand of `&&` and `||` are clang++'s `value of type 'S' is not contextually convertible to 'bool'`,
+where they reached LLVM's parser (`icmp ne %struct.S`); a free `operator&&` that takes the operands is called.
+
+And beside them: A CONSTEXPR VARIABLE WHOSE INITIALIZER CALLS A FUNCTION THAT IS NOT CONSTEXPR, OR WHOSE EVALUATION REACHES A
+TRAP, is refused in clang++'s words ([dcl.constexpr]/10; `cpp_constexpr_folds/4`): `constexpr int g = h();` over `int
+h()` ran h at run time; the fold is refused only where the evaluator met such a call or a trap, since it does not take
+every constant expression. `test/cpp/run/constexprvars.cpp`. A BUILT-IN OPERATOR OVER A PLAIN STRUCT, and `*` over an
+integer, are clang++'s words (`cpp_builtin_op_words/4`), where `!s` reached LLVM's parser.
+
+AN OLDER SILENT WRONG ANSWER, FOUND BY THE PROBE OF A BROKEN COPY AND MENDED: a fold's argument is its parameter's type
+and its value the return type's ([expr.call]/7, [stmt.return]/2). 0.72's road bound each argument as written, so
+`constexpr double de = kd(3);` over `constexpr double kd(double x) { return x / 4; }` folded `3 / 4`, 0, where clang++
+gives 0.75, and the evaluator wrapped no integer: `f8(200)` over a `signed char` parameter was 201, not -55, and
+`r8(200)` returning a `signed char` 200, not
+-56; a `bool` parameter given 9 was 10, not 2, and a `long double` one's `1 / 3` 0 -- in a constant and in a static
+assertion alike. An argument of an
+integer or a floating parameter is bound as its cast to that type on 0.72's road (`cpp_param_conv/3`), which answers
+a call whose value is floating -- `rfl(1)` over a `float rfl(double x)` returning `x / 3` was 0, not 0.3333333432674408
+-- and the evaluator wraps an integer argument and an integer result to the type's width
+(`cpp_eval_conv_val/5`, `cpp_eval_conv_ptr/5`). `test/cpp/run/constexprvars.cpp`, whose values clang++ 23 and g++ print.
+
+THE RECORDS NARROWED. IN C A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE (C17 6.3.2.1/1, 6.5.16/2; `ir_c_const_place/2`):
+an assignment, a compound assignment and a step of one are refused in clang's words, the variable whose type makes the
+place const named; `const int a = 1; a = 2;` built and ran. C++'s twin stays recorded: the desugaring writes a
+constructor's member initializers as assignments, and a const member's would meet the rule. A POINTER ASSIGNED TO AN
+INTEGER IN C++ stays recorded; a call's count and a pointer and an integer in each other's place in a call are
+clang++'s words, seen. A BUILT-IN OPERATOR'S OPERAND THAT C REFUSES keeps `(int *)d` over a double, which the lowering's
+conversion words. And recorded: `cicilang -E` passes over an `#include` that finds no file or names none.
+
+THE NEIGHBOURS. cocolog 3.78.19 to 3.78.21 and a document, four commits past 3.78.18 (`86ad08c`): a green world's charge
+of the dead clauses held on a task's machine, a try at a sweep turned down with no write barrier where a frame that
+stands still holds the dead, and the tasks that run asked -- each where a task of cocolog's runs, and cicilang runs
+none, so what a query answers is as before; `NOTDONE.md` gathers cocolog's open records. Pulled and built with its
+schema and modules after 1.6.21's chain, as its installer builds it, and both modules built again over it; ZiguratIP
+stays at `655fa38`. The pin moves to 3.78.21, `3c30c7e`.
+
+1.6.21'S LAST GATE: the chain's ccllib gate over LLVM 23, which ran when 1.6.21 was committed, GREEN in 1519 s (625
+checks), and the chain ALL GREEN in 17490 s over the four trees (RULES.md's What runs).
+
+The reader 211 (`ccl_gnu_cond/3`, `paren_callee`, the include that names no file), the lowering 191.
+
+THE BROKEN COPIES, AT THE COMMIT. Of the first list, 21, each caught: GNU's conditional (`GNU1`, `GNU2`) by `gnucond.c`
+and `refplaces.cpp`; the block's value (`BLKVAL1`) by `gnucond.c`; a place through a reference (`REFVIEW1`, `REFROOT1`)
+and the cast to a decltype type (`DTCAST1`) by `refplaces.cpp`; a block's declarations (`BLKHID1`) and the local class
+(`LCLASS1`) by `blockdecls.cpp`; the argument's namespace (`ADL1`) and the parenthesized callee (`PCALL1`) by
+`adljoin.cpp`; the constexpr variable (`CEV1`), C's const place (`CONST1`, `CONST2`), an operator's value (`RVAL1`),
+`->` over no pointer (`ARROW1`), the built-in operator's words (`BOP1`), the scalar prvalue (`SPRV1`), the member's
+initializer (`MNC1`) and the template's body (`TINST1`) by the driver gate. Of the second, two (`BLKHID2`, a block's
+overload named by its raw parameters, and `CEV2`, every failed fold refused) were first not caught, and caught by the
+cases that `blockdecls.cpp` (`void q(const int);`, `void ar(int a[]);`) and `constexprvars.cpp` (`k(3) / 4.0`) took for
+them; the folds' conversions (`PCONV1`, `ECONV1`, `ECONV2`) and the block's map (`BLKMAP1`) were caught; and two were
+not -- the road's conversion of the return value (`PCONV2`) and the evaluator's of an `int(X)` result (`ECONV3`), which
+no probe could reach, the evaluator answering first --, so both clauses were taken out. The third list (`MISS1`, `MAL1`,
+`FATAL1`, `COND1`, `LOGIC1`, `LOGIC2`, the includes, the fatal line and the conditions) ran at the commit.
+
+THE NETS, AT THE COMMIT. Before the port, over the copy and LLVM 23: the driver gate GREEN (117 checks, before the
+include and condition checks), the reader gate 173 and the compile gate 419; the pool of 56 constant-heavy C++ fixtures,
+56 ok; the bodies of the new driver checks, each by hand against clang and clang++. Over the work tree after the port
+and cocolog 3.78.21: the toolchain check strict GREEN, the flow gate GREEN in 522 s with no finding (cocolint over the
+repository's Prolog files, no finding) and the reader gate GREEN (173 ok); the other nine gates over LLVM 23 ran at the
+commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_syntax.pl` (`ccl_cond_expr//1`, `ccl_gnu_cond/3`, `paren_callee`; the reader 211); `library/ccl_pp.pl`
+  (`pp_do_include/6`); `library/ccl_check.pl` (`ck_block_value/2`, `ck_block_map/3`, `ck_ref_view/2`,
+  `ck_ref_rooted/1`); `library/ccl_ir.pl` (`ir_c_assignable/1`, `ir_c_const_place/2`, `ir_arrow_operand/1`; the
+  lowering 191); `library/ccl_infer.pl` (`ccl_c_rvalue_form/1`); `library/ccl_cpp_expr.pl`, `library/ccl_cpp_library.pl`,
+  `library/ccl_cpp_stmt.pl`, `library/ccl_cpp_eval.pl` and `library/ccl_cpp_init.pl` (`cpp_adl_joined/4`,
+  `cpp_blk_hidden/2`, `cpp_scalar_prvalue_call/2`, `cpp_assignable/1`, `cpp_builtin_op_words/4`, `cpp_cond_bool/2`,
+  `cpp_logic_bool/5`, `cpp_constexpr_folds/4`, `cpp_param_conv/3`, `cpp_eval_conv_val/5`, `cpp_eval_conv_ptr/5`);
+  `library/ccl_driver.pl` (`dr_diag/3`, `dr_inner_worded/2`, `dr_missing_include/2`, `dr_fatal/3`); `bin/cicilang` (the
+  fatal line); `test/driver.sh` (the new checks); `test/c/run/gnucond.c`; `test/cpp/run/adljoin.cpp`, `blockdecls.cpp`,
+  `refplaces.cpp`, `constexprvars.cpp`; `test/toolchain.pins` (cocolog 3.78.21 `3c30c7e`); the module's version.
+- RULES.md (the rules in their topics; twelve records out of Not done, three narrowed, one new; the pins and cocolog's
+  finding; What runs, 1.6.21's chain), HISTORY.md, CLAUDE.md (the versions, the fixtures), CCLLIB.md (cocolog's
+  version).

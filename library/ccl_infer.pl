@@ -1516,4 +1516,14 @@ ccl_c_rvalue_form(predec(_)).
 ccl_c_rvalue_form(postinc(_)).
 ccl_c_rvalue_form(postdec(_)).
 ccl_c_rvalue_form(call(_, _)).
+%% AN OPERATOR'S VALUE IS NONE EITHER (1.6.22; C17 6.5.3.2 to 6.5.14): `(p * q).a' over two structs was refused
+%% `lvalue(bin(...))', where clang says `invalid operands to binary expression', which the member's value road gives now
+%% (ir_lval_/4 of a member); `(a + b) = 3' and `&(a + b)' are refused in clang's words
+ccl_c_rvalue_form(bin(_, _, _)).
+ccl_c_rvalue_form(neg(_)).
+ccl_c_rvalue_form(pos(_)).
+ccl_c_rvalue_form(not(_)).
+ccl_c_rvalue_form(bitnot(_)).
+ccl_c_rvalue_form(cast(_, _)).
+ccl_c_rvalue_form(addr(_)).
 ccl_c_rvalue_form(member(E, _)) :- ccl_c_rvalue_form(E).

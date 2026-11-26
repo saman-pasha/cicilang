@@ -105,7 +105,8 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
     nb_setval('$ccl_scope_ends', []), ( ( memberchk(debug, Options) ; memberchk(debug(lines), Options) ) -> nb_setval('$ccl_scope_ends_for', F) ; nb_setval('$ccl_scope_ends_for', none) ),   % -g: the read records where each scope closes (0.139)
     (   dr_catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
     ->  dr_pp_warnings, dr_remember_expansions(AST),
-        (   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
+        (   dr_missing_include(F, AST) -> Objs = Objs1      % an #include of the program's file that finds no file stops the build (1.6.22)
+        ;   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
         ;   memberchk(syntax_only, Options), ccl_lang(cpp) -> Objs = Objs1      % M5 is the reader; C++'s check and lowering are M6
         ;   (   memberchk(debug, Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', full)   % -g (0.128): the lowering's line tables name the file
             ;   memberchk(debug(lines), Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', lines)   % -gline-tables-only, -g1 (0.130): no variable and no type
@@ -115,17 +116,23 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
             ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ),
                 dr_unread_notes(F, AST), Objs = Objs1 ) )
     ;   Objs = Objs1 ).
-%% A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS (0.290): the include
-%% layer keeps going over a file that it does not find (`missing'), over a header that no read takes (`unreadable',
-%% library(ccl_include)) and over one whose read stopped (a partial read is silent), and the program then fails at the
-%% first name that the header would have declared, `undeclared(getaddrinfo)', with no word of why. A note under the
-%% errors names each such header of the unit, at the line of its #include in the file; a build with no error says
-%% nothing of them, as before. A FILE THAT WAS NOT FOUND IS NAMED FOR AN #include OF THE PROGRAM'S FILE ALONE: that
-%% file is read preprocessed, so the directive is one that the program meets, where a header read raw keeps the
-%% directives of each branch of its conditionals, and a file that one of them does not find may be one that no build asks
+%% A HEADER THAT WAS NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS (0.290): the include layer keeps
+%% going over a header that no read takes (`unreadable', library(ccl_include)) and over one whose read stopped (a partial
+%% read is silent), and the program then fails at the first name that the header would have declared,
+%% `undeclared(getaddrinfo)', with no word of why. A note under the errors names each such header of the unit, at the
+%% line of its #include in the file; a build with no error says nothing of them, as before. A FILE THAT WAS NOT FOUND
+%% (`missing') was named so too, for an #include of the program's file alone, and stops the build since 1.6.22
+%% (dr_missing_include/2); a header read raw keeps the directives of each branch of its conditionals, and a file that one
+%% of them does not find may be one that no build asks
 dr_unread_notes(F, unit(Is)) :- !,
-    findall(L-X, ( member(I, Is), ( dr_missing_in(I, L, X) ; dr_unread_in(I, L, X) ) ), LXs0), sort(LXs0, LXs), dr_unread_notes_(LXs, F).
+    findall(L-X, ( member(I, Is), dr_unread_in(I, L, X) ), LXs0), sort(LXs0, LXs), dr_unread_notes_(LXs, F).
 dr_unread_notes(_, _).
+%% AN #include OF THE PROGRAM'S FILE THAT FINDS NO FILE STOPS THE BUILD AT ITS LINE (1.6.22; C17 6.10.2/2, "the directive
+%% is replaced by the entire contents of the source file", which a file not found has not): `fatal error: 'nope.h' file not
+%% found', clang's words, at the first such #include; it was passed over, and a build that used nothing of the header ran,
+%% one that did failed at the header's first name with a note (0.290). The program's file is read preprocessed, so the
+%% directive is one that the build meets, in no group that a conditional skips
+dr_missing_include(F, unit(Is)) :- member(I, Is), dr_missing_in(I, L, missing(N)), !, dr_fatal(F, L, ['''', N, ''' file not found']).
 dr_missing_in(include(L, Spec, missing), L, missing(N)) :- ( Spec = next(S) -> true ; S = Spec ), ( S = system(N) ; S = local(N) ), !.
 dr_unread_in(include(L, _, file(P, unreadable, _)), L, unread(P)) :- !.
 dr_unread_in(include(L, _, file(P, _, partial(unit(Js), line(Ln), _))), L, X) :- !, ( X = stopped(P, Ln) ; member(J, Js), dr_unread_in(J, _, X) ).
@@ -133,8 +140,7 @@ dr_unread_in(include(L, _, file(_, _, unit(Js))), L, X) :- member(J, Js), dr_unr
 dr_unread_notes_([], _).
 dr_unread_notes_([L-X|T], F) :-
     write(F), write(':'), write(L), write(': note: '),
-    (   X = missing(N) -> write(''''), write(N), write(''' file not found: nothing that it declares is known')
-    ;   X = unread(P) -> write('the header '), write(P), write(' could not be read: nothing that it declares is known')
+    (   X = unread(P) -> write('the header '), write(P), write(' could not be read: nothing that it declares is known')
     ;   X = stopped(P, Ln), write('the read of the header '), write(P), write(' stopped at its line '), write(Ln), write(': what it declares after that line is not known') ),
     nl, dr_unread_notes_(T, F).
 
@@ -326,10 +332,18 @@ dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Tex
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
 dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
+dr_diag(F, not_lowered(not_contextually_bool(T)), where(_, line(L))) :- !, dr_error(F, L, ['value of type ''', T, ''' is not contextually convertible to ''bool''']).   % C++: a condition over a plain struct (1.6.22, cpp_cond_bool/2)
 dr_diag(F, not_lowered(unary_operand(T)), where(_, line(L))) :- !, dr_error(F, L, ['invalid argument type ''', T, ''' to unary expression']).   % a unary `-' or `~' over a record, in clang's words (0.286), and `-', `+' or `~' over a pointer and `~' over a floating value (1.6.1, ir_unary_operand/3)
 dr_diag(F, not_lowered(binary_operands(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['invalid operands to binary expression (''', A, ''' and ''', B, ''')']).   % THE OPERANDS THAT AN OPERATOR DOES NOT TAKE (1.6.1, ir_binary_operands/5), in clang's words
 dr_diag(F, not_lowered(scalar_required(A)), where(_, line(L))) :- !, dr_error(F, L, ['used type ''', A, ''' where arithmetic or pointer type is required']).   % a record as the condition of `?:' (1.6.1, ir_scalar_expr/2)
 dr_diag(F, not_lowered(scalar_statement(A)), where(_, line(L))) :- !, dr_error(F, L, ['statement requires expression of scalar type (''', A, ''' invalid)']).   % a record as the condition of if, while, do or for (1.6.1)
+dr_diag(F, not_lowered(const_var(N, A)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified type ''', A, '''']).   % C: a const place, in clang's words (1.6.22, ir_c_const_place/2)
+dr_diag(F, not_lowered(const_member(M, A)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to non-static data member ''', M, ''' with const-qualified type ''', A, '''']).
+dr_diag(F, not_lowered(const_data_member(N, M)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified data member ''', M, '''']).
+dr_diag(F, not_lowered(read_only), where(_, line(L))) :- !, dr_error(F, L, ['read-only variable is not assignable']).
+dr_diag(F, not_lowered(member_not_constructed(_, C, _)), where(_, line(L))) :- atom(C), \+ sub_atom(C, _, _, _, '.'), !, dr_error(F, L, ['no matching constructor for initialization of ''', C, '''']).   % C++: a member's initializer that no constructor takes, in clang++'s words (1.6.22); an instance's or a keyed class's name keeps the term
+dr_diag(F, not_lowered(lvalue_cast), where(_, line(L))) :- !, dr_error(F, L, ['assignment to cast is illegal, lvalue casts are not supported']).   % C: a cast as the left operand (1.6.22), clang's own words for it
+dr_diag(F, not_lowered(constexpr_not_constant(N)), where(_, line(L))) :- !, dr_error(F, L, ['constexpr variable ''', N, ''' must be initialized by a constant expression']).   % C++: a constexpr variable whose fold met a call of a function that is not constexpr (1.6.22, cpp_constexpr_folds/4)
 dr_diag(F, not_lowered(not_assignable), where(_, line(L))) :- !, dr_error(F, L, ['expression is not assignable']).   % C: an assignment to a comma, a conditional, an assignment or a step, and a step of one (1.6.13, ir_c_assignable/1)
 dr_diag(F, not_lowered(address_of_rvalue(A)), where(_, line(L))) :- !, dr_error(F, L, ['cannot take the address of an rvalue of type ''', A, '''']).   % ... and its address, which the check refuses (1.6.13, ck_expr/3)
 dr_diag(F, not_lowered(step_record(Op, A)), where(_, line(L))) :- !, ( Op == add -> W = increment ; W = decrement ), dr_error(F, L, ['cannot ', W, ' value of type ''', A, '''']).   % `++' or `--' over a record (1.6.1)
@@ -344,6 +358,7 @@ dr_diag(F, not_lowered(designator_bounds(K, N)), where(_, line(L))) :- !, dr_err
 dr_diag(F, not_lowered(designator_negative(K)), where(_, line(L))) :- !, dr_error(F, L, ['array designator value ''', K, ''' is negative']).
 %% A CALL OF ANOTHER COUNT OF ARGUMENTS THAN ITS PROTOTYPE'S (0.302, ir_arg_count/4), and an integer and a pointer converted as if
 %% by assignment (ir_int_ptr_check/4), in clang's words; C++'s call that no overload fits (cpp_call/4)
+dr_diag(F, not_lowered(instance_refused(I, W0)), Where) :- atom(I), dr_inner_worded(W0, W), !, dr_diag(F, not_lowered(W), Where).   % AN INSTANCE'S REFUSAL IN THE BODY'S WORDS (1.6.22), where the body's refusal has words of its own
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_error(F, L, Ps).
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_error(F, L, Ps).   % A VOID VALUE AND THE OPERANDS BESIDE IT (1.6.14, dr_value_text/2)
 dr_diag(F, not_lowered(int_conversion(Dir, Site, A, B)), where(_, line(L))) :- !,
@@ -356,6 +371,11 @@ dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not 
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
 dr_diag(F, link_failed(Msg), _) :- !, dr_link_lines(Msg, Ls), ( Ls = [L1|Rest] -> true ; L1 = Msg, Rest = [] ), dr_error(F, 0, ['link: ', L1]), dr_link_notes(F, Rest).
 dr_diag(F, E, W) :- dr_error(F, 0, [E, ' ', W]).
+%% the refusal inside an instance's (1.6.22): `template <class T0> T0 mk() { return T0(f()); }' called as `mk<M>()' was `not lowered
+%% yet: instance_refused('mk.M', void_cast_class(functional, 'M'))', where clang++ gives the body's words, `no matching conversion for
+%% functional-style cast from 'void' to 'M'', at the template's line, which the refusal names already
+dr_inner_worded(instance_refused(_, W), X) :- !, dr_inner_worded(W, X).
+dr_inner_worded(W, W) :- ( dr_call_text(W, _) ; dr_value_text(W, _) ), !.
 %% what clang says of a call that chooses a deleted function (0.257, cpp_deleted_call/3, cpp_deleted_member_check/4,
 %% cpp_deleted_ctor_check/2, cpp_deleted_operator/3): the function by its own name, a class as clang spells it
 dr_deleted_text(function, N, T) :- !, dr_short_name(N, S), atomic_list_concat(['call to deleted function \'', S, '\''], T).
@@ -426,6 +446,8 @@ dr_value_text(void_auto(N, T), ['variable ''', N, ''' with type ''', T, ''' has 
 dr_value_text(switch_operand(A), ['statement requires expression of integer type (''', A, ''' invalid)']).
 dr_value_text(pointer_operand(indirection, A), ['indirection requires pointer operand (''', A, ''' invalid)']).
 dr_value_text(pointer_operand(subscript, _), ['subscripted value is not an array, pointer, or vector']).
+dr_value_text(pointer_operand(arrow(record), A), ['member reference type ''', A, ''' is not a pointer; did you mean to use ''.''?']).   % `->' over a struct (1.6.22, ir_arrow_operand/1)
+dr_value_text(pointer_operand(arrow(other), A), ['member reference type ''', A, ''' is not a pointer']).
 dr_value_text(index_operand, ['array subscript is not an integer']).
 %% ... and where an integer and a pointer meet as if by assignment, the words of each place
 dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
@@ -501,9 +523,12 @@ dr_pp_warnings :-
     (   nb_current('$pp_warnings', Ws) -> nb_setval('$pp_warnings', []), reverse(Ws, Ws1), dr_pp_warnings_(Ws1) ; true ).
 dr_pp_warnings_([]).
 dr_pp_warnings_([warning(F, L, M)|Ws]) :- write(F), write(':'), write(L), write(': warning: '), write(M), nl, dr_pp_warnings_(Ws).
-dr_error(F, L, Parts) :-
+dr_error(F, L, Parts) :- dr_error_as(F, L, error, Parts).
+%% ... and a fatal one, after which the build goes no further, in clang's words (1.6.22): `fatal error: 'nope.h' file not found'
+dr_fatal(F, L, Parts) :- dr_error_as(F, L, 'fatal error', Parts).
+dr_error_as(F, L, K, Parts) :-
     nb_getval('$dr_errors', N), N1 is N + 1, nb_setval('$dr_errors', N1),
-    write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': error: '), dr_write(Parts), nl,
+    write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': '), write(K), write(': '), dr_write(Parts), nl,
     ( L > 0 -> dr_note_expansion(F, L) ; true ),
     dr_why_stop(F, L, Parts).
 %% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the

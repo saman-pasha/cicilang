@@ -23,7 +23,7 @@ cpp_const_fold(call(id(F), []), 1) :- nb_current('$cpp_eval_ce', on), memberchk(
 cpp_const_fold(call(id(F), Args), V) :- atom(F), cpp_eval_fn(F, Params, Ss),   % the evaluator (0.96, 0.98, 0.99): statements, aggregates, pointers, cells; a SCALAR answer here
     cpp_eval_args(Params, Args, [], Args1), cpp_eval_call(F, Params, Ss, Args1, V0),
     ( cpp_eval_ref_fn(F), V0 = ptr(_, _) -> cpp_eval_load(V0, V1) ; V1 = V0 ), cpp_eval_scalar(V1), !, V = V1.   % A REFERENCE'S CALL ANSWERS ITS PLACE, and its value is what the place holds (0.257), as cpp_eval_reduce/3 reads it: `squares()[3]' and `r[3]' over std::array's operator[] answered the element's address, no scalar, and did not fold
-cpp_const_fold(call(id(F), Args), V) :- atom(F), \+ cpp_eval_nce(F), ( '$cpp_out'(F, function(_, _, _, F, Params, _, block([return(_, E0)]))) ; '$cpp_ownfn'(F, function(_, _, _, F, Params, _, block([return(_, E0)]))) ), !,   % an emitted instance's, or the program's own (0.95): 0.72's road, the arguments bound as WRITTEN
+cpp_const_fold(call(id(F), Args), V) :- atom(F), \+ cpp_eval_nce(F), ( '$cpp_out'(F, function(_, _, _, F, Params, _, block([return(_, E0)]))) ; '$cpp_ownfn'(F, function(_, _, _, F, Params, _, block([return(_, E0)]))) ), !,   % an emitted instance's, or the program's own (0.95): 0.72's road, the arguments bound as WRITTEN, each of its parameter's type (1.6.22, cpp_param_conv/3)
     cpp_fold_depth(D), D < 32, D1 is D + 1, nb_setval('$cpp_fold_depth', D1),
     (   cpp_param_binds(Params, Args, B0), cpp_road_args(B0, B), cpp_replace_ids(E0, B, E), cpp_eval_body_scope(cpp_const_value(E, V))   % the body's free names the file's, not the caller's (0.258), each argument folded where the caller wrote it
     ->  nb_setval('$cpp_fold_depth', D)
@@ -76,7 +76,7 @@ cpp_eval_only(G) :- ( nb_current('$cpp_evonly_mode', W) -> true ; W = no ), nb_s
 %% tuple kept its 0, a silent wrong answer once the base cast of 0.168 let `std::get' through
 cpp_eval_ref_fn(F) :- atom(F), ( '$cpp_out'(F, function(_, _, Ret, F, _, _, _)) ; '$cpp_ownfn'(F, function(_, _, Ret, F, _, _, _)) ), !, cpp_eval_ref_type(Ret).
 cpp_eval_call(F, Params, Ss, Args, V) :-
-    \+ cpp_eval_nce(F),   % a function of the program's that is not constexpr is no call a constant evaluation makes (0.258, cpp_note_nce/4)
+    ( cpp_eval_nce(F) -> nb_setval('$cpp_eval_why', nce(F)), fail ; true ),   % a function of the program's that is not constexpr is no call a constant evaluation makes (0.258, cpp_note_nce/4), noted (1.6.22)
     cpp_fold_depth(D), D < 32, D1 is D + 1, nb_setval('$cpp_fold_depth', D1),
     (   cpp_eval_bind_params(Params, Args, Env01), ( cpp_eval_ret_type(F, RT) -> ( cpp_eval_ref_type(RT) -> Env0 = ['$retref'-yes, '$ret'-RT|Env01] ; Env0 = ['$ret'-RT|Env01] ) ; Env0 = Env01 ), ( D == 0 -> nb_setval('$cpp_eval_steps', 0), nb_setval('$cpp_eval_heap', []) ; true ),   % the result type, for a return's conversion (0.258), and a reference's return (0.168), from one look at the item; one budget for the whole fold, a nested constexpr call included; and one heap
         cpp_eval_in_fn(F, cpp_eval_body_scope(cpp_eval_stmts(Ss, Env0, _, R))), ( R = ret(V0) -> true ; R == next, V0 = 0 ),   % a void function falls off its end: a constructor, `fill(a, 4, 5)'
@@ -333,6 +333,7 @@ cpp_eval_reduce(cast(PT, call(id(F), [S])), Env, '$val'(P)) :- cpp_eval_new_fn(F
 cpp_eval_reduce(dealloc(D, Free, X), Env, int(0)) :- !, cpp_eval_expr(X, Env, P),
     ( P == 0 -> true ; P = ptr(cell(Id), _), ( D == none -> true ; cpp_eval_expr(D, Env, _) ), cpp_eval_free_call(Free, Id, P) ).
 cpp_eval_reduce(call(id(F), [X|_]), Env, int(0)) :- atom(F), cpp_eval_delete_fn(F), !, cpp_eval_allocator_body, cpp_eval_expr(X, Env, P), ( P == 0 -> true ; P = ptr(cell(Id), _), cpp_eval_free(Id, P, F) ).
+cpp_eval_reduce(call(id(F), _), _, _) :- memberchk(F, ['__builtin_trap', '__builtin_verbose_trap']), !, nb_setval('$cpp_eval_why', trap(F)), fail.   % A TRAP REACHED is no constant expression (1.6.22), noted for a constexpr variable's words (cpp_constexpr_folds/4)
 cpp_eval_reduce(call(id(F), Args), Env, _) :- atom(F), cpp_eval_abort_fn(F, How), !, cpp_eval_abort(How, Args, Env), fail.   % a library THROW HELPER, or its abort: no constant expression (0.164), its message kept for the refusal (cpp_ce_check)
 cpp_eval_reduce(call(id(F), []), _, int(1)) :- nb_current('$cpp_eval_ce', on), memberchk(F, [is_constant_evaluated, '__libcpp_is_constant_evaluated']), !.   % IN A CONSTEVAL CHECK the evaluation is a constant one (0.164); the desugaring answered false for the run time
 cpp_eval_reduce(call(id(memset), [P, X, sizeof_type(_)]), Env, '$val'(A)) :- cpp_eval_reduce(P, Env, '$val'(A)), A = ptr(_, _), cpp_eval_expr(X, Env, 0), cpp_eval_load(A, W), !, cpp_eval_zeroed(W, Z), cpp_eval_store_ptr(A, Z).   % THE DESUGARING'S OWN ZEROING of a whole object or member, value-initialization (0.164): its value zeroed
@@ -652,6 +653,7 @@ cpp_eval_base_path(T, E, Env, Hops) :- T =.. [_, _, BT], catch(cpp_class_of_type
 %% dynamic_cast's base answered `$base' where `&d' is the object -- `pa == &d' was false
 cpp_eval_conv_ptr(T, _, _, V0, V) :- cpp_eval_float_kind(T, K), !, K \== wide, cpp_eval_fnum(V0, _, X0), cpp_eval_round(K, X0, X), V = flt(K, X).   % TO A FLOATING TYPE, the value of that type; a long double is none here (0.258)
 cpp_eval_conv_ptr(T, _, _, flt(_, X), V) :- cpp_eval_int_type(T), !, ccl_w_cast(T, X, V).   % ... and a floating value to an integer type, truncated (0.258)
+cpp_eval_conv_ptr(T, _, _, X, V) :- integer(X), cpp_eval_int_type(T), !, ccl_w_cast(T, X, V).   % ... AND AN INTEGER TO AN INTEGER TYPE, of its width (1.6.22): `return x;' of a `signed char' over 200 is -56
 cpp_eval_conv_ptr(T, E, Env, V0, V) :- V0 = ptr(_, _), cpp_eval_target_class(T, B), cpp_eval_static_class(E, Env, D), D \== B, !, cpp_eval_conv_class(D, B, V0, V).
 cpp_eval_conv_ptr(_, _, _, V, V).
 cpp_eval_conv_class(D, B, ptr(Cell, Path), V) :- catch(once(cpp_base_hops(D, B, Hops0)), _, fail), !, cpp_eval_trim_base(Hops0, Hops), append(Path, Hops, Path1), V = ptr(Cell, Path1).
@@ -660,6 +662,7 @@ cpp_eval_conv_class(_, _, V, V).
 cpp_eval_conv_val(T, A, Env, '$val'(P0), '$val'(P)) :- !, cpp_eval_conv_ptr(T, A, Env, P0, P).
 cpp_eval_conv_val(T, A, Env, V0, '$val'(V)) :- cpp_eval_float_kind(T, _), !, cpp_eval_value(V0, X0), cpp_eval_conv_ptr(T, A, Env, X0, V).   % an argument of a floating parameter, of the parameter's type (0.258)
 cpp_eval_conv_val(T, _, _, V0, int(V)) :- cpp_eval_float_term(V0), cpp_eval_int_type(T), cpp_eval_value(V0, flt(_, X)), !, ccl_w_cast(T, X, V).
+cpp_eval_conv_val(T, _, _, int(X), int(V)) :- integer(X), cpp_eval_int_type(T), !, ccl_w_cast(T, X, V).   % AN INTEGER ARGUMENT OF AN INTEGER PARAMETER is of the parameter's width (1.6.22): `f8(200)' over a `signed char' is -56
 cpp_eval_conv_val(_, _, _, V, V).
 cpp_eval_conv_ret(Env, E, V0, V) :- ( memberchk('$ret'-RT, Env) -> cpp_eval_conv_ptr(RT, E, Env, V0, V) ; V = V0 ).
 cpp_eval_ret_type(F, Ret) :- atom(F), ( '$cpp_out'(F, function(_, _, Ret, F, _, _, _)) ; '$cpp_ownfn'(F, function(_, _, Ret, F, _, _, _)) ), !.
@@ -755,9 +758,15 @@ cpp_float_typed(E) :- ( ccl_float_shaped(E) -> true ; ( E = call(_, _) ; E = id(
 cpp_fold_depth(D) :- ( nb_current('$cpp_fold_depth', D) -> true ; D = 0 ).
 cpp_param_binds([], _, []) :- !.
 cpp_param_binds(_, [], []) :- !.
-cpp_param_binds([param(_, N)|Ps], [A|As], [N-A|B]) :- !, cpp_param_binds(Ps, As, B).
-cpp_param_binds([param(_, N, _)|Ps], [A|As], [N-A|B]) :- !, cpp_param_binds(Ps, As, B).
+cpp_param_binds([param(T, N)|Ps], [A|As], [N-A1|B]) :- !, cpp_param_conv(T, A, A1), cpp_param_binds(Ps, As, B).
+cpp_param_binds([param(T, N, _)|Ps], [A|As], [N-A1|B]) :- !, cpp_param_conv(T, A, A1), cpp_param_binds(Ps, As, B).
 cpp_param_binds([_|Ps], [_|As], B) :- cpp_param_binds(Ps, As, B).
+%% AN ARGUMENT IS ITS PARAMETER'S TYPE ([expr.call]/7, [dcl.init]/17.9; 1.6.22): 0.72's road bound it as written, so
+%% `constexpr double de = kd(3);' over `constexpr double kd(double x) { return x / 4; }' folded `3 / 4', 0, where clang++
+%% gives 0.75, and `f8(200)' over a `signed char' parameter 201, not -55: an argument of an integer or a floating
+%% parameter is bound as its cast to that type, which ccl_const_eval/2 wraps and converts as C does (ccl_w_cast/3)
+cpp_param_conv(T, A, cast(R, A)) :- catch(ccl_resolve_type(T, R), _, fail), ( ccl_is_integer(R) ; ccl_is_float(R) ), !.
+cpp_param_conv(_, A, A).
 %% 0.72'S ROAD BINDS AN ARGUMENT AS ITS VALUE where it folds in the caller's scope, as written where it does not (0.258): the body is
 %% then folded with the caller's scope set aside (cpp_eval_body_scope/1), its free names the file's -- `return K;' read a caller's
 %% local `const int K = 5;' where the file's K is 1, the one place 0.257 left the caller's names in a callee's body

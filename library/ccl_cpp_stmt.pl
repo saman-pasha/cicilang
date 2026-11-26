@@ -97,7 +97,7 @@ cpp_opt_expr_once(Ctx, L, E, E1) :- cpp_expr_once(Ctx, L, E, E1).
 cpp_opt_cond_once(_, _, none, none) :- !.
 cpp_opt_cond_once(Ctx, L, E, E1) :- cpp_cond_once(Ctx, L, E, E1).
 cpp_expr_once(Ctx, L, E, E1) :- cpp_expr_temps(Ctx, E, E0, Ts), ( Ts == [] -> E1 = E0 ; cpp_temps_around(L, Ts, E0, none, E1) ).
-cpp_cond_once(Ctx, L, E, E1) :- cpp_expr_temps(Ctx, E, E0, Ts), cpp_to_bool(E0, Eb), ( Ts == [] -> E1 = Eb ; cpp_temps_around(L, Ts, Eb, value, E1) ).
+cpp_cond_once(Ctx, L, E, E1) :- cpp_expr_temps(Ctx, E, E0, Ts), cpp_cond_bool(E0, Eb), ( Ts == [] -> E1 = Eb ; cpp_temps_around(L, Ts, Eb, value, E1) ).
 cpp_expr_temps(Ctx, E, E0, Ts) :- nb_getval('$cpp_temps', B), nb_setval('$cpp_temps', []),
     (   catch(cpp_expr(Ctx, E, E0), X, (nb_setval('$cpp_temps', B), throw(X)))
     ->  nb_getval('$cpp_temps', Ts), nb_setval('$cpp_temps', B)
@@ -111,7 +111,7 @@ cpp_temps_around(L, Ts, E0, How, stmt_expr(block(Ss))) :-
 %% THE CONDITION OF AN `if' IS A FULL-EXPRESSION ([intro.execution]/5, [stmt.pre]; 0.201): its temporaries die when its
 %% evaluation ends, before a branch runs, as a loop's condition's do (cpp_cond_once); they were the whole statement's,
 %% destroyed after the branch. A value the inference cannot type leaves them the statement's, as before.
-cpp_if_cond(Ctx, L, C, C2) :- cpp_expr_temps(Ctx, C, C0, Ts), cpp_to_bool(C0, Cb),
+cpp_if_cond(Ctx, L, C, C2) :- cpp_expr_temps(Ctx, C, C0, Ts), cpp_cond_bool(C0, Cb),
     (   Ts == [] -> C2 = Cb
     ;   catch(ccl_type_of(Cb, VT), _, fail), VT \== unknown -> cpp_temps_around(L, Ts, Cb, value, C2)
     ;   cpp_temps_back(Ts), C2 = Cb ).
@@ -453,6 +453,16 @@ cpp_catches(Ctx, [catch(P, B)|Cs], [catch(R, T, N, B1)|Cs1]) :-
 %% sentry says whether the stream is good: `if (__s)'. Compared with zero as a struct, LLVM refused the icmp.
 cpp_to_bool(E, call(id(Name), [Obj])) :- cpp_class_of_type_of(E, C), cpp_method(C, operator(conv(base(_, [bool]))), [], Name, Hops), !, cpp_hops(E, Hops, B), cpp_object_arg(Name, addr(B), Obj).
 cpp_to_bool(E, E).
+%% A CONDITION OVER A PLAIN STRUCT OR UNION IN THE PROGRAM'S OWN CODE IS REFUSED IN CLANG++'S WORDS (1.6.22; [conv]/4,
+%% [stmt.pre]/4): `if (s)', a loop's condition and `s ? a : b' are `value of type 'S' is not contextually convertible to
+%% 'bool'', where the condition reached LLVM's parser; `!s', `s && t' and `s || t' have the operators' own words
+%% (cpp_builtin_op_words/4), and a library's body keeps its road
+cpp_cond_bool(E, _) :- \+ nb_current('$cpp_in_lib', yes), cpp_plain_operand_text(E, T, record), !, cpp_refuse_stmt(not_contextually_bool(T)).
+cpp_cond_bool(E, E1) :- cpp_to_bool(E, E1).
+%% ... and so are `&&' and `||' over one, where no free operator of the program takes the two operands ([expr.log.and]/1)
+cpp_logic_bool(Op, A, B, A2, B2) :- \+ nb_current('$cpp_in_lib', yes), ( cpp_plain_operand_text(A, _, record) ; cpp_plain_operand_text(B, _, record) ),
+    \+ cpp_free_operator_call(Op, A, [B], _), !, cpp_cond_bool(A, A2), cpp_cond_bool(B, B2).
+cpp_logic_bool(_, A, B, A2, B2) :- cpp_to_bool(A, A2), cpp_to_bool(B, B2).
 %% A CLASS VALUE WHERE A SCALAR IS WANTED converts through its CONVERSION OPERATOR -- fpos's `operator streamoff()',
 %% which is what `streamoff off = cin.tellg()' and `cout << cout.tellp()' are; an explicit one converts only where
 %% the context does (cpp_to_bool). In a declaration, an argument (cpp_ref_args_), a cast; scored as exact after
@@ -646,12 +656,24 @@ cpp_stmts(Ctx, [declare(L, base(Q, [S0]))|Ss], Ts) :- cpp_plain_local(S0, K, N, 
 cpp_stmts(Ctx, [declaration(L, Sto, base(Q, [S0]), Vs)|Ss], Ts) :- Vs \== [], cpp_unnamed_local(S0, K, Ms0), \+ nb_current('$cpp_in_lib', yes), !,
     cpp_unnamed_local_name(L, K, Ms0, Name, Ms), S =.. [K, Name, Ms], ccl_note_spec(S),
     cpp_subst_term(S0, S, declaration(L, Sto, base(Q, [S0]), Vs), D1), cpp_stmts(Ctx, [declare(L, base([], [S])), D1|Ss], Ts).
+cpp_stmts(Ctx, [declaration(L, Sto, B, Vs)|Ss], Ts) :- B = base(_, [class(K, N, Bases, Ms)]), atom(N), N \== anon, !,   % A NAMED LOCAL CLASS DEFINED IN ITS OBJECT'S DECLARATION, `struct S2 { int m(int); } o;'
+    cpp_subst_term(class(K, N, Bases, Ms), typedef(N), declaration(L, Sto, B, Vs), D1),   % (1.6.22): the class, then the declaration of its objects by its name, each object's type
+    cpp_stmts(Ctx, [declare(L, base([], [class(K, N, Bases, Ms)])), D1|Ss], Ts).          % too -- `o.m(1)' was `no_member(m, ...)'
 cpp_stmts(Ctx, [declaration(L, Sto, B, Vs)|Ss], Ts) :- B = base(_, [class(K, anon, Bases, Ms)]), !,
     cpp_local_class(L, K, anon, Bases, Ms, Name), cpp_subst_term(class(K, anon, Bases, Ms), typedef(Name), declaration(L, Sto, B, Vs), D1), cpp_stmts(Ctx, [D1|Ss], Ts).   % an UNNAMED class is the type of the declaration, its variables' types the same term
+%% A FUNCTION THAT A BLOCK DECLARES HIDES THE NAME'S OUTER OVERLOADS TO THE BLOCK'S END ([basic.lookup]/1, [basic.scope.block],
+%% [over.dcl]; 1.6.22): `{ void ov(int); ov(2.5); }' calls ov(int), the 2.5 converted, where the file's ov(double) was the
+%% best of every overload. The block's declarations of a name are its overloads in the statements after them
+%% ('$cpp_blkfns', cpp_blk_hidden/2 in the overload searches), and the name's own again where the block ends
+cpp_stmts(Ctx, [S|Ss], [S1|Ts]) :- S = declaration(L, _, _, Vs), cpp_block_fn_decls(Vs, Ds), !,
+    cpp_where(stmt(declaration, L), cpp_stmt(Ctx, S, S1)),
+    ( nb_current('$cpp_blkfns', B0) -> true ; B0 = [] ), append(Ds, B0, B1), nb_setval('$cpp_blkfns', B1),
+    ( catch(cpp_stmts(Ctx, Ss, Ts), E, ( nb_setval('$cpp_blkfns', B0), throw(E) )) -> nb_setval('$cpp_blkfns', B0) ; nb_setval('$cpp_blkfns', B0), fail ).
 cpp_stmts(Ctx, [S|Ss], [S1|Ts]) :- S = bindings(L, _, Ns, _), memberchk(pack(_), Ns), !,   % a structured binding pack (0.198, cpp_binding_names): the statements after it name its elements
     nb_setval('$cpp_bindpack', none), cpp_where(stmt(bindings, L), cpp_stmt(Ctx, S, S1)), nb_getval('$cpp_bindpack', PB), nb_setval('$cpp_bindpack', none),
     ( PB == none -> Ss1 = Ss ; cpp_subst(Ss, PB, Ss1) ), cpp_stmts(Ctx, Ss1, Ts).
 cpp_stmts(Ctx, [S|Ss], [S1|Ts]) :- ( S =.. [F, L|_], integer(L) -> W = stmt(F, L) ; W = stmt ), cpp_where(W, cpp_stmt(Ctx, S, S1)), cpp_stmts(Ctx, Ss, Ts).
+cpp_block_fn_decls(Vs, Ds) :- is_list(Vs), Vs \== [], findall(N-Ps, ( member(V, Vs), V = var(N, fn(_, Ps, _), none), atom(N) ), Ds), length(Ds, K), length(Vs, K).
 cpp_block_typedefs([], []).
 cpp_block_typedefs([var(N, T, _)|Vs], [N-T|B]) :- atom(N), !, cpp_block_typedefs(Vs, B).
 cpp_block_typedefs([_|Vs], B) :- cpp_block_typedefs(Vs, B).
@@ -1071,11 +1093,11 @@ cpp_size_by_init(T, _, T).
 %% ITS INITIALIZER IS MANIFESTLY CONSTANT-EVALUATED ([expr.const]/20; 0.197): a `const' integral local initialized by a
 %% constant expression is usable in constant expressions, so its call is folded with std::is_constant_evaluated() true
 %% (cpp_with_ce/1) and the folded value IS the initializer -- `constexpr bool ce = std::is_constant_evaluated();' was 0
-cpp_note_const(_, N, T, I, I1) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(const, Q), \+ ccl_is_float(R),
+cpp_note_const(B, N, T, I, I1) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(const, Q), \+ ccl_is_float(R),
     (   ccl_const_eval(I, V) -> I1 = I
     ;   cpp_init_call(I), catch(cpp_with_ce(cpp_const_value(I, V0)), _, fail) -> ( V0 = bool(B) -> ( B == true -> V = 1 ; V = 0 ) ; V = V0 ),   % a CONSTEXPR CALL folds through the evaluator (0.104): libc++'s `constexpr _CCC __cat = __compute_comp_type(__type_kinds);'
         ( integer(V) -> I1 = int(V) ; V = big(_) -> I1 = int(V) ; I1 = I )
-    ;   cpp_trace(const_not_folded(N, I)), fail ), !,
+    ;   cpp_trace(const_not_folded(N, I)), cpp_constexpr_folds(0, B, N, I), fail ), !,   % a constexpr local over a call that is not constexpr, refused (1.6.22)
     ccl_declare('$cv'(N), V), cpp_lconst_push(N-V).
 %% A `const' LOCAL AGGREGATE WITH A CONSTANT INITIALIZER IS A VALUE TO THE CONSTEXPR EVALUATOR (0.104), as a file-scope
 %% one has been since 0.97 (cpp_note_local_agg/3): libc++'s `__get_comp_type' writes `constexpr _CCC __type_kinds[] =

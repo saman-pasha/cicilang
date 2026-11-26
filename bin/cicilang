@@ -149,8 +149,8 @@ case "$store" in --embed*) mkdir -p "${KB%/*}"; kb_lock "$KB"; kb_prepare "$KB" 
 res=$("$C" $store query "use_module(library(cicilang)), ccl_drive($inputs, $opts)" 2>&1)
 # one pass over the answer: diagnostics on stderr, as clang; `cicilang: ...' and `unit(...)' lines on stdout
 case "$opts" in
-  *preprocess*) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicilang: |^ +[0-9]+\. use_module|answer\(s\)\.$/ { next } { print }' ;;   # -E: the text itself
-  *) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicilang: ok$/ { next } /^cicilang: |^unit\(/ { print }' ;;
+  *preprocess*) printf '%s\n' "$res" | awk '/: error: |: fatal error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicilang: |^ +[0-9]+\. use_module|answer\(s\)\.$/ { next } { print }' ;;   # -E: the text itself
+  *) printf '%s\n' "$res" | awk '/: error: |: fatal error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicilang: ok$/ { next } /^cicilang: |^unit\(/ { print }' ;;
 esac
 # THE VERDICT IS THE DRIVER'S OWN LINE (0.302): a line that ends with it, and no line of cocolog's ERROR report, whose
 # trace lists the goals that were left to run -- `write('cicilang: ok')' among them, so an error raised past the inputs

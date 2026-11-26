@@ -27,20 +27,27 @@ cpp_builtin_word(W) :- memberchk(W, [void, char, short, int, long, float, double
 %% the overload an argument list names: one whose parameters take it EXACTLY (C++ prefers such a non-template
 %% to any template), else the one whose parameters fit best (cpp_pick, the methods')
 cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
     cpp_prefer_rvalue(Cs1, C1, As, Ps), cpp_fn_defined(F, Ps, D), !.
 %% A PLAIN OVERLOAD'S PARAMETERS NAME NO FREE TEMPLATE PARAMETER (0.136): a template's raw signature among the noted
 %% overloads of a name (`duration<_Rep, _Period> abs(duration<_Rep, _Period>)' beside `int abs(int)') is the template's
 %% to deduce; resolved here, it instantiated `duration' over the free names, and ratio's arithmetic over `_Period::num'
 %% made `__static_gcd' instances without end -- the chrono formatter's `std::abs(__t.tm_year + 1900)'
 cpp_raw_params(Ps) :- member(P, Ps), ( P = param(T, _) ; P = param(T, _, _) ), cpp_raw_type(T), !.
+%% an overload that a block's declarations of its name do not name, in the rest of that block (1.6.22, '$cpp_blkfns'):
+%% the parameters' types as a call sees them, the top-level qualifiers off and an array or a function a pointer
+cpp_blk_hidden(F, Ps0) :- nb_current('$cpp_blkfns', B), B \== [], memberchk(F-_, B), \+ ( member(F-Ps, B), cpp_same_params(Ps, Ps0) ).
+cpp_same_params([], []).
+cpp_same_params([P|Ps], [Q|Qs]) :- arg(1, P, T), arg(1, Q, U), cpp_param_core(T, K), cpp_param_core(U, K1), K == K1, cpp_same_params(Ps, Qs).
+cpp_param_core(T, K) :- catch(ccl_resolve_type(T, R), _, fail), !, ( R = base(_, S) -> K = base([], S) ; R = ptr(_, X) -> K = ptr([], X) ; R = arr(_, X) -> K = ptr([], X) ; R = fn(_, _, _) -> K = ptr([], R) ; K = R ).
+cpp_param_core(T, T).
 cpp_prefer_rvalue([], Best, _, Best).
 cpp_prefer_rvalue([C|Cs], Best, As, Out) :- ( cpp_rvalue_binds(C, As, K1), cpp_rvalue_binds(Best, As, K0), K1 > K0 -> cpp_prefer_rvalue(Cs, C, As, Out) ; cpp_prefer_rvalue(Cs, Best, As, Out) ).
 cpp_rvalue_binds([], [], 0).
 cpp_rvalue_binds([P|Ps], [A|As], K) :- ( P = param(T, _) ; P = param(T, _, _) ), !, ( T = rref(_, _), \+ cpp_arg_lvalue(A) -> K1 = 1 ; K1 = 0 ), cpp_rvalue_binds(Ps, As, K0), K is K0 + K1.
 cpp_rvalue_binds(_, _, 0).
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
     cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
 %% A CALL QUALIFIED BY THE LIBRARY'S NAMESPACE FINDS NONE OF THE PROGRAM'S OWN FUNCTIONS OF THE NAME (0.221; [namespace.qual]/2):
 %% the program's global names keep the bare name beside the library's, one overload set (cpp_lib_quals/4 keys its named

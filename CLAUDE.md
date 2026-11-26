@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.21 the versions are: the module 1.6.21 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 210 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 190 (`ccl_lowering_version/1`,
+At 1.6.22 the versions are: the module 1.6.22 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 211 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 191 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -629,7 +629,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             new memory by getline through their address (1.6.18); looppasses.c, loops whose next pass
                             finds what the last left, built as C and as C++ (1.6.19); nulldecls.c, pointers declared
                             null that the path a goto jumps over gives new memory, built as C and as C++ (1.6.20);
-                            builtinabs.c, clang's integer absolute values, LLVM's llvm.abs (1.6.21)
+                            builtinabs.c, clang's integer absolute values, LLVM's llvm.abs (1.6.21); gnucond.c,
+                            GNU's conditional with no middle operand, and a statement expression's value (1.6.22)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -736,7 +737,11 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             member access over any object, dautoinst.cpp, a function template's deduced results,
                             visitlambda.cpp, std::visit over generic lambdas, nsaliases.cpp, namespace aliases over the
                             names that two namespaces declare, and constexprusing.cpp, a using in a constant evaluation
-                            and a vector grown there (1.6.21)
+                            and a vector grown there (1.6.21); adljoin.cpp, an argument's namespace's overloads ranked
+                            with the ordinary ones and a parenthesized callee, blockdecls.cpp, a block's declarations
+                            of a function and a local class defined in its object's declaration, refplaces.cpp, places
+                            through references, GNU's conditional and a cast to a decltype type, and constexprvars.cpp,
+                            constexpr variables and the folds' conversions (1.6.22)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

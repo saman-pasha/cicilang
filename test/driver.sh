@@ -388,6 +388,90 @@ nlv15.c:3: error: cannot take the address of an rvalue of type 'int'
 nlv16.c:3: error: cannot take the address of an rvalue of type 'int'
 nlv17.c:3: error: cannot take the address of an rvalue of type 'int'
 nlv18.c:3: error: cannot take the address of an rvalue of type 'int'"
+# A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE IN C (1.6.22; C17 6.3.2.1/1, 6.5.16/2, 6.5.2.4/1 and 6.5.3.1/1;
+# ir_c_const_place/2): an assignment, a compound assignment and a step of one are refused in clang's words at the line --
+# the variable that makes the place const named, through a member, an element and `->', a const member by itself, a
+# struct with one assigned whole by the member, any other place read-only -- and a store through a const pointer to a
+# plain object, a member that is not const and a pointer to const given a new target stay. Through 1.6.21 each built
+cst_pre='struct S { int x; }; struct C { const int x; int y; };\nint main(void) { int b = 1; (void)b;'
+check "a const-qualified place is no modifiable lvalue in C (1.6.22): an assignment, a compound assignment and a step of one are refused in clang's words" "$(n=0; for body in 'const int a = 1; a = 2;' 'const int a = 1; a += 2;' 'const int a = 1; a++;' 'const int a = 1; --a;' 'const int *p = &b; *p = 3;' 'const int *p = &b; p[0] = 3;' 'const int arr[2] = {1, 2}; arr[0] = 3;' 'const struct S s = {1}; s.x = 2;' 'struct S t = {1}; const struct S *p = &t; p->x = 2;' 'struct C s = {1, 2}; s.x = 3;' 'struct C s = {1, 2}, u = {3, 4}; s = u;' 'int *const cp = &b; cp = 0;' 'int *const cp = &b; *cp = 4; struct C s = {1, 2}; s.y = 5; const int *p = &b; p = &s.y; (void)p;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$cst_pre" "$body" > cst$n.c; o=$("$CICILI" -std=c17 -fsyntax-only cst$n.c 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "cst$n.c: builds"; done)" "cst1.c:3: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cst2.c:3: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cst3.c:3: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cst4.c:3: error: cannot assign to variable 'a' with const-qualified type 'const int'
+cst5.c:3: error: read-only variable is not assignable
+cst6.c:3: error: read-only variable is not assignable
+cst7.c:3: error: cannot assign to variable 'arr' with const-qualified type 'const int[2]'
+cst8.c:3: error: cannot assign to variable 's' with const-qualified type 'const struct S'
+cst9.c:3: error: cannot assign to variable 'p' with const-qualified type 'const struct S *'
+cst10.c:3: error: cannot assign to non-static data member 'x' with const-qualified type 'const int'
+cst11.c:3: error: cannot assign to variable 's' with const-qualified data member 'x'
+cst12.c:3: error: cannot assign to variable 'cp' with const-qualified type 'int *const'
+cst13.c: builds"
+# AN OPERATOR'S VALUE IS NO LVALUE IN C EITHER (1.6.22; C17 6.5.3.2 to 6.5.14; ccl_c_rvalue_form/1): an assignment to a
+# binary or a unary operator's value, a step of one and its address are refused in clang's words, an assignment to a cast
+# in its own, a member of two structs' operator gives `invalid operands', where it was `lvalue(bin(...))', and `->' over a
+# struct or an int is clang's `member reference type ... is not a pointer', where it was `not_a_pointer(...)'
+opv_pre='struct S { int m; };\nint main(void) { int a = 1, b = 2; struct S s1 = { 1 }, s2 = { 2 }; (void)s1; (void)s2; (void)b;'
+check "an operator's value is no lvalue in C (1.6.22): an assignment to one, a step of one, its address, a member of two structs' operator and -> over no pointer are refused in clang's words" "$(n=0; for body in '(a + b) = 3;' '(a * b) += 1;' '-a = 1;' '(!a)++;' '--(~a);' 'int *q = &(a + b); (void)q;' 'int *q = &-a; (void)q;' 'int **q = &(&a); (void)q;' '(int)a = 1;' 'int *q = &(int)a; (void)q;' 'a = (s1 * s2).m;' 'a = (s1 + s2).m;' 'a = s1->m;' 's1->m = 2;' 'a = a->m;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$opv_pre" "$body" > opv$n.c; "$CICILI" -std=c17 -fsyntax-only opv$n.c 2>&1 | head -1; done)" "opv1.c:3: error: expression is not assignable
+opv2.c:3: error: expression is not assignable
+opv3.c:3: error: expression is not assignable
+opv4.c:3: error: expression is not assignable
+opv5.c:3: error: expression is not assignable
+opv6.c:3: error: cannot take the address of an rvalue of type 'int'
+opv7.c:3: error: cannot take the address of an rvalue of type 'int'
+opv8.c:3: error: cannot take the address of an rvalue of type 'int *'
+opv9.c:3: error: assignment to cast is illegal, lvalue casts are not supported
+opv10.c:3: error: cannot take the address of an rvalue of type 'int'
+opv11.c:3: error: invalid operands to binary expression ('struct S' and 'struct S')
+opv12.c:3: error: invalid operands to binary expression ('struct S' and 'struct S')
+opv13.c:3: error: member reference type 'struct S' is not a pointer; did you mean to use '.'?
+opv14.c:3: error: member reference type 'struct S' is not a pointer; did you mean to use '.'?
+opv15.c:3: error: member reference type 'int' is not a pointer"
+# C++: A SCALAR PRVALUE HAS NO ADDRESS AND IS NO PLACE, AND A CONSTEXPR VARIABLE'S INITIALIZER IS A CONSTANT (1.6.22;
+# [expr.unary.op]/3, [expr.ass]/1, [expr.pre.incr]/1, [dcl.constexpr]/10; cpp_scalar_prvalue_call/2, cpp_constexpr_folds/4):
+# `h() = 4', `h() += 1', a step of `h()' and `&h()' over `int h()' are refused in clang++'s words, and a constexpr
+# variable whose fold calls a function that is not constexpr or reaches a trap; a reference's call is a place, and a fold
+# that holds stays. Through 1.6.21 the assignment and the step ran on a temporary, the address was `plain pointer not
+# consumed', and the constexpr variables ran their initializers at run time
+cpv_pre='int h() { return 3; }\nint &hr() { static int v; return v; }\nconstexpr int f(int x) { return x > 0 ? x : (__builtin_trap(), 0); }'
+check "C++: a scalar prvalue has no address and is no place, and a constexpr variable's initializer is a constant (1.6.22), in clang++'s words" "$(n=0; for body in 'int main() { h() = 4; return 0; }' 'int main() { h() += 1; return 0; }' 'int main() { h()++; return 0; }' 'int main() { --h(); return 0; }' 'int main() { int *p = &h(); return *p; }' 'constexpr int g = h();\nint main() { return g; }' 'constexpr int g = f(-1);\nint main() { return g; }' 'constexpr int g = f(2);\nint main() { hr() = 4; ++hr(); int *p = &hr(); return *p + g - h(); }'; do n=$((n + 1)); printf '%b\n%b\n' "$cpv_pre" "$body" > cpv$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c cpv$n.cpp -o cpv$n.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "cpv$n.cpp: builds"; done)" "cpv1.cpp:4: error: expression is not assignable
+cpv2.cpp:4: error: expression is not assignable
+cpv3.cpp:4: error: expression is not assignable
+cpv4.cpp:4: error: expression is not assignable
+cpv5.cpp:4: error: cannot take the address of an rvalue of type 'int'
+cpv6.cpp:4: error: constexpr variable 'g' must be initialized by a constant expression
+cpv7.cpp:4: error: constexpr variable 'g' must be initialized by a constant expression
+cpv8.cpp: builds"
+# C++: A BUILT-IN OPERATOR OVER A PLAIN STRUCT, AND `*' OVER AN INTEGER, IN THE PROGRAM'S OWN CODE ARE REFUSED IN CLANG++'S
+# WORDS (1.6.22; [expr.unary.op], [expr.arith.conv]; cpp_builtin_op_words/4), as C's lowering words them, and `->' over a
+# plain struct; they were `no_operator(...)', `deref_of_arithmetic(...)' and `not_a_pointer(...)', and `!s' reached LLVM's
+# parser. A struct read by its members stays
+bop_pre='struct S { int m; };\nint main() { S s = {1};'
+check "C++: a built-in operator over a plain struct, and * over an integer, are refused in clang++'s words (1.6.22)" "$(n=0; for body in 'return *s;' 'S t = -s; return t.m;' 'return !s;' 'return (s + 1).m;' 'int x = 1; return *x;' 'return s->m;' 'S t = s; return t.m + (s.m > 0 ? 1 : 0);'; do n=$((n + 1)); printf '%b\n  %s }\n' "$bop_pre" "$body" > bop$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c bop$n.cpp -o bop$n.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "bop$n.cpp: builds"; done)" "bop1.cpp:3: error: indirection requires pointer operand ('S' invalid)
+bop2.cpp:3: error: invalid argument type 'S' to unary expression
+bop3.cpp:3: error: invalid argument type 'S' to unary expression
+bop4.cpp:3: error: invalid operands to binary expression ('S' and 'int')
+bop5.cpp:3: error: indirection requires pointer operand ('int' invalid)
+bop6.cpp:3: error: member reference type 'S' is not a pointer; did you mean to use '.'?
+bop7.cpp: builds"
+# C++: A MEMBER'S INITIALIZER THAT NO CONSTRUCTOR TAKES IS CLANG++'S `no matching constructor for initialization of 'M''
+# (1.6.22), at clang++'s line; it was `not lowered yet: member_not_constructed(m, 'M', 2)'
+check "C++: a member's initializer that no constructor takes is refused in clang++'s words (1.6.22)" "$(printf 'struct M { int v; M(int x) : v(x) {} };\nstruct N {\n  M m;\n  N() : m(1, 2) {}\n};\nint main() { N n; return n.m.v; }\n' > mnc.cpp; "$ROOT/bin/cicilang++" -std=c++17 -c mnc.cpp -o mnc.o 2>&1 | head -1)" "mnc.cpp:4: error: no matching constructor for initialization of 'M'"
+# ... AND A REFUSAL IN THE BODY OF THE PROGRAM'S FUNCTION TEMPLATE HAS THE BODY'S WORDS (1.6.22, dr_inner_worded/2), at the
+# template's line, where it was `not lowered yet: instance_refused('mk.M', void_cast_class(functional, 'M'))'
+check "C++: a refusal in a function template's body has the body's words (1.6.22)" "$(printf 'void f() {}\nstruct M { int v; M(int x) : v(x) {} };\ntemplate <class T0> T0 mk() { return T0(f()); }\nint main() { M m = mk<M>(); return m.v; }\n' > tinst.cpp; "$ROOT/bin/cicilang++" -std=c++17 -c tinst.cpp -o tinst.o 2>&1 | head -1)" "tinst.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'M'"
+# C++: A CONDITION OVER A PLAIN STRUCT IS NO BOOL (1.6.22; [conv]/4; cpp_cond_bool/2, cpp_logic_bool/5): an if's, a loop's,
+# a conditional's and an operand of && and ||, in clang++'s words, where they reached LLVM's parser; `!s' has the unary
+# operator's words, and a free operator&& that takes the operands is called
+check "C++: a condition over a plain struct is refused in clang++'s words, the operands of && and || too, and a free operator&& is called (1.6.22)" "$(n=0; for body in 'if (s) return 1;' 'while (s) return 1;' 'return s ? 1 : 2;' 'for (; s; ) return 1;' 'do { } while (s);' 'return !s;' 'return s && 1;' 'return 1 || s;'; do n=$((n + 1)); printf 'struct S { int a; };\nint main() {\n  S s{1};\n  %s\n  return 0;\n}\n' "$body" > cnd$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c cnd$n.cpp -o cnd$n.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "cnd$n.cpp: builds"; done; printf 'struct S { int a; };\nbool operator&&(S x, int y) { return x.a > y; }\nint main() { S s{3}; return (s && 1) ? 7 : 0; }\n' > cndfree.cpp; "$ROOT/bin/cicilang++" -std=c++17 cndfree.cpp -o cndfree 2>&1 && ./cndfree; echo "exit $?")" "cnd1.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+cnd2.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+cnd3.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+cnd4.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+cnd5.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+cnd6.cpp:4: error: invalid argument type 'S' to unary expression
+cnd7.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+cnd8.cpp:4: error: value of type 'S' is not contextually convertible to 'bool'
+exit 7"
 # A VOID VALUE IS NO VALUE (1.6.14; C17 6.3.2.2/1): an initializer, an assignment, an argument, a return, an operand, a
 # condition, a cast, an argument through an ellipsis, a member's item, a step, an indirection, an address, a subscript and
 # a switch over one are refused in clang's words at the line, and so are the operands beside them that C refuses: a switch
@@ -567,12 +651,16 @@ cicilang: 1 error(s)
 exit 1"
 check "a header whose read stopped is named under the build's error, at its #include (0.290)" "$(printf 'int y_of_h;\nint x = ;\nint z_of_h;\n' > stop.h; printf '#include %s\nint main(void) { return z_of_h; }\n' '"stop.h"' > usestop.c; "$CICILI" -fsyntax-only usestop.c 2>&1 | head -2)" "usestop.c:2: error: use of undeclared identifier 'z_of_h'
 usestop.c:1: note: the read of the header ./stop.h stopped at its line 2: what it declares after that line is not known"
-check "a file that an #include of the program does not find is named under the build's error, and one in a group that is skipped is not (0.290)" "$(printf '#include %s\n#if 0\n#include %s\n#endif\n#include %s\nint main(void) { return nope_value(); }\n' '"nope.h"' '"skipped.h"' '<nope/sys.h>' > usenope.c; "$CICILI" -fsyntax-only usenope.c 2>&1; echo "exit $?"; printf '#include %s\nint main(void) { return 0; }\n' '"nope.h"' > passnope.c; "$CICILI" -fsyntax-only passnope.c 2>&1; echo "exit $?")" "usenope.c:6: error: call to undeclared function 'nope_value'; ISO C99 and later do not support implicit function declarations
-usenope.c:1: note: 'nope.h' file not found: nothing that it declares is known
-usenope.c:5: note: 'nope/sys.h' file not found: nothing that it declares is known
+# AN #include OF THE PROGRAM THAT FINDS NO FILE STOPS THE BUILD AT ITS LINE, AND ONE THAT NAMES NO FILE IS REFUSED (1.6.22;
+# dr_missing_include/2, pp_do_include/6), in clang's words; the first was passed over, named in a note under a later error
+# (0.290), and the second dropped with no word
+check "an #include of the program that finds no file stops the build at its line, in clang's words, one in a group that is skipped is not looked for, and one that names no file is refused (1.6.22)" "$(printf '#include %s\n#if 0\n#include %s\n#endif\n#include %s\nint main(void) { return nope_value(); }\n' '"nope.h"' '"skipped.h"' '<nope/sys.h>' > usenope.c; "$CICILI" -fsyntax-only usenope.c 2>&1; echo "exit $?"; printf '#if 0\n#include %s\n#endif\nint main(void) { return 0; }\n' '"skipped.h"' > passnope.c; "$CICILI" -fsyntax-only passnope.c 2>&1; echo "exit $?"; printf '#include \\"x.h\\"\nint main(void) { return 0; }\n' > badinc.c; "$CICILI" -fsyntax-only badinc.c 2>&1; echo "exit $?")" "usenope.c:1: fatal error: 'nope.h' file not found
 cicilang: 1 error(s)
 exit 1
-exit 0"
+exit 0
+badinc.c:1: error: expected \"FILENAME\" or <FILENAME>
+cicilang: 1 error(s)
+exit 1"
 case $(uname -s) in Linux)   # glibc's headers: <limits.h> holds <sys/cdefs.h>, whose raw read threw; <getopt.h> two headers that were read in part
 check "no header of the C library is named under an error that is not its own (0.290)" "$(printf '#include <stdio.h>\n#include <limits.h>\n#include <getopt.h>\n#include <netdb.h>\nint main(void) { return nope_value(); }\n' > nonote.c; "$CICILI" -fsyntax-only nonote.c 2>&1; echo "exit $?")" "nonote.c:5: error: call to undeclared function 'nope_value'; ISO C99 and later do not support implicit function declarations
 cicilang: 1 error(s)

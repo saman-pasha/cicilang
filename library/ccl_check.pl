@@ -622,6 +622,14 @@ ck_ref_decl(N, T0, Init0, T, Init) :-
     ;   T = T0, Init = Init0,
         ( nb_getval('$ck_refs', Rs), memberchk(N, Rs) -> ccl_delete_one(Rs, N, Rs1), nb_setval('$ck_refs', Rs1) ; true ) ).
 ck_is_ref(N) :- nb_getval('$ck_refs', Rs), memberchk(N, Rs).
+%% A PLACE'S TYPE WITH EACH REFERENCE ITS REFERENT (1.6.22): the check holds a local reference as the pointer it is, and the
+%% desugared code reads the reference's name as its referent -- `int *&q = p; *q = 9;' is `deref(id(q))', a store into
+%% arr[0], which the pointer's model typed as p itself, an `int *' slot given no owner, `no owner behind: '*q''
+ck_ref_view(id(N), deref(id(N))) :- atom(N), ck_is_ref(N), !.
+ck_ref_view(T, T) :- \+ compound(T), !.
+ck_ref_view(T, T1) :- T =.. [F|As], ck_ref_view_l(As, As1), T1 =.. [F|As1].
+ck_ref_view_l([], []).
+ck_ref_view_l([A|As], [A1|As1]) :- ck_ref_view(A, A1), ck_ref_view_l(As, As1).
 %% the place a local reference was bound to, the latest binding of the name first: where a library object reached
 %% through it lives (ck_resolve/3, 0.216, 0.217)
 ck_ref_bind(N, E) :- ( ck_mentions(E, N) -> true ; ( nb_current('$ck_ref_binds', Bs) -> true ; Bs = [] ), nb_setval('$ck_ref_binds', [N-E|Bs]) ).
@@ -668,6 +676,7 @@ ck_static_value(call(id(F), _)) :- atom(F), nb_current('$ck_static_fns', Fs), Fs
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
+ck_static_value(stmt_expr(B)) :- ck_block_value(B, E), !, ck_static_value(E).   % a block of declarations alone, then its value (1.6.22, ck_block_value/2)
 ck_pointer_arg(addr(_)) :- !.
 ck_pointer_arg(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; T1 = arr(_, _) ), !.
 %% A FILL OF AN OBJECT WITH OWNERS WRITES OVER THEM (0.297): `memset(&x, v, n)' over an object that holds an own pointer,
@@ -967,6 +976,7 @@ ck_va_value(cast(_, X)) :- ck_va_value(X).
 %% a call (a container's element, `*it') has no state, and `const auto &[k, v] = *it' binds v to a member of it:
 %% nothing here is to be consumed, so the binding is a plain value, never a loose pointer (0.79)
 ck_ref_rooted(addr(P)) :- ck_path_root(P, R), ck_is_ref(R).
+ck_ref_rooted(addr(call(id(F), _))) :- atom(F), catch(ccl_declared(F, fn(R, _, _)), _, fail), ( R = ref(_, _) ; R = rref(_, _) ), !.   % THE ADDRESS OF WHAT A RETURNED REFERENCE NAMES (1.6.22): `int *p = &hr();' over `int &hr()' is no new memory; it was `plain pointer not consumed'
 ck_path_root(id(R), R).
 ck_path_root(member(X, _), R) :- ck_path_root(X, R).
 ck_path_root(arrow(X, _), R) :- ck_path_root(X, R).
@@ -1056,6 +1066,7 @@ ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is),
 %% arguments borrow, the closure's captures among them
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), member(declaration(_, _, _, Vs), Is), memberchk(var(N, _, _), Vs),
     member(expr(_, call(id(F), [addr(id(N))|As])), Is), atom(F), cpp_library_function(F), ck_lib_handed(As, none, St, P), !.
+ck_borrows_from(stmt_expr(B), St, P) :- ck_block_value(B, E), !, ck_borrows_from(E, St, P).   % ... a block of declarations alone, then its value (1.6.22)
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, E)], Is), !, ck_borrows_from(E, St, P).
 ck_borrows_from(alloc(_, _, Call), St, P) :- !, ck_borrows_from(Call, St, P).   % A NEW-EXPRESSION'S BLOCK borrows what its allocation function's result borrows (0.202): an arena's `void *operator new(std::size_t, Arena &a) tie a' hands back memory of `a'
 %% A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (0.100): the desugaring makes a lambda a compound literal of the
@@ -1089,6 +1100,21 @@ ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library
     ck_ref_object(Args, Ps, E), ck_path_root(E, R), \+ ( catch(ccl_type_of(E, ET), _, fail), ET \== unknown, ( ck_carries_type(ET) ; ck_value_like(ET) ) ), !, ck_borrow_of(R, St, P).
 ck_borrows_from(call(id(F), [A|_]), St, P) :- atom(F), ck_library_borrow(F), !, ck_borrows_from(A, St, P).   % a place in its first argument's object (0.206, ck_library_borrow/1)
 ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, ck_tied_own(call(F, Args), St, P0, P).
+%% A STATEMENT EXPRESSION OF DECLARATIONS ALONE, THEN ITS VALUE, GIVES THAT VALUE WITH EACH LOCAL'S INITIALIZER IN ITS PLACE
+%% (1.6.22): nothing in the block changes a local after its declaration, so `({ const char *t = pick(1); t ? t : "none"; })'
+%% is `pick(1) ? pick(1) : "none"' to the check -- static storage where pick's every return is, a borrow where its value
+%% borrows -- and was new memory, `plain pointer not consumed'. GNU's `x ?: y' over a call is such a block (ccl_gnu_cond/3)
+ck_block_value(block(Is), E) :- is_list(Is), append(Ds, [expr(_, E0)], Is), Ds \== [], forall(member(D, Ds), D = declaration(_, _, _, _)),
+    findall(V, ( member(declaration(_, _, _, Vs), Ds), member(V, Vs) ), Vs1), ck_block_map(Vs1, [], Map), Map \== [], ck_subst_ids(E0, Map, E).
+%% each local's initializer with the earlier locals' in their places, so that `const char *b = a;' after `const char *a =
+%% "x";' is "x" and never an outer a; a local with no initializer, or one that is no name, makes the block no such value
+ck_block_map([], Map, Map).
+ck_block_map([var(N, _, I)|Vs], Map0, Map) :- atom(N), I \== none, ck_subst_ids(I, Map0, I1), ck_block_map(Vs, [N-I1|Map0], Map).
+ck_subst_ids(id(N), Map, I) :- atom(N), memberchk(N-I, Map), !.
+ck_subst_ids(T, _, T) :- \+ compound(T), !.
+ck_subst_ids(T, Map, T1) :- T =.. [F|As], ck_subst_ids_l(As, Map, As1), T1 =.. [F|As1].
+ck_subst_ids_l([], _, []).
+ck_subst_ids_l([A|As], Map, [A1|As1]) :- ck_subst_ids(A, Map, A1), ck_subst_ids_l(As, Map, As1).
 %% A RESULT TIED TO A STRUCT WITH OWN FIELDS IS A BORROW OF THEM (0.266; CCLLIB.md's phase 0.9, in C): `V *f(S *s, ...)
 %% tie s' over `&x', or over a pointer that borrows x, may answer a place in a buffer that x owns -- `&m[k]' over a
 %% dictionary, `*dict_index(&m, k)' -- so its borrow is of an own field of x, the first that the state holds, which a
@@ -2465,7 +2491,7 @@ ck_expr(assign('=', call(id(G), [A0|As]), R), St0, St) :- atom(G), cpp_library_f
     ( ck_lib_handed(Hs, Self, St2, P) -> ck_lib_store_into(Obj, P, join, assign('=', call(id(G), [A0|As]), R), St2, St) ; St = St2 ).
 ck_expr(assign('=', L, R), St0, St) :- !,
     ( ck_path(R, RK), ck_by_value(R), ck_has_array_under(St0, RK) -> ck_fail(own_array_by_value, RK, assign('=', L, R)) ; true ),
-    (   ccl_type_of(L, T), T \== unknown
+    (   ck_ref_view(L, LV), ccl_type_of(LV, T), T \== unknown   % the place's type with each reference its referent (1.6.22, ck_ref_view/2)
     ->  (   ck_own_type(T), ck_carries_type(T) -> ck_into_own(none, R, assign('=', L, R), St0, St1, _)   % AN ELEMENT OF AN OWN BUFFER THAT CARRIES NO POINTER IS A PLAIN VALUE'S SLOT (0.274): `own int *data' puts own with the pointee (ck_own_type/1), so `b->data[i]' has the type `own int', and `b->data[i] = q[i]' over a parameter q was `borrow_stored', a number taken for a borrow of q
         ;   ck_view_self(L, R, St0) -> ck_expr(R, St0, St1)   % a view given a view of its own source, through its pointer (0.295)
         ;   ck_carries_type(T) -> ck_slot_name(L, Name), ck_where(L, St0, W), ck_into_plain(Name, R, assign('=', L, R), W, St0, St1)

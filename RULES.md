@@ -72,7 +72,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.78.18 `86ad08c`,
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.78.21 `3c30c7e`,
   Cicili 3.3.0 `3ba2ca4`, ZiguratIP 1.0.4 `655fa38` -- the embedded LLVM's major version, which is the C gates' clang's
   too (23 since 1.6.21, 18 before), and the libc++ trees the C++ gates read (18, 21, 22 and 23; the third since 0.227,
   the fourth since 1.6.21). A pin moves in the step that runs the chain over it, and since
@@ -1250,21 +1250,30 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   0.302; `dr_value_text/2` for a void value and the operands beside it, 1.6.14), each asked by one clause of `dr_diag/3`
   at the refusal's line; a term whose words differ by the language asks `ccl_lang/1` in its row (`void_vararg`). (0.302,
   1.6.14)
-- **A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290;
-  `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`): the include layer goes on over a file that it does not find
+- **AN `#include` OF THE PROGRAM'S FILE THAT FINDS NO FILE STOPS THE BUILD AT ITS LINE** (1.6.22; C17 6.10.2/2;
+  `dr_missing_include/2`, `dr_fatal/3`): clang's words, `m.c:1: fatal error: 'nope.h' file not found`, at the first
+  such `#include`, before the check and the lowering; it was passed over, and a build that used nothing of the header
+  ran. The program's file is read preprocessed, so the directive is one that the build meets -- one in a group that `#if
+  0` skips is not looked for --, where a header read raw keeps the directives of each branch of its conditionals, and a
+  file that one of them does not find may be one that no build asks: a header's own `#include` that finds nothing is
+  passed over still. `bin/cicilang` passes `: fatal error: ` lines with the others. AN `#include` THAT NAMES NO FILE, as
+  written or as its macros make it, is refused in the program's file in clang's words, `expected "FILENAME" or
+  <FILENAME>` (C17 6.10.2/4; `pp_do_include/6`), where it was dropped with no word: `#include \"x.h\"`. The driver
+  gate. (1.6.22)
+- **A HEADER THAT WAS NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290; `dr_unread_notes/2`,
+  `dr_unread_in/3`): the include layer goes on over a file that it does not find
   (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
   message (the topic of includes), and the program then fails at the first name that the header would have declared --
   `undeclared(getaddrinfo)` (in C since 1.1.2 `call to undeclared function 'getaddrinfo'`, the lowering's topic of a
   name that nothing declares), `typedef(foo_t)`, `struct(nope)` -- with no word of why. Where the check or the lowering
   failed, the driver prints a note for each such include of the unit after the errors, at the line of the `#include` in
-  the program's file: `m.c:2: note: 'nope.h' file not found: nothing that it declares is known` (clang's words for the
-  file), `note: the header P could not be read: nothing that it declares is known`, `note: the read of the header
+  the program's file (until 1.6.22 `m.c:2: note: 'nope.h' file not found: nothing that it declares is known` too),
+  `note: the header P could not be read: nothing that it declares is known`, `note: the read of the header
   ./stop.h stopped at its line 2: what it declares after that line is not known`. A header's own includes are walked for
   the last two. A FILE THAT WAS NOT FOUND IS NAMED FOR AN `#include` OF THE PROGRAM'S FILE ALONE: that file is read
   preprocessed, so the directive is one that the program meets -- one in a group that `#if 0` skips is not named --,
   where a header read raw keeps the directives of each branch of its conditionals, and a file that one of them does not
-  find may be one that no build asks. A build with no error prints no note (Not done: a missing `#include` is passed
-  over). THE NOTE IS TRUE OF ITS HEADER, NOT OF THE ERROR: it names a header of the unit whose read was cut, whatever
+  find may be one that no build asks. A build with no error prints no note. THE NOTE IS TRUE OF ITS HEADER, NOT OF THE ERROR: it names a header of the unit whose read was cut, whatever
   the error is. Its first runs named `<sys/cdefs.h>` under an error of a program over `<limits.h>`, and two headers of
   `<getopt.h>` -- two defects of the reads, corrected with it (the topic of includes). Three checks of the driver gate,
   one of them that no header of the C library is named under an error that is not its own. (0.290, 1.1.2)
@@ -2266,6 +2275,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   its fixed one, else `unsigned int` where none is negative and `int` where one is, as clang chooses
   (`ccl_enum_compat_specs/2`) -- never with another enumeration. It was a syntax error. C++ has none: clang++ refuses
   it. `test/c/run/typescompat.c`. (0.258)
+- GNU'S CONDITIONAL WITH NO MIDDLE OPERAND (1.6.22; GCC's manual, Conditionals with Omitted Operands, which clang reads),
+  in C and in C++: `x ?: y` is `x ? x : y` with x evaluated once (`ccl_cond_expr//1`, `ccl_gnu_cond/3`). An operand that
+  no evaluation changes -- a constant, a name, a member of one -- is read twice, `cond(C, C, B)`, which keeps a constant
+  one a constant (`enum { E = 0 ?: 4 }`) and C++'s lvalue of two names (`int &e = (x ?: y);`); any other is held in a
+  temporary of its type, a statement expression, so `next(0) ?: next(3)` calls next twice and `pick(1) ?: "none"` once.
+  It was `syntax error: could not read this item`. `test/c/run/gnucond.c`, `test/cpp/run/refplaces.cpp`. (1.6.22)
 - `_Alignof(T)` and C23's `alignof(T)` are `alignof_type(T)`. GNU'S ALIGNMENT OF AN EXPRESSION, which gcc and clang read
   in C and C++ (`__alignof__ x`, `__alignof(x)`, and `_Alignof(x)` and C++'s `alignof(x)` with a warning), is
   `alignof_expr(E)` (0.205, reader 155; `ccl_alignof_operand//1`): the alignment of the object it names, its `_Alignas`
@@ -3985,8 +4000,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A partial read is silent: `ccl_partial` gives `partial(U, line(L), near(F))`, and a library header's summary and AST
   hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. A BUILD THAT FAILS
   NAMES IT (0.290; `dr_unread_notes/2`, the driver's topic): under the errors, a note at the `#include` of the program's
-  file names each header whose read stopped, each that no read took, and each file that an `#include` of the program's
-  file did not find. A build with no error says nothing still. (0.44, 0.290)
+  file names each header whose read stopped and each that no read took; a file that an `#include` of the program's
+  file did not find stops the build since 1.6.22. A build with no error says nothing still. (0.44, 0.290, 1.6.22)
 - `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`, the
   env's names (`ccl_env_names/1`, put back by `ccl_env_put/1`), `'$ccl_far'`, `'$ccl_macros'`, the tables
   (`'$ccl_scope'`, `'$ccl_gscope'`, `'$ccl_typedefs'`, `'$ccl_tags'`; the last three bucket by bucket, `ccl_tab_save/2`
@@ -4524,6 +4539,17 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   road; a member the class declares itself with the same parameter types hides the base's ([namespace.udecl]/15,
   `cpp_fwd_hidden`). `p->A::operator()(x)` reads an operator after the qualifier (`cpp_qual_name`), and a later EMPTY
   base has no sub-object and no hop (`cpp_base_hops`). `usingbase.cpp`, `overloaded.cpp`. (0.121)
+- A NAMED LOCAL CLASS DEFINED IN ITS OBJECT'S DECLARATION, `struct S2 { int m(int v) { ... } } o;` (1.6.22), is the
+  class and then the declaration of its objects by its name, each object's type too (`cpp_subst_term/4` in `cpp_stmts/3`),
+  as an unnamed one was: `o.m(1)` was `not lowered yet: no_member(m, ...)`. `test/cpp/run/blockdecls.cpp`. (1.6.22)
+- A MEMBER'S INITIALIZER THAT NO CONSTRUCTOR TAKES IS REFUSED IN CLANG++'S WORDS (1.6.22): `N() : m(1, 2) {}` over a member
+  of a class M with no constructor of two arguments is `no matching constructor for initialization of 'M'`, at clang++'s
+  line, where it was `not lowered yet: member_not_constructed(m, 'M', 2)`; an instance's or a keyed class's name keeps
+  the term (`dr_diag/3`). AND A REFUSAL IN THE BODY OF A FUNCTION TEMPLATE'S INSTANCE HAS THE BODY'S WORDS where they are
+  words of the driver's tables (`dr_inner_worded/2`; `dr_call_text/2`, `dr_value_text/2`): `mk<M>()` over `template
+  <class T0> T0 mk() { return T0(f()); }` is clang++'s `no matching conversion for functional-style cast from 'void' to
+  'M'`, at the template's line, where it was `instance_refused('mk.M', void_cast_class(functional, 'M'))`; another
+  inner refusal keeps the instance's term. The driver gate. (1.6.22)
 - A LOCAL CLASS ([class.local]; 0.121) -- a `struct` or `class` defined in a function body, named or not, with a member
   function, a constructor or a base (a struct of plain data stays C's) -- is a class of the unit under a name of its
   own, `Loc.local_7_<tag>` (`cpp_local_class/6`, from `cpp_stmts`; the unit's tag since 0.192, the Lambdas topic's
@@ -6613,7 +6639,9 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   (x);` is a reference so too (the reader's `return(L, paren(E))`, `cpp_decltype_auto_ret_/4`), and the desugaring takes
   `paren(E)` as E everywhere else. The reader kept no parentheses, and `decltype((x))` was `decltype(x)`. `decltypeparen.cpp`.
   A member of a const object is const there ([expr.ref]/6.2; `cpp_obj_const/2` in `cpp_decltype_paren/2`; 0.206):
-  `decltype((c.m))` was `int &`. `aligndecl.cpp`. THE PARENTHESES ARE KEPT AROUND A MEMBER ACCESS OVER ANY OBJECT, and a
+  `decltype((c.m))` was `int &`. `aligndecl.cpp`. A FUNCTIONAL CAST TO A decltype TYPE, `decltype(mm)(5)` (1.6.22;
+  [expr.type.conv]), is the type's call, as a name's (`cpp_type_call/3`): it was `not lowered yet:
+  expr(decltype_expr(...))`. `test/cpp/run/refplaces.cpp`. THE PARENTHESES ARE KEPT AROUND A MEMBER ACCESS OVER ANY OBJECT, and a
   member of an rvalue is an xvalue, `T &&` ([expr.ref]/6.2, [basic.lval]/4; reader 210; 1.6.21; `cpp_rvalue_object/1`,
   `cpp_decltype_paren_src/3`): a member of `std::move(x)`, of a call whose result is an rvalue reference or no reference,
   of `T{...}` and of `T(...)`, and of `std::move` over a const object, which the desugaring has made the object itself
@@ -7419,6 +7447,25 @@ is in `test/cpp/run/`.
   copies c1 through C's copy constructor, where the comma was taken for a prvalue and the copy was elided.
   `decltype(g(), b)`, `decltype((g(), b))`, `decltype(a = 5)` and `decltype(++a)` are `int &` (`cpp_decltype_of/2`),
   where each was `int`. `test/cpp/run/lvalues.cpp`, whose 43 lines clang++ 22, 21 and 18 and g++ print. (1.6.13)
+- A BUILT-IN OPERATOR OVER A PLAIN STRUCT OR UNION, AND `*` OVER AN INTEGER, IN THE PROGRAM'S OWN CODE ARE REFUSED IN
+  CLANG++'S WORDS (1.6.22; [expr.unary.op], [expr.arith.conv]; `cpp_builtin_op_words/4`, `cpp_deref_operand/1`): `-s`, `!s`,
+  `s + 1`, `*s` and `*x` over an int are `invalid argument type 'S' to unary expression`, `invalid operands to binary
+  expression ('S' and 'int')` and `indirection requires pointer operand ('S' invalid)`, as C's lowering words them; they
+  were `no_operator(...)` and `deref_of_arithmetic(...)`, and `!s` reached LLVM's parser. A class's operand keeps its
+  term (`freeoprval.cpp`), and a library's body its own, which its substitution failures read. The driver gate's seven
+  bodies. (1.6.22)
+- A CONDITION OVER A PLAIN STRUCT OR UNION IN THE PROGRAM'S OWN CODE IS NO BOOL (1.6.22; [conv]/4, [stmt.pre]/4,
+  [expr.log.and]/1; `cpp_cond_bool/2`, `cpp_logic_bool/5`): an `if`'s, a loop's and a conditional's condition and an
+  operand of `&&` and `||` are clang++'s `value of type 'S' is not contextually convertible to 'bool'`, where the
+  condition reached LLVM's parser (`icmp ne %struct.S`); `!s` has the unary operator's words, and `s && 1` calls a free
+  `operator&&` of the program that takes the two operands. A class's operand takes its `operator bool`, and a library's
+  body keeps its road. The driver gate's nine bodies. (1.6.22)
+- A SCALAR PRVALUE HAS NO ADDRESS AND IS NO PLACE IN C++ (1.6.22; [expr.unary.op]/3, [expr.ass]/1, [expr.pre.incr]/1;
+  `cpp_scalar_prvalue_call/2`, `cpp_assignable/1`): `&h()`, `h() = 4`, `h() += 1` and a step of `h()` over `int h()` are
+  refused in clang++'s words at the statement's line, `cannot take the address of an rvalue of type 'int'` and
+  `expression is not assignable`; the assignment and the step ran on a temporary, and the address was the safe part's
+  `plain pointer not consumed`. A call whose result is a reference is a place, and a class's prvalue takes its own
+  operators. The driver gate's eight C++ bodies. (1.6.22)
 
 ### Ranking the template candidates: Conversions-Demerits
 
@@ -8210,6 +8257,16 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
 - Else 0.72's road folds a one-`return` body, the parameters bound as written (`cpp_param_binds/3`, `cpp_replace_ids/3`;
   `this` null). `cpp_targ_value/2` turns `X::template f<U>()` into that call. `constexprfn.cpp`, `stdtraits.cpp`. Why:
   pair's `__is_pair_constructible<_U1, _U2>()`. (0.72, 0.95)
+- A FOLD'S ARGUMENT IS ITS PARAMETER'S TYPE AND ITS VALUE THE RETURN TYPE'S ([expr.call]/7, [stmt.return]/2,
+  [conv.integral]; 1.6.22): on 0.72's road, which answers a call whose value is floating, an argument of an integer or a
+  floating parameter is bound as its cast to that type (`cpp_param_conv/3`), which `ccl_const_eval/2` wraps and
+  converts as C does (`ccl_w_cast/3`); the evaluator, which answers the others, wraps an integer argument of an integer
+  parameter and an integer returned as an integer type to that type's width (`cpp_eval_conv_val/5`,
+  `cpp_eval_conv_ptr/5`). `constexpr double de = kd(3);` over `constexpr double kd(double x) { return x / 4; }` folded
+  `3 / 4`, 0, where clang++ gives 0.75, and `rfl(1)` over a `float rfl(double x)` returning `x / 3` 0, not
+  0.3333333432674408; `f8(200)` over a `signed char` parameter was 201, not -55, `r8(200)` returning a `signed char`
+  200, not -56, and a `bool` parameter given 9 10, not 2 -- silent wrong answers of a constant and of a static
+  assertion. `test/cpp/run/constexprvars.cpp`. (1.6.22)
 - Both roads stay under depth 32 (`'$cpp_fold_depth'`): a constexpr function may call itself. (0.72, 0.96)
 - The evaluator runs statements (`cpp_eval_stmts/4`): declarations, a block's own dropped at its end; effects, also
   inside operands (`cpp_eval_effect/4`); `if`, `if constexpr`, `while`, `do`, `for`, `switch`, a range-for over an
@@ -8315,6 +8372,15 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   FUNCTION THAT RETURNS A REFERENCE answers its place, and `cpp_const_fold/2` reads the value there as
   `cpp_eval_reduce/3` does: `squares()[3]` and `r[3]` over `std::array`'s `operator[]` (`constexprstore.cpp`). `nullptr`
   reduces to 0. (0.257)
+- A CONSTEXPR VARIABLE WHOSE INITIALIZER CALLS A FUNCTION THAT IS NOT CONSTEXPR, OR WHOSE EVALUATION REACHES A TRAP, IS
+  REFUSED (1.6.22; [dcl.constexpr]/10; `cpp_constexpr_folds/4` in `cpp_dynamic_scalars/7` and `cpp_note_const/5`), at
+  file scope and in a block, in clang++'s words, `constexpr variable 'g' must be initialized by a constant expression`:
+  `constexpr int g = h();` over `int h()` ran h at run time, and `constexpr int g = f(-1);` over a constexpr f whose
+  branch traps stopped at run time. The fold is asked again and refused only where the evaluator met such a call or a
+  trap (`'$cpp_eval_why'`, `cpp_eval_call/5`, `cpp_eval_reduce/3`); any other fold that fails keeps the run-time road,
+  since the evaluator does not take every constant expression (`constexpr double dd = k(3) / 4.0;`).
+  `test/cpp/run/constexprvars.cpp`, the driver gate's two
+  C++ bodies. (1.6.22)
 - C++20'S CONSTANT EVALUATION (0.257, on the owner's choice; `constexpr20.cpp`, whose static assertions passed unasked
   until then). A USING-DECLARATION, A USING-DIRECTIVE AND A NAMESPACE ALIAS in a body do nothing there, as in the check
   and the lowering (1.6.21; `cpp_eval_stmt/4` of `using(_, _)`): libc++ 23's `__split_buffer` swaps by `using std::swap;
@@ -10100,6 +10166,20 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `__strong_order.strong_order`, its poison pill's key (the bare name is asked); `std::iter_swap` calls `swap(*a, *b)`.
   `std::strong_order` over a program's `ns::strong_order` reached the lowering as `call(id(strong_order))`, the object's
   name. `nslibname.cpp`, `cmpadl.cpp`. (0.221)
+- THE ARGUMENT'S NAMESPACE'S OVERLOADS JOIN THE ORDINARY ONES WHERE TWO OF THE PROGRAM'S NAMESPACES DECLARE THE NAME
+  (1.6.22; [basic.lookup.argdep]/1, [over.match.funcs]; `cpp_adl_joined/4` in `cpp_call_adl/4`): the global one keeps the
+  bare name and the other's is keyed (0.139), and a bare call `g(a)` of an `N::A` asked the bare name alone -- `g(...)`
+  beside `N::g(A)` was called, 2 where clang++ gives 1, a silent wrong answer. The plain overloads of the bare name and
+  of its key in each argument's namespace are ranked as one set (`cpp_pick/3`), and the keyed one is called where it
+  wins; where the bare one does, the call takes its road as before. A PARENTHESIZED NAME CALLED, `(g)(a)`, looks in no
+  argument's namespace (/1): the reader keeps it, `paren_callee(id(N))` (reader 211), and the desugaring calls it with
+  no such road. `test/cpp/run/adljoin.cpp`. (1.6.22)
+- A FUNCTION THAT A BLOCK DECLARES HIDES THE NAME'S OUTER OVERLOADS TO THE BLOCK'S END ([basic.lookup]/1, [over.dcl];
+  1.6.22; `'$cpp_blkfns'`, `cpp_blk_hidden/2` in `cpp_fn_exact/4`, `cpp_fn_best/4` and `cpp_adl_joined/4`):
+  `{ void ov(int); ov(2.5); }` calls ov(int), the 2.5 converted, where the file's ov(double) was the best of every
+  overload; an overload is named by its parameters as a call sees them, the top-level qualifiers off and an array or a
+  function a pointer (`cpp_same_params/2`): `void q(const int);` names `q(int)`, and `void ar(int a[]);` names `ar(int
+  *)`. `test/cpp/run/blockdecls.cpp`. (1.6.22)
 - A CALL QUALIFIED BY std FINDS NONE OF THE PROGRAM'S OWN FUNCTIONS OF THE NAME (0.221; [namespace.qual]/2;
   `cpp_lib_qualified/3` on the qualified call's road, `cpp_fn_hidden/2` in `cpp_fn_exact/4` and `cpp_fn_best/4`,
   `cpp_libq_cands/3` over the function templates' candidates): the program's global names keep the bare name beside the
@@ -12611,7 +12691,20 @@ in the first topic (The ccllib gate).
   `cannot take the address of an rvalue of type 'int'`, at the line, before the lowering meets it -- `int *p = &(c ? a
   : b);` was `plain pointer not consumed`. A CALL'S VALUE IS ONE (1.6.14; C17 6.5.2.2/5): `int *p = &h();` was `plain
   pointer not consumed` at the function's end, and `&f()` of a void f is `cannot take the address of an rvalue of type
-  'void'`. The driver gate's eighteen bodies, and two of the void values' thirty-five. (1.6.13, 1.6.14)
+  'void'`. The driver gate's eighteen bodies, and two of the void values' thirty-five. An operator's value is one too
+  (1.6.22, the lowering's topic): `&(a + b)`, `&-a`, `&(&a)` and `&(int)a`. (1.6.13, 1.6.14, 1.6.22)
+- A STATEMENT EXPRESSION OF DECLARATIONS ALONE, THEN ITS VALUE, GIVES THAT VALUE WITH EACH LOCAL'S INITIALIZER IN ITS PLACE
+  (1.6.22; `ck_block_value/2` in `ck_static_value/1` and `ck_borrows_from/3`): nothing in the block changes a local after
+  its declaration, so `({ const char *t = pick(1); t ? t : "none"; })` is `pick(1) ? pick(1) : "none"` to the check --
+  static storage where pick's every return is, a borrow where its value borrows -- and was new memory, `plain pointer not
+  consumed`. Each local's initializer has the earlier locals' in their places (`ck_block_map/3`), so that a local of the
+  block never names an outer local of its name, and a local with no initializer makes the block no such value. GNU's `x
+  ?: y` over a call is such a block. `test/c/run/gnucond.c`. (1.6.22)
+- A PLACE'S TYPE THROUGH A REFERENCE IS ITS REFERENT'S (1.6.22; `ck_ref_view/2` in the assignment's `ck_expr/3`): the
+  check holds a local reference as the pointer it is, and the desugared code reads its name as the referent, so `int *&q
+  = p; *q = 9;` -- `deref(id(q))`, a store into `arr[0]` -- was typed as p itself, an `int *` slot given no owner, `no
+  owner behind: '*q'`. And THE ADDRESS OF WHAT A RETURNED REFERENCE NAMES IS NO NEW MEMORY (`ck_ref_rooted/1`): `int *p =
+  &hr();` over `int &hr()` was `plain pointer not consumed`. `test/cpp/run/refplaces.cpp`. (1.6.22)
 - A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLEE'S OBJECT TO THE CHECK (0.207; `ck_param_dtors/3` in
   `ck_function/5`): the caller destroys it since 0.207 (the Classes topic), and the callee's code has no defer of its
   destructor; the walk takes one at the body's head all the same, as the desugaring's own defer was before, so its
@@ -13288,7 +13381,24 @@ in the first topic (The ccllib gate).
   read from the value's temporary (`ir_lval_/4` of a member): `(g(), s).m` was refused by name. Through 1.6.12 the
   lowering took `(c ? a : b) = 5`, the conditional's place, which is C++'s, and through 1.6.13 `h() = 4` and `h()++`
   ran, the value stored into a temporary. `test/c/run/cvalues.c`, the driver gate's eighteen bodies and two of the void
-  values' thirty-five. (1.6.13, 1.6.14)
+  values' thirty-five. AN OPERATOR'S VALUE IS NONE EITHER (1.6.22; C17 6.5.3.2 to 6.5.14; `ccl_c_rvalue_form/1`): a
+  binary operator's, `-`'s, `+`'s, `!`'s, `~`'s, a cast's and an address's, so `(a + b) = 3`, `(!a)++` and `&(a + b)`
+  are clang's words, an assignment to a cast its own, `assignment to cast is illegal, lvalue casts are not supported`,
+  and a member of two structs' operator, `(p * q).a`, the operands' `invalid operands to binary expression`, where it was
+  `lvalue(bin(...))`. `->` OVER NO POINTER is clang's `member reference type 'struct S' is not a pointer; did you mean to
+  use '.'?` over a struct or a union, and without the question over another type (`ir_arrow_operand/1`; C17 6.5.2.3/2),
+  in C and in C++, where it was `not lowered yet: not_a_pointer(...)`. The driver gate's fifteen bodies. (1.6.13,
+  1.6.14, 1.6.22)
+- IN C A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE (1.6.22; C17 6.3.2.1/1, 6.5.16/2, 6.5.2.4/1, 6.5.3.1/1;
+  `ir_c_const_place/2` in `ir_c_assignable/1`): an assignment, a compound assignment and a step of one are refused in
+  clang's words (its Sema's DiagnoseConstAssignment) at the line -- the variable whose type makes the place const named,
+  through a member and an array's element and, through `->`, the pointer's own variable (`cannot assign to variable 'p'
+  with const-qualified type 'const struct S *'`); a const member by itself (`cannot assign to non-static data member
+  'x' ...`); a struct with one assigned whole by the member (`... with const-qualified data member 'x'`); any other
+  place `read-only variable is not assignable`. A store through an `int *const`, a member that is not const and a
+  pointer to const given a new target stay. `const int a = 1; a = 2;` and `*p = 3` over a `const int *p` built and ran.
+  C alone: the C++ desugaring writes a constructor's member initializers as assignments (Not done). The driver gate's
+  thirteen bodies. (1.6.22)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
@@ -14546,7 +14656,15 @@ in the first topic (The ccllib gate).
   SEMICOLON OR AN ARROW IS WRITTEN IN PARENTHESES, `(public)`, the form that standard Prolog reads as the atom (3.37.0
   does, and 3.62.2: the chain of 0.292). The seven places where such an atom stands before a closing parenthesis (`A0 =
   public )`) are as they were: the report's load took them. (0.290, 0.292)
-- cocolog is at 3.78.18 since 1.6.21 (`86ad08c`), taken at its latest master on the user's word ("Update pins to latest
+- cocolog is at 3.78.21 since 1.6.22 (`3c30c7e`), its latest master after 1.6.21's chain at the user's word ("After the
+  chain pull cocolog, pin"): four commits past 3.78.18, three versions and a document. 3.78.19 holds a task's charge of
+  the dead clauses that its calls pass on the task's machine and puts it into the predicate at 64, 3.78.20 turns a
+  try at a sweep down with no write barrier where a frame that stands still holds the dead, and 3.78.21 asks the tasks
+  that run, and puts a machine's charge in at a sixteenth of the next try's need: each a green world's, where a task
+  of cocolog's runs, and the host's own calls charge at once as before; cicilang runs no task, so what a query answers
+  is as before. `NOTDONE.md` gathers cocolog's open records. ZiguratIP stays at `655fa38`, which no commit touched,
+  and both modules are built again over it, as after every update of cocolog.
+- cocolog was at 3.78.18 from 1.6.21 (`86ad08c`), taken at its latest master on the user's word ("Update pins to latest
   versions"): fifty-eight commits past 3.62.3, fifty-one versions of cocolog's own, from 3.62.4 -- the 1.6.x steps ran on
   3.65.0 (`c7e3103`, then `6af52f8`) with the pin left at 3.62.3 -- and the rest its documents and benchmarks; beside
   ZiguratIP 1.0.4 (`655fa38`; 1.0.3 and 1.0.4, which cocolog 3.62.6 and 3.62.7 build against, a store under an
@@ -15460,12 +15578,21 @@ in the first topic (The ccllib gate).
   0.90, all GREEN (cocolog 1.2.18). Since 0.224 the CI's Mac job runs the six small gates there, on GitHub's
   `macos-26-intel` over Homebrew's `llvm@18` (The toolchain, its pins and the CI job); the C++ gates have run on Linux
   only since 0.93.
-- Ubuntu 24.04 on x86_64 (clang and LLVM 23 since 1.6.21, apt.llvm.org's, and Ubuntu's 18 before; glibc; libc++ 18,
-  21, 22 and 23) is a host since 0.87. Every gate but the C++
-  one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
-  0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.295's chain, over the finished phase 1a of
-  ccllib -- its pushed commit `8602b05` -- and cocolog 3.62.3, ZiguratIP 1.0.2 and Cicili 3.3.0 at their pins, its two
+- Ubuntu 24.04 on x86_64 (clang and LLVM 23 since 1.6.21, apt.llvm.org's, and Ubuntu's 18 before; glibc; libc++ 18, 21,
+  22 and 23) is a host since 0.87. Every gate but the C++ one is GREEN there since 0.93, and all seven since 0.95. Every
+  step from 0.93 on is gated there, but the save points 0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143
+  (0.143's C gates and cross gate ran, its libc++ gates did not; the others were gated by the steps after them). The
+  last full run is 1.6.21's chain, over the pins moved to cocolog 3.78.18, ZiguratIP 1.0.4, Cicili 3.3.0, LLVM 23 and
+  libc++ 23, the two modules built over them, over a fresh HOME a tree: over libc++ 22 the library read 523 s, the C++
+  gate 1819 s (1228 ok, none skipped) and the ccllib gate 1516 s (625 checks); over libc++ 21 the library read 503 s,
+  the C++ gate 1767 s (1225 ok, 3 skipped by their needs) and the ccllib gate 1499 s (625 checks); over libc++ 18 the
+  library read 611 s, the C++ gate 1940 s (1217 ok, 11 skipped by their needs) and the ccllib gate 1528 s (623 checks);
+  over LLVM 23 and libc++ 23 all eleven GREEN, the toolchain check strict -- the flow gate 684 s with no finding (61
+  ok), reader 5 s (173 ok), compile 36 s (418 ok), driver 165 s (111 ok), objects 7 s (29 ok), the proof, the cross gate
+  321 s (274 ok), the library read 232 s, the C++ gate 1250 s (1228 ok, none skipped) and the ccllib gate 1519 s (625
+  checks); in 17490 s in all (the ccllib gate over libc++ 18 RED on its tree first, HISTORY.md's 1.6.21). 0.295's chain,
+  over the finished phase 1a of ccllib -- its pushed commit `8602b05` -- and cocolog 3.62.3, ZiguratIP 1.0.2 and Cicili
+  3.3.0 at their pins, its two
   modules built over them, over a fresh HOME a part: over libc++ 22 the library read 445 s, the C++ gate 1536 s (1110
   ok, none skipped) and the ccllib gate 654 s (282 checks); over libc++ 21 the library read 446 s, the C++ gate 1506 s
   (1107 ok, 3 skipped by their needs) and the ccllib gate 665 s (282 checks); over libc++ 18 all eleven GREEN, the
@@ -16750,18 +16877,11 @@ Declarations topic of the C++ reader).
   `not lowered yet: auto(f)`, where clang says `builtin functions must be directly called`, as `void (*f)() =
   __builtin_trap;` says here; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap,
   where a build does.
-- A CONSTEXPR VARIABLE WHOSE INITIALIZER IS NO CONSTANT EXPRESSION IS NOT REFUSED (found at 1.6.10; C++20
-  [dcl.constexpr]: the full-expression of its initialization is a constant expression): `int h() { return 3; } constexpr
-  int g = h();` builds and prints 3, where clang refuses it, `constexpr variable 'g' must be initialized by a constant
-  expression`; so does one whose evaluation reaches a trap -- `constexpr int g = f(-1);` over `constexpr int f(int x) {
-  return x > 0 ? x : (__builtin_trap(), 0); }` builds and stops at run time -- and one that reaches
-  `__builtin_unreachable()`, which the desugaring answers as nothing (`cpp_builtin_call/3`), so `f(-1)` of `if (x < 0)
-  __builtin_unreachable(); return x;` is -1. A static assertion over such a call is refused, as clang refuses it
-  (0.257).
-- A STORE THROUGH A REFERENCE TO A POINTER IS REFUSED (found at 1.6.13): `int *p = arr; int *&q = p; *q = 9;` is `no
-  owner behind: '*q'`, where clang's build stores into `arr[0]`, and so through an effect, `int *&q = (p += 1);`; a
-  step of q and a read through p are taken (`q += 1;`, `*p`). The check models a reference as the pointer it is, and a
-  store through the pointer the reference holds has no owner behind it.
+- A CONSTEXPR VARIABLE WHOSE EVALUATION REACHES `__builtin_unreachable()` IS NOT REFUSED (found at 1.6.10, narrowed at
+  1.6.22): the desugaring answers that builtin as nothing (`cpp_builtin_call/3`), so `f(-1)` of `if (x < 0)
+  __builtin_unreachable(); return x;` is -1 where clang refuses it, `constexpr variable 'g' must be initialized by a
+  constant expression`. A call of a function that is not constexpr and a trap are refused since 1.6.22 (the topic of
+  constant evaluation).
 - THE WORDS OF THREE VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14): a variable of a `typeof` or a `decltype` type
   that is void is `variable has incomplete type 'void'`, where clang names the type written, `'typeof (f())' (aka
   'void')`; a void value through `printf`'s ellipsis in C++ is `cannot pass expression of type 'void' to variadic
@@ -16769,55 +16889,26 @@ Declarations topic of the C++ reader).
   called with a void value is `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang
   says `no matching function for call to object of type '(lambda at f.cpp:7:14)'`, the closure's column, which the reader
   does not keep. Each is refused at clang's line.
-- GNU'S CONDITIONAL WITH NO MIDDLE OPERAND IS NOT READ (found at 1.6.14): `z = x ?: 5;`, C's and C++'s, is `syntax error:
-  could not read this item`, where clang reads it as `x ? x : 5` with x evaluated once.
-- C++: A FUNCTION THAT A BLOCK DECLARES DOES NOT HIDE THE NAME'S OUTER OVERLOADS (found at 1.6.14; [basic.lookup]/1,
-  [over.dcl]): `void ov(int); ov(2.5);` in a block calls the file's `ov(double)`, where clang++'s build calls `ov(int)`;
-  and overloads that only a block declares are `not lowered yet: undeclared(ov)`. C's block declarations are in scope
-  since 1.6.14 (the lowering's topic).
-- C++: A CALL'S PRVALUE IS TAKEN AS A PLACE (found at 1.6.14; [expr.ass]/1, [expr.unary.op]/3): `h() = 4;` over `int h()`
-  builds and runs, where clang++ says `expression is not assignable`; `int *p = &h();` is the safe part's `plain pointer
-  not consumed`, where clang++ says `cannot take the address of an rvalue of type 'int'`; and `int *p = &hr();` over
-  `int &hr()`, a reference's object, is `plain pointer not consumed` too, where it is valid. C's call is no lvalue since
-  1.6.14.
-- C++: A LOCAL CLASS DEFINED IN A DECLARATION OF ITS OBJECT, `struct S2 { int m(int v) { ... } } o;`, has no members to
-  a call (found at 1.6.14): `o.m(1)` is `not lowered yet: no_member(m, ...)`; the class defined alone and its object
-  declared after it build.
 - A TYPEDEF'S NAME IN A MESSAGE HAS NO `(aka ...)` (found at 1.6.14): `typedef int I; I i = f();` is `initializing 'I'
   with an expression of incompatible type 'void'`, where clang says `'I' (aka 'int')`, and C++'s alias of a reference, a
   pointer, a pointer to member or a class is spelled as its target, `'int &'` for clang++'s `'IR' (aka 'int &')`; a
   functional cast of a typedef, `I(f())`, names its target alone. Every message that names a typedef's type is so. A
   class named with its scope is spelled by its own: `::M(f())` is `'M'`, where clang++ spells the type as written,
   `'::M'`, and a nested class named bare in its class `'O::N'` for clang++'s `'N'`.
-- C++: A PARENTHESIZED CALLEE IS CALLED AS ITS NAME (found at 1.6.14; [basic.lookup.argdep]/1): `(g)(f())` is `no matching
-  function for call to 'g'`, where clang++, which looks up no argument's namespace for a parenthesized name, initializes the
-  parameter, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`; the reader keeps no parentheses
-  around a callee.
-- A REFUSAL IN THE BODY OF A PROGRAM'S FUNCTION TEMPLATE IS PRINTED AS ITS INSTANCE'S (found at 1.6.14): `template<class
-  T0> T0 mk() { return T0(f()); }` called as `mk<M>()` is `not lowered yet: instance_refused('mk.M',
-  void_cast_class(functional, 'M'))`, where clang++ gives the body's words, `no matching conversion for functional-style
-  cast from 'void' to 'M'`; the line is clang++'s, the template's. A class template's member, `Bx<int>::mk2()`, gives
-  the body's words.
-- C++: A CLASS MEMBER'S INITIALIZER THAT NO CONSTRUCTOR TAKES HAS NO WORDS OF ITS OWN (found at 1.6.14): `struct N { M
-  m; N() : m(1, 2) {} };` is `not lowered yet: member_not_constructed(m, 'M', 2)`, where clang++ says `no matching
-  constructor for initialization of 'M'`, at clang++'s line.
 - C++: A VOID VALUE THAT THE DESUGARING DOES NOT TRUST HAS THE PARAMETER'S WORDS AS AN UNQUALIFIED CALL'S ARGUMENT
   (found at 1.6.14): `g(fp())` over `void (*fp)()` is the lowering's `cannot initialize a parameter of type 'int' with
   an rvalue of type 'void'`, where clang++, whose overloading takes no candidate, says `no matching function for call to
   'g'`; the desugaring trusts no call through a pointer or a reference to a function, as it trusts no overloaded name's
   raw call.
-- C++: A FUNCTIONAL CAST TO A `decltype` TYPE IS NOT LOWERED (found at 1.6.14): `decltype(mm)(f())` is `not lowered yet:
-  expr(decltype_expr(id(mm)))`, where clang++ says `no matching conversion for functional-style cast from 'void' to
-  'decltype(mm)' (aka 'M')`.
-- C++: A BUILT-IN OPERATOR'S OPERAND THAT C REFUSES IN CLANG'S WORDS IS REFUSED BY NAME, OR REACHES LLVM (found at
-  1.6.14): `*x` over an `int` is `not lowered yet: deref_of_arithmetic(...)`, where clang++ says `indirection requires
-  pointer operand ('int' invalid)`; `-s` and `s + 1` over a plain struct are `no_operator(-)` and `no_operator(+)`,
-  clang++'s `invalid argument type 'const S' to unary expression` and `invalid operands to binary expression ('const S'
-  and 'int')`; `(int *)d` over a double is `no conversion from 'const double' to 'int *'`, clang++'s `cannot cast from
-  type 'double' to pointer type 'int *'`; and `!s` and `if (s)` over a plain struct reach LLVM's parser, `icmp ne
-  %struct.S`, where clang++ says `invalid argument type 'const S' to unary expression` and `value of type 'const S' is
-  not contextually convertible to 'bool'`. C's are clang's (the lowering's topic); in C++ a class's operand keeps its
-  `const` in clang++'s words, a scalar's does not.
+- C++: A FUNCTIONAL CAST TO A `decltype` TYPE NAMES ITS TARGET ALONE IN A REFUSAL (found at 1.6.14, narrowed at 1.6.22):
+  `decltype(mm)(f())` over a void f is `no matching conversion for functional-style cast from 'void' to 'M'`, where
+  clang++ says `... to 'decltype(mm)' (aka 'M')`; the cast of a value builds since 1.6.22.
+- C++: A BUILT-IN OPERATOR'S OPERAND THAT C REFUSES, WHAT 1.6.22 LEAVES (found at 1.6.14): `(int *)d` over a double is `no
+  conversion from 'const double' to 'int *'`, clang++'s `cannot cast from type 'double' to pointer type 'int *'`: the
+  lowering's conversion words it, which does not tell a cast from an implicit conversion. A built-in operator over a
+  plain struct, `*` over an integer, `->` over no pointer and a condition over a plain struct are clang++'s words since
+  1.6.22 (`cpp_builtin_op_words/4`, `cpp_cond_bool/2`, the topic of C++'s operators); a library's body keeps the terms
+  its substitution failures read.
 - A LIBRARY HEADER'S `__FILE__` IS ITS PATH UNDER `$LLVM` (found at 1.6.10): clang++ finds libc++'s headers through its
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints
@@ -17090,43 +17181,29 @@ Declarations topic of the C++ reader).
   an object of another kind (the owner's question of 0.307); a unique_ptr of an object with a pointer in it (decision
   2); `if (p)` and `p == nullptr`; `get_deleter`; `std::hash` (1b) and `operator<<` (1d); `shared_ptr`, `weak_ptr` and
   `make_shared`, phase 1b's next.
-- A PLAIN CALL'S COUNT OF ARGUMENTS, AND A POINTER AND AN INTEGER IN EACH OTHER'S PLACE, ARE NOT CHECKED (found at
-  0.288; C17 6.5.2.2/2 and 6.5.16.1/1, constraints): `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object
-  with no message -- the call is made with the arguments that it has --, where clang 22 says `too few arguments to
-  function call, expected 2, have 1`; `fp(5)` over a pointer parameter (`inttoptr`), `fi(q)` with a pointer where a
-  `long` is taken, `n = q;` and `fp(q)` with a pointer to another type build too, where clang 22 refuses each
-  (`incompatible integer to pointer conversion`, `incompatible pointer to integer conversion`, `incompatible pointer
-  types`). cicilang++ takes them all, where C++ has no such conversion and clang++ says `no matching function for call
-  to 'f'`. 0.288 closed them for a call by name, in the reader, which knows the function of the instance; a plain call's
-  are the lowering's, a rule that every program reaches -- a step of its own.
-- AN ASSIGNMENT TO A CONST-QUALIFIED LVALUE IS NOT REFUSED (C17 6.5.16/2: the left operand of an assignment is a
-  modifiable lvalue; found by 0.295), in C and in C++: `const int a = 1; a = 2;`, and `*p = 3` over a `const int *p`,
-  build, where clang refuses them (`cannot assign to variable 'a' with const-qualified type 'const int'`, `read-only
-  variable is not assignable`); so does a write through a `span<const int>`, `c[0] = 7`. Since 0.265 only an own field
-  of a const object is refused (`assign_to_const`). The C++ desugaring writes a constructor's member initializers as
-  assignments, and a const member's would meet the rule: the rule waits for the desugaring to mark them. A CONSTEXPR
-  POINTER IS NO CONST POINTER HERE (found at 1.6.10): the desugaring holds its `const` on what it points to, `const
-  const char` for `constexpr const char *m`, so `m = "y"` and `p = &g` over `constexpr int *p = nullptr` build, where
-  clang refuses them (`cannot assign to variable 'm' with const-qualified type 'const char *const'`). (0.295, 1.6.10)
+- A POINTER ASSIGNED TO AN INTEGER IN C++ IS TAKEN (found at 0.288, narrowed at 1.6.22): `long n; n = q;` over an `int
+  *q` builds, where clang++ says `incompatible pointer to integer conversion assigning to 'long' from 'int *'`; C's rule
+  (`ir_int_ptr_check/4`, 0.302) is C's alone, since the desugared C mixes the two where C++ means it. A call's count and
+  a pointer and an integer in each other's place in a call are clang's words since 0.302 in C, and the overloads'
+  `no matching function for call to 'f'` in C++ (seen at 1.6.22).
+- AN ASSIGNMENT TO A CONST-QUALIFIED LVALUE IS NOT REFUSED IN C++ (C17 6.5.16/2's twin, [expr.ass]/1; found by 0.295, C's
+  refused since 1.6.22): `const int a = 1; a = 2;` and `*p = 3` over a `const int *p` build in C++, where clang++ refuses
+  them; so does a write through a `span<const int>`, `c[0] = 7`. Since 0.265 only an own field of a const object is
+  refused (`assign_to_const`). The C++ desugaring writes a constructor's member initializers as assignments, and a const
+  member's would meet the rule: the rule waits for the desugaring to mark them. A CONSTEXPR POINTER IS NO CONST POINTER
+  HERE (found at 1.6.10): the desugaring holds its `const` on what it points to, `const const char` for `constexpr const
+  char *m`, so `m = "y"` and `p = &g` over `constexpr int *p = nullptr` build, where clang refuses them (`cannot assign
+  to variable 'm' with const-qualified type 'const char *const'`). A TYPEDEF'S NAME has no `(aka ...)` in C's words
+  either: `CI c = 1; c = 2;` over `typedef const int CI` is `... type 'CI'`, clang's `'CI' (aka 'const int')`. (0.295,
+  1.6.10, 1.6.22)
 - THE NOTE OF A MACRO'S EXPANSION PRINTS ITS TYPE ARGUMENTS AS TERMS (found at 0.288): `note: expanded from macro
   'vector' on base([],[int])`, under an error in an instance's function.
-- A MEMBER READ OFF THE VALUE OF AN ASSIGNMENT IS NOT LOWERED (found at 0.287): `(b = x).len` over two structs is `not
-  lowered yet: lvalue(assign(...))`, where C reads the member of the assignment's value.
-- THE ADDRESS OF A CALL'S RESULT IS TAKEN, IN C AND IN C++ (found at 0.286): `get(&f())` over `int f(void)` builds and
-  runs -- the lowering gives the address of a temporary that holds the result --, where clang and clang++ say `cannot
-  take the address of an rvalue of type 'int'`. The address of an element that an instance's `[]` gives as a value is
-  refused by name (0.286); the general form is not.
-- IN C A BINARY OPERATOR OVER TWO PLAIN STRUCTS IS REFUSED BY NO WORDS OF C'S (found at 0.284, beside the operators over
-  instances): `p + q` and `p += q` over two structs are `not lowered yet: type(unknown)`, where clang says `invalid
-  operands to binary expression`. A unary `-` or `~` over one reached LLVM until 0.286, and is refused in clang's words
-  now; a struct where another type is needed is refused by name (the lowering's values). A PAIR'S, A TUPLE'S, AN
-  OPTIONAL'S AND A VARIANT'S RELATIONS over a member, an element or an alternative that is a plain struct meet it in the
-  module's text (found at 0.308): `a == b` over two `variant<point, int>` is `not lowered yet: type(unknown) (function
-  variant_point_int_eq)` in C and `not lowered yet: no_operator(==)` in C++, where C++ refuses it too, in its own words,
-  since the struct has no `operator==`. `*s` AND `s->m` OVER A STRUCT -- an instance of a type macro that names no
-  pointer among them, `*v` and `v->len` over a vector -- are refused by the lowering's term, `not lowered yet:
-  not_a_pointer(...)`, and `*v` in C++ by `not lowered yet: no_operator(*)` (found at 0.309), where clang says
-  `indirection requires pointer operand` and `member reference type ... is not a pointer`.
+- A PAIR'S, A TUPLE'S, AN OPTIONAL'S AND A VARIANT'S RELATIONS OVER A PLAIN STRUCT ARE REFUSED IN THE MODULE'S TEXT (found
+  at 0.308): `a == b` over two `variant<point, int>` meets the struct's `==` in the module's function, `variant_point_int_eq`
+  in C, where C++ refuses it too, in its own words, since the struct has no `operator==`; and C++'S `*s` OVER A PLAIN
+  STRUCT was `not lowered yet: no_operator(*)` (found at 0.309), clang++'s words since 1.6.22. C's operators over two
+  structs are clang's words since 1.6.1 and 1.6.22, `*s` since 1.6.14 and `->` over no pointer since 1.6.22 (the
+  lowering's topics).
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s
@@ -17190,16 +17267,10 @@ Declarations topic of the C++ reader).
 - A PLAIN STRUCT HANDED BY ITS ADDRESS AFTER A MOVE OF ITS OWNERS (found at 0.262): `person d = c; show(&c);` is
   accepted, and `show` reads `c.name`, which `d` holds; for an object of a type that has a drop it is refused since
   0.262 (`use_after_move`).
-- A MISSING `#include` IS PASSED OVER (found at 0.260): the read holds `include(L, Spec, missing)` and goes on (the
-  Includes topic), so `#include "nope.h"` before a `main` that uses nothing of it builds with no message, and a program
-  that uses the header fails later, at the first name it declares; clang stops at the line, `fatal error: 'nope.h' file
-  not found`. To refuse it changes what every read holds, the library's reads among them, whose missing headers no gate
-  has counted: a step of its own. Since 0.290 a build that fails names the file in a note, for an `#include` of the
-  program's file (`dr_unread_notes/2`, the driver's topic); a build with no error says nothing still.
-- A MALFORMED `#include` OF THE PROGRAM'S FILE IS PASSED OVER (found at 0.290): `#include \"x.h\"` -- a backslash before
-  each quote, which a check of the driver gate wrote by a slip of its shell -- is kept as a directive that nothing
-  reads, with no message, and the program fails at the first name of the header; clang says `expected "FILENAME" or
-  <FILENAME>`.
+- `cicilang -E` PASSES OVER AN `#include` THAT FINDS NO FILE OR NAMES NONE (found at 1.6.22, which refuses both in a
+  build): the preprocessed text of `#include "nope.h"` and of `#include \"x.h\"` is the rest of the file, exit 0,
+  where `clang -E` stops at the line, `fatal error: 'nope.h' file not found` and `expected "FILENAME" or <FILENAME>`;
+  `-E` is the preprocessor's run of its own (`dr_preprocess/2`), which takes neither rule.
 - THE RAW LEXER ENDS A DIRECTIVE AT ITS LINE'S END INSIDE A COMMENT (found at 0.290; `ccl_pp_line//3`): C ends a
   directive where a comment that begins on its line ends (C17 5.1.1.2/1: a comment is one space in phase 3, before the
   directive is taken in phase 4). The raw read takes the comment's later lines as code: where they do not parse the read

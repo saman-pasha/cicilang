@@ -171,23 +171,23 @@ cpp_expr(Ctx, co_await_raw(Op, Kind), X) :- !, ( ccl_declared('$promise', PT) ->
 %% `+x' since 1.6.1 ([over.match.oper]/2): the form was its operand, so `+v' over a class whose `operator+()' gives
 %% another value gave v itself, with no word, and a free `operator+(W)' was never called
 cpp_expr(Ctx, deref(A), E)  :- !, cpp_expr(Ctx, A, A1), cpp_deref_operand(A1), cpp_operator('*', A1, [], deref(A1), E).
-cpp_expr(Ctx, preinc(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('++', A1, [], preinc(A1), E).
-cpp_expr(Ctx, predec(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('--', A1, [], predec(A1), E).
-cpp_expr(Ctx, postinc(A), E) :- !, cpp_expr(Ctx, A, A1), ( cpp_class_of_type_of(A1, _) -> cpp_operator('++', A1, [int(0)], postinc(A1), E) ; E = postinc(A1) ).
-cpp_expr(Ctx, postdec(A), E) :- !, cpp_expr(Ctx, A, A1), ( cpp_class_of_type_of(A1, _) -> cpp_operator('--', A1, [int(0)], postdec(A1), E) ; E = postdec(A1) ).
+cpp_expr(Ctx, preinc(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), cpp_operator('++', A1, [], preinc(A1), E).
+cpp_expr(Ctx, predec(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), cpp_operator('--', A1, [], predec(A1), E).
+cpp_expr(Ctx, postinc(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), ( cpp_class_of_type_of(A1, _) -> cpp_operator('++', A1, [int(0)], postinc(A1), E) ; E = postinc(A1) ).
+cpp_expr(Ctx, postdec(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), ( cpp_class_of_type_of(A1, _) -> cpp_operator('--', A1, [int(0)], postdec(A1), E) ; E = postdec(A1) ).
 cpp_expr(Ctx, not(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_to_bool(A1, A2), cpp_operator('!', A1, [], not(A2), E).
 cpp_expr(Ctx, neg(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_operator('-', A1, [], neg(A1), E).
 cpp_expr(Ctx, pos(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_operator('+', A1, [], pos(A1), E0), cpp_pos_pointer(E0, E).
 cpp_expr(Ctx, bitnot(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('~', A1, [], bitnot(A1), E).
-cpp_expr(Ctx, bin(Op, A, B), E) :- memberchk(Op, ['&&', '||']), !, cpp_expr(Ctx, A, A1), cpp_cond_branch(Ctx, B, B0, Tb), cpp_cond_flag(Tb, B0, B1), cpp_to_bool(A1, A2), cpp_to_bool(B1, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).   % the right operand's temporaries flagged (cpp_cond_branch, 0.201)
+cpp_expr(Ctx, bin(Op, A, B), E) :- memberchk(Op, ['&&', '||']), !, cpp_expr(Ctx, A, A1), cpp_cond_branch(Ctx, B, B0, Tb), cpp_cond_flag(Tb, B0, B1), cpp_logic_bool(Op, A1, B1, A2, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).   % the right operand's temporaries flagged (cpp_cond_branch, 0.201)
 cpp_expr(Ctx, bin(Op, A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1), cpp_ptr_composite(Op, A1, B1, A2, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).
 cpp_expr(Ctx, bind_ref(A, B), bind_ref(A1, B1)) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1).   % a reference member BOUND in a constructor: the slot takes the address
-cpp_expr(Ctx, assign(Op, A, B), E) :- Op \== '=', !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1), cpp_operator(Op, A1, [B1], assign(Op, A1, B1), E0), cpp_rhs_first(E0, E).
+cpp_expr(Ctx, assign(Op, A, B), E) :- Op \== '=', !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), cpp_expr(Ctx, B, B1), cpp_operator(Op, A1, [B1], assign(Op, A1, B1), E0), cpp_rhs_first(E0, E).
 cpp_expr(Ctx, assign('=', A, init(Items)), E) :- \+ ( member(item(D, _), Items), D \== [] ), cpp_expr(Ctx, A, A1), cpp_class_of_type_of(A1, C),   % A BRACED LIST ASSIGNED TO A CLASS ([expr.ass]/9; 0.132): where the class's own operator= takes no list, `x = {a, b}' is `x = C{a, b}', the temporary through the constructors, then the assignment -- libc++'s split_view writes `__next_ = {__cur_, __cur_};' over a subrange, and the list reached the lowering
     \+ catch(cpp_method(C, operator('='), [init(Items)], _, _), error(not_lowered(_), _), fail), !,
     findall(V, member(item(_, V), Items), Vs), ( Vs == [] -> T = call(id(C), []) ; T = braced_temp(call(id(C), Vs)) ),
     cpp_expr(Ctx, assign('=', A, T), E).
-cpp_expr(Ctx, assign('=', A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B10), cpp_assign_sliced(A1, B10, B1), cpp_deleted_assign_check(A1, B1),
+cpp_expr(Ctx, assign('=', A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_assignable(A1), cpp_expr(Ctx, B, B10), cpp_assign_sliced(A1, B10, B1), cpp_deleted_assign_check(A1, B1),
     (   cpp_class_of_type_of(A1, C), cpp_assign_from_own(B1, C, B0), \+ cpp_written_copy_assign(C),   % THE IMPLICIT COPY OR MOVE ASSIGNMENT where the class writes operator= for other types only (0.112)
         ( ( cpp_dtor(C, _) ; cpp_dynamic_class(C) ) -> cpp_implicit_assign(C, B1, Name) ; Name = none )   % ... made where it can be: a class holding OWNERS takes the roads below (`d[n] = move(x)', the holder's fresh slot); A CLASS WITH A TABLE assigns memberwise (0.135, cpp_dynamic_class/1)
     ->  ( Name \== none -> cpp_object_arg(Name, addr(A1), Obj), cpp_ref_args_of(Name, [B1], [B2]), cpp_rhs_first(call(id(Name), [Obj, B2]), E) ; E = assign('=', A1, B0) )
@@ -249,9 +249,19 @@ cpp_expr(Ctx, stmt_expr(block(Is)), stmt_expr(block(Js))) :- !, cpp_in_frame(cpp
 cpp_expr(Ctx, lambda(Caps, Ps, Ret, Body), E) :- !, cpp_lambda(Ctx, Caps, Ps, Ret, Body, E).
 cpp_expr(_, str(S), str(S)) :- !.
 cpp_expr(_, u8str(S), u8str(S)) :- !.   % C++20's u8 literal (0.196)
-cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_to_bool(C1, C2), cpp_cond_branch(Ctx, A, A0, Ta0), cpp_cond_branch(Ctx, B, B0, Tb0),
+cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_cond_bool(C1, C2), cpp_cond_branch(Ctx, A, A0, Ta0), cpp_cond_branch(Ctx, B, B0, Tb0),
     cpp_cond_copy_arm(A0, B0, Ta0, A00, Ta), cpp_cond_copy_arm(B0, A0, Tb0, B00, Tb), cpp_cond_flag(Ta, A00, A1), cpp_cond_flag(Tb, B00, B1).   % each arm's temporaries flagged (cpp_cond_branch, 0.201), an lvalue arm beside a prvalue arm copied (cpp_cond_copy_arm); THE CONDITION CONTEXTUALLY CONVERTED TO BOOL ([expr.cond]/1; 0.137), through a class's `operator bool' as `if' and `!' have it: `l ? 1 : 0' over an `optional' compared the struct with zero
+%% C++: A SCALAR PRVALUE HAS NO ADDRESS AND IS NO PLACE (1.6.22; [expr.unary.op]/3, [expr.ass]/1, [expr.pre.incr]/1): `&h()',
+%% `h() = 4', `h() += 1' and `h()++' over `int h()' are refused in clang++'s words, `cannot take the address of an rvalue of
+%% type 'int'' and `expression is not assignable'; the assignment and the step ran on a temporary, and the address was the
+%% safe part's `plain pointer not consumed'. A call whose result is a reference is a place, and a class's prvalue takes its
+%% own operators. C's are the check's and the lowering's (ccl_c_no_lvalue/1)
+cpp_expr(Ctx, addr(X), E) :- X = call(_, _), !, cpp_expr(Ctx, X, X1),
+    ( cpp_scalar_prvalue_call(X1, T) -> ( catch(ir_type_text(T, A), _, fail) -> true ; A = '?' ), cpp_refuse_stmt(address_of_rvalue(A)) ; E = addr(X1) ).
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
+cpp_assignable(A) :- ( cpp_scalar_prvalue_call(A, _) -> cpp_refuse_stmt(not_assignable) ; true ).
+cpp_scalar_prvalue_call(call(id(F), _), T) :- atom(F), catch(ccl_declared(F, fn(R, _, _)), _, fail), \+ R = ref(_, _), \+ R = rref(_, _),
+    catch(ccl_resolve_type(R, T), _, fail), ( T = ptr(_, _) ; ccl_is_arith(T) ), !.
 %% A CONSTEXPR OBJECT OF THE FUNCTION A CLOSURE OR A LOCAL CLASS IS MADE IN (0.258): its note is in the walk's constants
 %% (cpp_note_local_agg/3, '$cpp_encl_consts'), and a member read through its name, which is neither a local nor a capture
 %% there, is the member's value -- `[] { return p.x; }' over `constexpr P p(5, 6);' named p, undeclared in the body's function
@@ -700,7 +710,7 @@ cpp_coro_class(E, C) :- catch(cpp_arg_type(E, T), _, fail), T \== unknown, ccl_u
 %% Only an operand whose type is KNOWN and arithmetic (an enumeration included) is refused; a type the inference could not settle is let through.
 cpp_deref_operand(A) :-
     (   catch(( ccl_type_of(A, T0), T0 \== unknown, ccl_unref(T0, T1), ccl_resolve_type(T1, T), ccl_is_arith(T) ), _, fail)
-    ->  cpp_refuse(0, deref_of_arithmetic(T))
+    ->  ( \+ nb_current('$cpp_in_lib', yes), catch(ir_type_text(T, TT), _, fail) -> cpp_refuse_stmt(pointer_operand(indirection, TT)) ; cpp_refuse(0, deref_of_arithmetic(T)) )   % in the program's own code, clang++'s words (1.6.22)
     ;   true ).
 %% `new T[n]' OF A CLASS THAT CONSTRUCTS OR DESTROYS (0.108; refused by name since 0.86): the Itanium C++ ABI's ARRAY
 %% COOKIE -- where the class has a destructor, or the array deallocation function delete[] takes is a sized one, the count
@@ -992,6 +1002,7 @@ cpp_call(none, id(N), As, E) :- \+ cpp_local(N), cpp_class_ctx(Cx), cpp_class_ty
     catch(cpp_type(T0, T), error(not_lowered(_), _), fail), !, cpp_type_call(T, As, E).
 %% the same for a typedef at FILE scope, which libc++ calls by its own name: `__destruct_at_end(p, false_type())'
 %% makes a temporary of integral_constant<bool, false> by its alias, and `size_t(n)' is the cast it looks like
+cpp_call(_, decltype_expr(X), As, E) :- !, cpp_type(base([], [decltype(X)]), T), cpp_type_call(T, As, E).   % A FUNCTIONAL CAST TO A decltype TYPE, `decltype(mm)(5)' (1.6.22; [expr.type.conv]): the type's call, as a name's; it was `expr(decltype_expr(...))'
 cpp_call(_, id(N), As, E) :- \+ cpp_local(N), \+ ccl_declared(N, fn(_, _, _)), ccl_typedef_of(N, T0),
     catch(cpp_type(T0, T), error(not_lowered(_), _), fail), !, cpp_type_call(T, As, E).
 cpp_call(_, id(K), As, E) :- atom(K), \+ cpp_local(K), cpp_hdr_keyed_typedef(K, T0),   % ... AND A HEADER'S KEYED ONE (0.201, cpp_ns_typedef_quals/4), its bare uses in its namespace gone to the key: a cast, a temporary or the type's zero
@@ -1153,6 +1164,8 @@ cpp_object_unfit(F1, As, C) :- cpp_class_of_type_of(F1, C), \+ cpp_method(C, ope
 %% calls `strong_order(t, u)' inside `__strong_order::__fn', and libc++ 21's names it `__strong_order.strong_order', its poison
 %% pill's key: the bare name is asked, and the program's `ns::strong_order(const Q &, const Q &)' is the one found. A qualified
 %% call comes as `scoped(...)' and asks no argument's namespace ([basic.lookup.argdep]/1)
+cpp_call_adl(Ctx, paren_callee(F), As, E) :- !, cpp_call(Ctx, F, As, E).   % `(g)(a)' looks in no argument's namespace (1.6.22, the reader's paren_callee/1)
+cpp_call_adl(Ctx, id(F), As, E) :- atom(F), \+ cpp_block_object(F), \+ cpp_member_scope(Ctx, F), cpp_adl_joined(F, As, K, Ps), !, cpp_fn_defined(K, Ps, D), cpp_free_call(K, Ps, D, As, E).   % the argument's namespace's overload where it wins (1.6.22, cpp_adl_joined/4)
 cpp_call_adl(Ctx, id(F), As, E) :- atom(F), \+ cpp_block_object(F), cpp_adl_own_key(Ctx, F, As, K), cpp_adl_call(K, As, E0), !, E = E0.
 cpp_call_adl(Ctx, F, As, E) :- cpp_call(Ctx, F, As, E).
 cpp_adl_own_key(Ctx, F, As, K) :- cpp_bare_name(F, N), catch('$cpp_ns_libkeyed'(N), _, fail), \+ cpp_member_scope(Ctx, N),
@@ -1165,6 +1178,17 @@ cpp_adl_own_key(Ctx, F, As, K) :- cpp_bare_name(F, N), catch('$cpp_ns_libkeyed'(
 %% array's element, a function type's parameters and its result, a pointer to member's class and its member's type --
 %% `count(take)' over a `void take(ns::S)', `find(make)' over a `ns::S make()', `sort(&ns::M::x)', `size(arr)' over a
 %% `ns::S[2]' -- AND A TEMPLATE TEMPLATE ARGUMENT'S NAMESPACE (/3.2): `data(Holder<ns::Box>{})' over a global `Holder'
+%% THE ARGUMENT'S NAMESPACE'S OVERLOADS JOIN THE ORDINARY ONES (1.6.22; [basic.lookup.argdep]/1, [over.match.funcs]): where
+%% two of the program's namespaces declare one function name, the global one keeps the bare name and the other's is keyed
+%% (0.139), and a bare call `g(a)' of an `N::A' asked the bare name alone -- `g(...)' beside `N::g(A)' was called, 2 where
+%% clang++ gives 1, a silent wrong answer. The plain overloads of the bare name and of its key in each argument's
+%% namespace (cpp_adl_arg_class/2, cpp_own_class_path/2, cpp_ns_key/3) are ranked as one set (cpp_pick/3), and the keyed
+%% one is called where it wins; where the bare one does, the call takes its road as before. A template of the namespace
+%% takes 0.221's road (cpp_adl_own_key/4)
+cpp_adl_joined(F, As, K, Ps) :- length(As, N),
+    findall(K0, ( member(A, As), cpp_adl_arg_class(A, C), cpp_own_class_path(C, CP), CP \== [], cpp_ns_key(CP, F, K0), K0 \== F ), Ks0), sort(Ks0, Ks), Ks \== [],
+    findall(K1-Ps0, ( member(K1, [F|Ks]), catch(cpp_fn_ready(K1), _, fail), '$cpp_fn'(K1, _, Ps0, _, O), \+ cpp_fn_hidden(K1, O, As), \+ cpp_blk_hidden(K1, Ps0), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), KCs),
+    findall(Ps0, member(_-Ps0, KCs), Cands), Cands \== [], cpp_pick(Cands, As, Ps), memberchk(K-Ps, KCs), K \== F.
 cpp_adl_arg_class(A, C) :- catch(cpp_class_of_type_of(A, C0), _, fail), !, cpp_adl_assoc(C0, C).
 cpp_adl_arg_class(A, C) :- catch(cpp_arg_type(A, T), _, fail), ccl_unref(T, T1), catch(ccl_resolve_type(T1, R), _, fail),
     cpp_adl_type_classes(R, 0, C0), cpp_adl_assoc(C0, C).
@@ -1667,8 +1691,21 @@ cpp_operator(Op, A, Args, Plain, E) :-
     ;   Plain \== none, cpp_builtin_via_conv(A, Args, Plain, E0)
     ->  E = E0
     ;   Plain \== none, \+ memberchk(Op, ['!', '&&', '||']), ( cpp_op_operand(A) ; Args = [B], cpp_op_operand(B) )   % ... never for `!', `&&' and `||', whose class operand converts contextually through its operator bool AFTER this road (0.72's rule 19, cpp_to_bool): `return !__f;' is how std::function compares with nullptr
-    ->  ( cpp_deleted_operator(Op, [A|Args], Why) -> cpp_refuse_stmt(deleted_call(operator(Op), Op, Why)) ; cpp_refuse(0, no_operator(Op)) )   % AN OPERATOR OVER A CLASS OPERAND THAT NO ROAD ANSWERS IS ILL-FORMED (0.94): kept as the raw form it read as an `int' in a `decltype', so libc++ 18's constraint on `operator==(const optional<_Tp> &, const _Up &)', `is_convertible_v<decltype(declval<const _Tp &>() == declval<const _Up &>()), bool>', HELD for `int == nullopt_t' and that generic candidate beat the `nullopt_t' one, whose body then met the same `int == nullopt_t' (stdoptional2: `type(unknown)' in the lowering); refused, a constraint's decltype is the substitution failure C++ has there, and elsewhere the defect is named
+    ->  ( cpp_deleted_operator(Op, [A|Args], Why) -> cpp_refuse_stmt(deleted_call(operator(Op), Op, Why)) ; cpp_builtin_op_words(Op, A, Args, W) -> cpp_refuse_stmt(W) ; cpp_refuse(0, no_operator(Op)) )   % AN OPERATOR OVER A CLASS OPERAND THAT NO ROAD ANSWERS IS ILL-FORMED (0.94): kept as the raw form it read as an `int' in a `decltype', so libc++ 18's constraint on `operator==(const optional<_Tp> &, const _Up &)', `is_convertible_v<decltype(declval<const _Tp &>() == declval<const _Up &>()), bool>', HELD for `int == nullopt_t' and that generic candidate beat the `nullopt_t' one, whose body then met the same `int == nullopt_t' (stdoptional2: `type(unknown)' in the lowering); refused, a constraint's decltype is the substitution failure C++ has there, and elsewhere the defect is named
+    ;   Op == '!', Plain \== none, cpp_builtin_op_words('!', A, Args, W) -> cpp_refuse_stmt(W)
     ;   E = Plain ).
+%% A BUILT-IN OPERATOR OVER A PLAIN STRUCT OR UNION IN THE PROGRAM'S OWN CODE IS REFUSED IN CLANG++'S WORDS (1.6.22;
+%% [expr.unary.op], [expr.arith.conv]): `-s', `!s' and `s + 1' are `invalid argument type 'S' to unary expression' and
+%% `invalid operands to binary expression ('S' and 'int')', `*s' `indirection requires pointer operand ('S' invalid)', as C's
+%% lowering words them; they were `no_operator(...)', and `!s' reached LLVM's parser. A class's operand keeps its term, and
+%% a library's body its own, which its substitution failures read
+cpp_builtin_op_words(Op, A, Args, W) :- \+ nb_current('$cpp_in_lib', yes), cpp_plain_operand_text(A, TA, RA),
+    (   Args == [] -> ( Op == '*' -> W = pointer_operand(indirection, TA) ; memberchk(Op, ['-', '+', '~', '!']) -> W = unary_operand(TA) )
+    ;   Args = [B], cpp_plain_operand_text(B, TB, RB), ( RA == record ; RB == record ), W = binary_operands(TA, TB) ), !,
+    ( Args == [] -> RA == record ; true ).
+cpp_plain_operand_text(X, Text, K) :- catch(ccl_type_of(X, T0), _, fail), T0 \== unknown, ccl_unref(T0, T), \+ catch(cpp_class_of_type(T, _), _, fail),
+    catch(ccl_resolve_type(T, R), _, fail), ( R = base(_, [S]), compound(S), ( S = struct(_, _) ; S = union(_, _) ) -> K = record ; K = scalar ),
+    catch(ir_type_text(T, Text), _, fail).
 %% a free operator declared deleted, for operands of this number, in the program's own code (0.257, cpp_note_op_del/3)
 cpp_deleted_operator(Op, Operands, Why) :- nb_getval('$cpp_in_lib', no), length(Operands, K), '$cpp_op_del'(Op, K, Why), !.
 %% A BUILT-IN OPERATOR OVER A CLASS WITH A CONVERSION FUNCTION TO AN ARITHMETIC TYPE ([over.match.oper]/3.3, [over.built]; 0.117) is the

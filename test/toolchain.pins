@@ -3,8 +3,8 @@
 # taken at its latest master every time (the owner's rule, 0.259), and a pin moves in the step that runs the chain over it.
 CICILI_COMMIT=3ba2ca4
 CICILI_VERSION=3.3.0
-COCOLOG_COMMIT=86ad08c
-COCOLOG_VERSION=3.78.18
+COCOLOG_COMMIT=3c30c7e
+COCOLOG_VERSION=3.78.21
 ZIGURATIP_COMMIT=655fa38
 # the embedded LLVM (module/build-llvm.sh, over llvm-c) and the C gates' clang
 LLVM_MAJOR=23
