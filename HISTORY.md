@@ -346,6 +346,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.27 | C++'s names that nothing declares, qualified calls beside locals, void values through pointers and formats | a C++ name that nothing declares in clang++'s words, a qualified one `no member named`; a void value through a pointer to a function as an argument, and through printf's ellipsis with its format's type; a qualified call beside a local of its name, which was refused or named the function; a set with a member template named with its class; the checks and the fixtures that seven of 1.6.26's broken copies needed (lowering 196) |
 | 1.6.28 | C++'s arguments and places that fit no type, operand pairs, kinds, static member functions' bodies | a C++ call whose argument fits no candidate by its type in the overloads' words, where some built; a pointer to another type and a floating value for a pointer at an initializer, an assignment and a return; the operand pairs of a built-in operator that no guess of the reader's makes; a const place that a call gives; a name declared again as another kind of symbol through the program's own header and in a namespace's blocks; a static member function's body that names this or a member that is not static; 1.6.27's broken copies carried, seven guards and mends out (lowering 197) |
 | 1.6.29 | C++'s lambdas with no this, enumerations and members' initializers, a base's mutable member, GCC's error | a lambda that captured no this names no member of its class, in clang++'s words; an enumeration given a pointer and a scalar member's initializer; a const member function's write of a member of a base that is not the primary one; a void value of an overloaded function held; a builtin named as an auto's initializer; GCC's error attribute in C (reader 215, lowering 198) |
+| 1.6.30 | C's block enumerators, a hundred and three library functions' words, C++'s decltype casts' words | a C block's enumerator is its block's, where one table gave wrong values and a use after the block built; 103 library functions that nothing declares in clang's words and header notes; a void value cast to a decltype type named as written (reader 216, lowering 199) |
 
 ## M5 — the C++ mode
 
@@ -25885,3 +25886,53 @@ the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner'
   (the versions).
 
 The module 1.6.29, the reader 215 and the lowering 198.
+
+## 1.6.30 — C's block enumerators, a hundred and three library functions' words, C++'s decltype casts' words
+
+**1.6.30: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": one record of Not done closed and one narrowed, a fault of wrong values found and mended, and
+one record found, each form held to clang's or clang++'s answer. The step was committed while its nets and its broken
+copies, and 1.6.28's and 1.6.29's, ran: it claims nothing GREEN of them, and the next step's commit carries them.**
+
+1. C: A BLOCK'S ENUMERATOR IS ITS BLOCK'S (C17 6.2.1/4; `ccl_block_enum_value/2`, `ccl_drop_block_enums/1`,
+   `ccl_collect_block_type/5`; the reader 216): the reader kept every enumerator in one table for the unit, newest
+   first, and the passes' table took a block's from the bodies -- so `return B;` after the block, in another function or
+   after an inner block, built with its value, where clang says `use of undeclared identifier 'B'`, and a block's
+   enumerator gave every later function its value, or the file's gave a block its own: two of one name GAVE THE WRONG
+   VALUE, `test/c/run/blockenums.c` printing `6 -1 30 40 5 9 9 4` where clang prints `3 5 30 40 4 9 11 4`. A use in its
+   block is its value now, read so; the block's end takes it out of the reader's table, a use after it refused at the
+   file's end as a name that nothing declares (the uses' notes of 1.1.2, which held it as a pending name of its item);
+   and the passes' table has a block's after the file's. The tags were found right: a block's struct and union shadow
+   the file's in four probes. A record narrowed.
+2. C: A HUNDRED AND THREE LIBRARY FUNCTIONS THAT NOTHING DECLARES (`dr_lib_fn/3`): math.h's, ctype.h's, stdlib.h's,
+   string.h's, stdio.h's, setjmp.h's, signal.h's, wchar.h's and time.h's had a call's words, and have clang's `call to
+   undeclared library function 'log' with type 'double (double)'; ...` and its note of the header now, each type and
+   header as clang 23 gives them -- the table generated from clang's own answers over a list of the C library's names,
+   the forty of 1.6.24 beside. A function that clang knows as no library builtin, `strdup`, keeps a call's words.
+3. C++: A VOID VALUE CAST TO A `decltype` TYPE OF A NAME (`cpp_decltype_void_cast/3`): `decltype(mm)(f())` and
+   `decltype(k)(f())` named the type that the decltype gives, `'M'` and `'int'`, and are clang++'s `... from 'void' to
+   'decltype(mm)' (aka 'M')` now. The record, closed. A braced cast, `decltype(mm){2}`, is not read (a record found).
+
+1.6.28'S NETS, RUNNING AT THIS COMMIT over a copy of its tree, one guarded run at a time: the toolchain check, the flow
+gate 476 s, reader, compile, driver 250 s, objects, the proof, the cross gate 294 s and the library read 293 s GREEN,
+the C++ gate and the ccllib gate running, which meet 1.6.29's items 7 and 8; then its broken copies, then 1.6.29's nets
+and broken copies. The next step's commit carries them.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the flow gate GREEN in 1041 s, the driver gate's three checks of
+the step, their bodies each against clang 23 or clang++ 23 -- five of the decltype casts, five of the block enumerators
+and eight of the library functions --, the reader gate and the compile gate over the copy GREEN, `blockenums.c` beside
+clang's build, and the copy's whole driver gate over a fresh HOME, GREEN in 326 s (167 ok) at its second run -- its
+first found a generated entry, `_Exit`, written bare, a variable to cocolog, which took every name that nothing declares
+and gave it `exit`'s words; the name is quoted now --. THE BROKEN COPIES, ten over the copy, queued behind 1.6.29's: the
+next step's commit carries them. Over the work tree after the port: the toolchain check strict GREEN; the other ten
+gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_syntax.pl` (`ccl_primary_//3`, `ccl_declare_enumerators/4`, `ccl_frame_leave/1`,
+  `ccl_block_enum_value/2`, `ccl_drop_block_enums/1`, `ccl_collect_block_type/5`, `ccl_items_note/1`, `ccl_use_known/1`,
+  `ccl_use_later/2`, `ccl_uses_open/1`; the reader 216); `library/ccl_cpp_expr.pl` (`cpp_decltype_void_cast/3`);
+  `library/ccl_driver.pl` (`dr_lib_fn/3`, 103 more); `library/ccl_ir.pl` (the lowering 199); `test/driver.sh` (three
+  checks); `test/c/run/blockenums.c`; the module's version.
+- RULES.md (the rules in their topics; Not done: one record closed, one narrowed, one found), HISTORY.md, CLAUDE.md (the
+  versions, the fixture).
+
+The module 1.6.30, the reader 216 and the lowering 199.

@@ -1119,7 +1119,7 @@ cpp_call(none, id(N), As, E) :- \+ cpp_local(N), cpp_class_ctx(Cx), cpp_class_ty
     catch(cpp_type(T0, T), error(not_lowered(_), _), fail), !, cpp_type_call(T, As, E).
 %% the same for a typedef at FILE scope, which libc++ calls by its own name: `__destruct_at_end(p, false_type())'
 %% makes a temporary of integral_constant<bool, false> by its alias, and `size_t(n)' is the cast it looks like
-cpp_call(_, decltype_expr(X), As, E) :- !, cpp_type(base([], [decltype(X)]), T), cpp_type_call(T, As, E).   % A FUNCTIONAL CAST TO A decltype TYPE, `decltype(mm)(5)' (1.6.22; [expr.type.conv]): the type's call, as a name's; it was `expr(decltype_expr(...))'
+cpp_call(_, decltype_expr(X), As, E) :- !, cpp_type(base([], [decltype(X)]), T), cpp_decltype_void_cast(X, T, As), cpp_type_call(T, As, E).   % A FUNCTIONAL CAST TO A decltype TYPE, `decltype(mm)(5)' (1.6.22; [expr.type.conv]): the type's call, as a name's; it was `expr(decltype_expr(...))'
 cpp_call(_, id(N), As, E) :- \+ cpp_local(N), \+ ccl_declared(N, fn(_, _, _)), ccl_typedef_of(N, T0),
     catch(cpp_type(T0, T), error(not_lowered(_), _), fail), !, ( As = [X1] -> cpp_fp_ptr_cast_check(functional, base([], [typedef(N)]), X1) ; true ), cpp_type_call(T, As, E).   % the cast's words name the typedef as written (1.6.26)
 cpp_call(_, id(K), As, E) :- atom(K), \+ cpp_local(K), cpp_hdr_keyed_typedef(K, T0),   % ... AND A HEADER'S KEYED ONE (0.201, cpp_ns_typedef_quals/4), its bare uses in its namespace gone to the key: a cast, a temporary or the type's zero
@@ -1815,6 +1815,11 @@ cpp_nttp_fn_name(F) :- catch(ccl_type_of(id(F), T), _, fail), nonvar(T), T = fn(
 %% A TYPE'S NAME CALLED: a temporary of the class it names, an aggregate of the items, the cast it looks like, or
 %% its zero -- written once for the three names a type has here (a class-scope typedef, a file-scope one, and an
 %% ALIAS TEMPLATE's template-id, `__make_unsigned_t<type>(0)', which libc++ takes a type's digits through)
+%% ... A VOID VALUE CAST TO A decltype TYPE OF A NAME names the type as written (1.6.30): `decltype(mm)(f())' is clang++'s `no
+%% matching conversion for functional-style cast from 'void' to 'decltype(mm)' (aka 'M')', where the words named `'M''
+cpp_decltype_void_cast(id(N), T, [X1]) :- atom(N), cpp_void_value(X1), \+ ccl_void_typed(T), \+ nb_current('$cpp_in_lib', yes),
+    ir_void_cast_word(functional, T, W0), W0 =.. [F, K, B], atom(B), !, char_code(M, 1), atomic_list_concat(['decltype(', N, ')'' (aka ''', B, M], B1), W =.. [F, K, B1], cpp_refuse_prog(W).
+cpp_decltype_void_cast(_, _, _).
 cpp_type_call(T, As, E) :- ( As = [X1] -> cpp_void_cast_check(functional, T, X1), cpp_fp_ptr_cast_check(functional, T, X1) ; true ),
     (   cpp_class_of_type(T, C1)
     ->  ( cpp_has_ctors(C1) -> cpp_temporary(T, C1, As, E) ; findall(item([], A), member(A, As), Items), E = compound_lit(T, init(Items)) )

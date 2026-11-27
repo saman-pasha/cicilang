@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.29 the versions are: the module 1.6.29 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 215 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 198 (`ccl_lowering_version/1`,
+At 1.6.30 the versions are: the module 1.6.30 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 216 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 199 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -633,7 +633,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             GNU's conditional with no middle operand, and a statement expression's value (1.6.22);
                             floatsat.c, floating constants that their integer types do not hold, saturated (1.6.23);
                             nanconst.c, a NaN converted to an integer type in a constant (1.6.24); flexinit.c, flexible
-                            array members given their items at file scope and in a static local (1.6.25)
+                            array members given their items at file scope and in a static local (1.6.25);
+                            blockenums.c, a block's enumerators, which shadow the file's and another block's (1.6.30)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;

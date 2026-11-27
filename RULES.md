@@ -2647,20 +2647,29 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   unfolded ones are the desugaring's (`cpp_fold_enumerators/5`). `enumcross.c`, `enumcross.cpp`. (0.195)
 - `ccl_type_of/2` of a statement expression puts its declarations in scope for its last expression. (M1b)
 - A tag or an enum declared in a block joins the unit's one table (`ccl_collect_item(function)` through
-  `ccl_stmt_typedefs`, by statement shape). A block's TYPEDEF IS ITS BLOCK'S IN C (1.6.2; C17 6.2.1/4, 6.7.8/3): the
-  reader, the check and the lowering each note it as they walk its block, its type taken there, as the newest of its
-  name and in the block's frame, which takes it away at the block's end (`ccl_block_typedefs/1`, `ccl_frame_leave/1`),
-  and the bulk noter takes only its type's tags and enumerators, as in C++. Through 1.6.1 one table held every block's
-  typedef, the first block's first: `{ typedef int T; } { typedef double T; T b = 2.5; }` read b's double as an int's
-  bits (3.37669e-319), a file-scope `typedef int T` after a function whose block gave T another type lost to it (main's
-  `T z = 3` a double), and the check met the first block's `int` where a block's `typedef char *P` holds new memory.
-  `test/c/run/typedef_block.c`, `scopedtypes.c`, `test/c/safe/blocktypedef_leak.c`. (1.6.2) In C++ a block's TYPEDEF
-  does not join the table either (0.127): the bulk noter takes only the tags and enumerators of its type
-  (`ccl_collect_typedef_types/5`), and the desugaring notes it for the statements of its own block and takes it out at
-  the block's end, on success, failure and throw (`cpp_scoped_typedefs/2` over `ccl_tab_del/2`, which removes the NEWEST
-  entry of the name, so the one it shadowed answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every
-  block's `using _Tp = ...;` made `_Tp` a KNOWN name to every rule that tells a template's own parameter by the tables
-  not knowing it; 0.126 had worked round it twice (`cpp_callee_param_type/2`, `cpp_lambda_params/3`). (0.108, 0.127)
+  `ccl_stmt_typedefs`, by statement shape) -- in C a block's enumerators after the file's (1.6.30,
+  `ccl_collect_block_type/5`). A BLOCK'S ENUMERATOR IS ITS BLOCK'S IN C (1.6.30; C17 6.2.1/4; reader 216;
+  `ccl_block_enum_value/2`, `ccl_drop_block_enums/1`): a use of it in its block is its value, read so, `int(V)` or its
+  enum's where the enum has a type of its own; the block's end takes it out of the reader's table, so that a use after
+  the block is clang's `use of undeclared identifier 'B'` at the file's end (the uses' notes of 1.1.2,
+  `ccl_use_later/2`); and in the passes' table a file's enumerator of the name comes first. Through 1.6.29 the one table
+  held them all: `return B;` after the block built with its value, and a block's enumerator shadowed the file's or
+  another block's in every later function -- `test/c/run/blockenums.c` printed `6 -1 30 40 5 9 9 4`, four values wrong,
+  where clang prints `3 5 30 40 4 9 11 4`. The driver gate's five bodies. A block's TYPEDEF IS ITS BLOCK'S IN C (1.6.2;
+  C17 6.2.1/4, 6.7.8/3): the reader, the check and the lowering each note it as they walk its block, its type taken
+  there, as the newest of its name and in the block's frame, which takes it away at the block's end
+  (`ccl_block_typedefs/1`, `ccl_frame_leave/1`), and the bulk noter takes only its type's tags and enumerators, as in
+  C++. Through 1.6.1 one table held every block's typedef, the first block's first: `{ typedef int T; } { typedef double
+  T; T b = 2.5; }` read b's double as an int's bits (3.37669e-319), a file-scope `typedef int T` after a function whose
+  block gave T another type lost to it (main's `T z = 3` a double), and the check met the first block's `int` where a
+  block's `typedef char *P` holds new memory. `test/c/run/typedef_block.c`, `scopedtypes.c`,
+  `test/c/safe/blocktypedef_leak.c`. (1.6.2) In C++ a block's TYPEDEF does not join the table either (0.127): the bulk
+  noter takes only the tags and enumerators of its type (`ccl_collect_typedef_types/5`), and the desugaring notes it for
+  the statements of its own block and takes it out at the block's end, on success, failure and throw
+  (`cpp_scoped_typedefs/2` over `ccl_tab_del/2`, which removes the NEWEST entry of the name, so the one it shadowed
+  answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every block's `using _Tp = ...;` made `_Tp` a
+  KNOWN name to every rule that tells a template's own parameter by the tables not knowing it; 0.126 had worked round it
+  twice (`cpp_callee_param_type/2`, `cpp_lambda_params/3`). (0.108, 0.127)
 - A NAME THAT C'S FILE SCOPE DECLARES AGAIN AS ANOTHER KIND OF SYMBOL IS REFUSED (0.298; C17 6.7/3-4; `ccl_kind_clash/2`
   in `ccl_external_rest//6`'s definitions and over a declaration's declarators, `ccl_kind_clashes/1`;
   `ccl_typedef_clashes/1` over a typedef's): an object and a function of one name in either order, a prototype, an
@@ -6723,22 +6732,25 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   entity; 0.206): every road's result has its storage words, `aligned(E)`, GCC's `packed` and a place below its alignment
   (`ualign`) off, a pointer object's own included (`cpp_storage_off/2`) -- `alignof(decltype(s.m))` of `alignas(32) int
   m;` was 32 where it is 4. `aligndecl.cpp`. C's `typeof` has had the rule since 0.203 (`ccl_place_free/2`).
-- `decltype((x))` OF A PARENTHESIZED NAME OR MEMBER ACCESS IS A REFERENCE to its type ([dcl.type.decltype]/1.5; reader 149;
-  0.197): the reader keeps the parentheses of decltype's operand where they matter, `decltype(paren(E))` (`ccl_decltype_operand
-  //1`, `ccl_paren_matters/1`: a name, a member, a member through a pointer), and the type is `T &` of the expression's type
-  (`cpp_type` and `ccl_resolve_base/3` on `paren`), `const int &` for a const object. A `decltype(auto)` result of `return
-  (x);` is a reference so too (the reader's `return(L, paren(E))`, `cpp_decltype_auto_ret_/4`), and the desugaring takes
-  `paren(E)` as E everywhere else. The reader kept no parentheses, and `decltype((x))` was `decltype(x)`. `decltypeparen.cpp`.
-  A member of a const object is const there ([expr.ref]/6.2; `cpp_obj_const/2` in `cpp_decltype_paren/2`; 0.206):
-  `decltype((c.m))` was `int &`. `aligndecl.cpp`. A FUNCTIONAL CAST TO A decltype TYPE, `decltype(mm)(5)` (1.6.22;
-  [expr.type.conv]), is the type's call, as a name's (`cpp_type_call/3`): it was `not lowered yet:
-  expr(decltype_expr(...))`. `test/cpp/run/refplaces.cpp`. THE PARENTHESES ARE KEPT AROUND A MEMBER ACCESS OVER ANY OBJECT, and a
-  member of an rvalue is an xvalue, `T &&` ([expr.ref]/6.2, [basic.lval]/4; reader 210; 1.6.21; `cpp_rvalue_object/1`,
-  `cpp_decltype_paren_src/3`): a member of `std::move(x)`, of a call whose result is an rvalue reference or no reference,
-  of `T{...}` and of `T(...)`, and of `std::move` over a const object, which the desugaring has made the object itself
-  by then -- so the operand as written says it -- unless the member is itself a reference. The parentheses were kept
-  only over a chain from a name: `decltype((std::forward<A>(a).val))` was the member's declared type, `double` where
-  clang++ gives `double &`, and libc++ 23's `__value_visitor`, whose result is `invoke_result_t<_Visitor &&,
+- `decltype((x))` OF A PARENTHESIZED NAME OR MEMBER ACCESS IS A REFERENCE to its type ([dcl.type.decltype]/1.5; reader
+  149; 0.197): the reader keeps the parentheses of decltype's operand where they matter, `decltype(paren(E))`
+  (`ccl_decltype_operand //1`, `ccl_paren_matters/1`: a name, a member, a member through a pointer), and the type is `T
+  &` of the expression's type (`cpp_type` and `ccl_resolve_base/3` on `paren`), `const int &` for a const object. A
+  `decltype(auto)` result of `return (x);` is a reference so too (the reader's `return(L, paren(E))`,
+  `cpp_decltype_auto_ret_/4`), and the desugaring takes `paren(E)` as E everywhere else. The reader kept no parentheses,
+  and `decltype((x))` was `decltype(x)`. `decltypeparen.cpp`. A member of a const object is const there ([expr.ref]/6.2;
+  `cpp_obj_const/2` in `cpp_decltype_paren/2`; 0.206): `decltype((c.m))` was `int &`. `aligndecl.cpp`. A FUNCTIONAL CAST
+  TO A decltype TYPE, `decltype(mm)(5)` (1.6.22; [expr.type.conv]), is the type's call, as a name's (`cpp_type_call/3`):
+  it was `not lowered yet: expr(decltype_expr(...))`. `test/cpp/run/refplaces.cpp`. A VOID VALUE CAST SO names the type
+  as written (1.6.30; `cpp_decltype_void_cast/3`): `decltype(mm)(f())` is clang++'s `no matching conversion for
+  functional-style cast from 'void' to 'decltype(mm)' (aka 'M')`, where it named `'M'`; the driver gate's five bodies.
+  THE PARENTHESES ARE KEPT AROUND A MEMBER ACCESS OVER ANY OBJECT, and a member of an rvalue is an xvalue, `T &&`
+  ([expr.ref]/6.2, [basic.lval]/4; reader 210; 1.6.21; `cpp_rvalue_object/1`, `cpp_decltype_paren_src/3`): a member of
+  `std::move(x)`, of a call whose result is an rvalue reference or no reference, of `T{...}` and of `T(...)`, and of
+  `std::move` over a const object, which the desugaring has made the object itself by then -- so the operand as written
+  says it -- unless the member is itself a reference. The parentheses were kept only over a chain from a name:
+  `decltype((std::forward<A>(a).val))` was the member's declared type, `double` where clang++ gives `double &`, and
+  libc++ 23's `__value_visitor`, whose result is `invoke_result_t<_Visitor &&,
   decltype((std::forward<_Alts>(__alts).__value))...>`, asked a generic lambda's `auto &` parameter to take a prvalue:
   every `std::visit` over one was refused (`joinwith.cpp` over libc++ 23). A requirement's `{ E } -> C` is
   `C<decltype((E))>` so too. `decltypemember.cpp`, `visitlambda.cpp`.
@@ -13514,10 +13526,11 @@ in the first topic (The ccllib gate).
   `in the global namespace` -- `std::ref(c)` with no `<functional>` among them, as libc++ 23 has it, which was what met
   the call's value, `auto(r)` --, where it was the lowering's `undeclared(nowhere)`. The driver gate holds six forms,
   and thirteen in C++. Lowering 174, 196. A LIBRARY FUNCTION THAT CLANG KNOWS BY NAME has clang's words and its note of
-  the header (1.6.24; `dr_lib_fn/3`, forty of them, each type as clang 23 spells it): `call to undeclared library
-  function 'printf' with type 'int (const char *, ...)'; ...` and `note: include the header <stdio.h> or explicitly
-  provide a declaration for 'printf'`; `puts`, which clang does not know so, keeps a call's words. The driver gate's
-  four bodies. (1.1.2, 1.6.24)
+  the header (1.6.24; `dr_lib_fn/3`, forty of them and since 1.6.30 a hundred and three more -- math.h's, ctype.h's,
+  stdlib.h's, string.h's, stdio.h's, setjmp.h's, signal.h's, wchar.h's, time.h's --, each type and header as clang 23
+  gives them): `call to undeclared library function 'printf' with type 'int (const char *, ...)'; ...` and `note:
+  include the header <stdio.h> or explicitly provide a declaration for 'printf'`; `puts`, which clang does not know so,
+  keeps a call's words. The driver gate's four bodies and eight. (1.1.2, 1.6.24, 1.6.30)
 ### Control flow and defer
 
 - `defer` is scope-bound and static, with no runtime (owner's rule). `ir_defer_push/1` registers a body in its scope's
@@ -16898,14 +16911,11 @@ Declarations topic of the C++ reader).
   clang++'s words since 1.6.27). And a global macro's call before the program's own declaration of its name is the
   macro's in C++ (1.6.9): `println("early")` in a function above `static void println(const char *s)` prints `early`,
   and the program's `println` is called below it, where clang++ says `use of undeclared identifier 'println'`. A LIBRARY
-  FUNCTION THAT NOTHING DECLARES and that the driver's table of forty does not hold, `log`, has a call's words, where
-  clang names its library type and header (1.6.24 gives the forty clang's words). A LATER FUNCTION CALLED IN A FORMAT
-  MACRO'S ARGUMENT, `println("{}", later(1))`, is refused in the macro's words, `macro:
-  cannot_format(call(id(later),[int(1)]))`: the macro asks the argument's type, which no declaration gives yet, before
-  the file's end. AN EARLIER BLOCK'S ENUMERATOR, used after its block, builds: `return B;` after a function whose block
-  declares `enum { A = 1, B = 2 }` returns 2, where clang says `use of undeclared identifier 'B'` -- the table of values
-  is the unit's, and the note asks it, since a header's enumerators are in scope by it alone. ONE refusal is given, the
-  first, where clang gives each.
+  FUNCTION THAT NOTHING DECLARES and that the driver's table does not hold has a call's words, where clang names its
+  library type and header (1.6.24 gives forty clang's words, and 1.6.30 a hundred and three more, `log` among them). A
+  LATER FUNCTION CALLED IN A FORMAT MACRO'S ARGUMENT, `println("{}", later(1))`, is refused in the macro's words,
+  `macro: cannot_format(call(id(later),[int(1)]))`: the macro asks the argument's type, which no declaration gives yet,
+  before the file's end. ONE refusal is given, the first, where clang gives each.
 - THE GLOBAL MACROS AND C++'S CLASSES (1.6.9; the topic of the global macros): a class's names are found by a scan of
   its body's tokens and kept by its bare name, so two classes of one bare name -- in two namespaces, or nested in two
   classes -- give each other's members to their scopes, and a base that the program's text does not define, a library
@@ -17148,9 +17158,6 @@ Declarations topic of the C++ reader).
   alone, `'double'` for `'D' (aka 'double')` (the driver gate holds one, 1.6.27). A class named with its scope is
   spelled by its own: `::M(f())` is `'M'`, where clang++ refuses `::M` as `no member named 'M' in the global namespace`,
   and a nested class named bare in its class `'O::N'` for clang++'s `'N'`.
-- C++: A FUNCTIONAL CAST TO A `decltype` TYPE NAMES ITS TARGET ALONE IN A REFUSAL (found at 1.6.14, narrowed at 1.6.22):
-  `decltype(mm)(f())` over a void f is `no matching conversion for functional-style cast from 'void' to 'M'`, where
-  clang++ says `... to 'decltype(mm)' (aka 'M')`; the cast of a value builds since 1.6.22.
 - C++: A BUILT-IN OPERATOR'S OPERAND THAT C REFUSES, WHAT 1.6.26 LEAVES (found at 1.6.14): a built-in operator over a
   plain struct, `*` over an integer, `->` over no pointer and a condition over a plain struct are clang++'s words since
   1.6.22 (`cpp_builtin_op_words/4`, `cpp_cond_bool/2`, the topic of C++'s operators), and a cast of a floating value to
@@ -17160,6 +17167,8 @@ Declarations topic of the C++ reader).
   `use of undeclared identifier 'a'`, where clang++ takes the unevaluated operand; a generic lambda's refusal is `not
   lowered yet: auto_result(...)`, the deduction's; and a lambda made in another lambda is not asked, its member's use
   the words of before.
+- C++: A BRACED FUNCTIONAL CAST TO A `decltype` TYPE IS NOT READ (found at 1.6.30): `auto x = decltype(mm){2};` is
+  `syntax error: could not read this item`, where clang++ takes it; the parenthesized cast is read since 1.6.22.
 - C++: A VOID POINTER FOR ANOTHER AND A POINTER THAT DROPS A QUALIFIER BUILD (found at 1.6.28): `int *p = malloc(4);`,
   `f(&cx)` of `int f(int *)` over a `const int`, where clang++ says `cannot initialize a variable of type 'int *' with an
   rvalue of type 'void *'` and `no matching function for call to 'f'`. They are C's, and ccllib's programs, C, are built

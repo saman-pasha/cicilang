@@ -587,6 +587,31 @@ int main(void) {
 }'; do n=$((n + 1)); printf "$src\n" > errattr$n.c; "$CICILI" -c errattr$n.c -o errattr$n.o 2>&1 | head -1; done)" "errattr3.c:3: error: call to 'f' declared with 'error' attribute: do not call
 errattr4.c:2: error: call to 'g' declared with 'error' attribute: no
 errattr5.c:3: error: call to 'f' declared with 'error' attribute: x"
+check "C++: a void value cast to a decltype type of a name names the type as written, in clang++'s words (1.6.30): a class's and a scalar's -- they named the type it gives -- after the casts of values, first" "$(n=0; for src in 'struct M { int a; };
+int main() { M mm{2}; auto x = decltype(mm)(mm); return x.a - 2; }' 'int main() { int k = 0; auto x = decltype(k)(5); return x - 5; }' 'struct M { int a; };
+static void f() {}
+int main() { M mm{1}; auto x = decltype(mm)(f()); (void)x; return 0; }' 'static void f() {}
+int main() { int k = 0; auto x = decltype(k)(f()); (void)x; return 0; }' 'static void f() {}
+int main() { double d = 0; auto x = decltype(d)(f()); (void)x; return 0; }'; do n=$((n + 1)); printf "$src\n" > dcast$n.cpp; "$ROOT/bin/cicilang++" -c dcast$n.cpp -o dcast$n.o 2>&1 | head -1; done)" "dcast3.cpp:3: error: no matching conversion for functional-style cast from 'void' to 'decltype(mm)' (aka 'M')
+dcast4.cpp:2: error: functional-style cast from 'void' to 'decltype(k)' (aka 'int') is not allowed
+dcast5.cpp:2: error: functional-style cast from 'void' to 'decltype(d)' (aka 'double') is not allowed"
+check "C: a block's enumerator used after its block is a name that nothing declares, in clang's words (1.6.30; C17 6.2.1/4): in another function, after an inner block, an enum's named one -- each built with its value -- after a block's that shadows the file's and a case's, first" "$(n=0; for src in 'enum { B = 5 };
+static int f(void) { enum { A = 1, B = 2 }; return B; }
+int main(void) { return B + f() - 7; }' 'static int f(int x) { switch (x) { case 1: { enum { K = 3 }; return K; } } return 0; }
+int main(void) { return f(1) - 3; }' 'static int f(void) { enum { A = 1, B = 2 }; return A; }
+int main(void) { return B + f() - 3; }' 'static int f(void) { { enum { A = 1, B = 2 }; } return B; }
+int main(void) { return f(); }' 'static int f(void) { enum E { A = 1 } e = A; return e; }
+int main(void) { return A; }'; do n=$((n + 1)); printf "$src\n" > blkenum$n.c; "$CICILI" -fsyntax-only blkenum$n.c 2>&1 | head -1; done)" "blkenum3.c:2: error: use of undeclared identifier 'B'
+blkenum4.c:1: error: use of undeclared identifier 'B'
+blkenum5.c:2: error: use of undeclared identifier 'A'"
+check "C: a library function that nothing declares, past the forty of 1.6.24, in clang's words and its header's note (1.6.30): math.h's, ctype.h's, stdlib.h's -- they had the words of a function that is no library's -- after a declared one, first" "$(n=0; for src in '#include <math.h>
+int main(void) { return (int)log(1.0); }' 'int main(void) { return (int)log(1.0); }' 'int main(void) { return isdigit(48) ? 0 : 1; }' 'int main(void) { return (int)sqrt(4.0) - 2; }' 'int main(void) { return abs(-1) - 1; }' 'int main(void) { return toupper(97) - 65; }' 'int main(void) { return (int)floorf(1.5f) - 1; }' 'int main(void) { exit(0); }'; do n=$((n + 1)); printf "$src\n" > libfn$n.c; "$CICILI" -fsyntax-only libfn$n.c 2>&1 | head -1; done)" "libfn2.c:1: error: call to undeclared library function 'log' with type 'double (double)'; ISO C99 and later do not support implicit function declarations
+libfn3.c:1: error: call to undeclared library function 'isdigit' with type 'int (int)'; ISO C99 and later do not support implicit function declarations
+libfn4.c:1: error: call to undeclared library function 'sqrt' with type 'double (double)'; ISO C99 and later do not support implicit function declarations
+libfn5.c:1: error: call to undeclared library function 'abs' with type 'int (int)'; ISO C99 and later do not support implicit function declarations
+libfn6.c:1: error: call to undeclared library function 'toupper' with type 'int (int)'; ISO C99 and later do not support implicit function declarations
+libfn7.c:1: error: call to undeclared library function 'floorf' with type 'float (float)'; ISO C99 and later do not support implicit function declarations
+libfn8.c:1: error: call to undeclared library function 'exit' with type 'void (int) __attribute__((noreturn))'; ISO C99 and later do not support implicit function declarations"
 check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
 static int g(int a) { return a; }
 int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}

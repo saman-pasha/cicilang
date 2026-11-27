@@ -210,6 +210,110 @@ dr_lib_fn(isalpha, '''int (int)''', 'ctype.h').
 dr_lib_fn(isspace, '''int (int)''', 'ctype.h').
 dr_lib_fn(toupper, '''int (int)''', 'ctype.h').
 dr_lib_fn(tolower, '''int (int)''', 'ctype.h').
+%% ... and the C library's others that clang knows, each its type and header as clang 23 gives them (1.6.30)
+dr_lib_fn(tan, '''double (double)''', 'math.h').
+dr_lib_fn(asin, '''double (double)''', 'math.h').
+dr_lib_fn(acos, '''double (double)''', 'math.h').
+dr_lib_fn(atan, '''double (double)''', 'math.h').
+dr_lib_fn(atan2, '''double (double, double)''', 'math.h').
+dr_lib_fn(sinh, '''double (double)''', 'math.h').
+dr_lib_fn(cosh, '''double (double)''', 'math.h').
+dr_lib_fn(tanh, '''double (double)''', 'math.h').
+dr_lib_fn(asinh, '''double (double)''', 'math.h').
+dr_lib_fn(acosh, '''double (double)''', 'math.h').
+dr_lib_fn(atanh, '''double (double)''', 'math.h').
+dr_lib_fn(exp, '''double (double)''', 'math.h').
+dr_lib_fn(exp2, '''double (double)''', 'math.h').
+dr_lib_fn(expm1, '''double (double)''', 'math.h').
+dr_lib_fn(log, '''double (double)''', 'math.h').
+dr_lib_fn(log10, '''double (double)''', 'math.h').
+dr_lib_fn(log2, '''double (double)''', 'math.h').
+dr_lib_fn(log1p, '''double (double)''', 'math.h').
+dr_lib_fn(logb, '''double (double)''', 'math.h').
+dr_lib_fn(cbrt, '''double (double)''', 'math.h').
+dr_lib_fn(hypot, '''double (double, double)''', 'math.h').
+dr_lib_fn(fmod, '''double (double, double)''', 'math.h').
+dr_lib_fn(round, '''double (double)''', 'math.h').
+dr_lib_fn(lround, '''long (double)''', 'math.h').
+dr_lib_fn(llround, '''long long (double)''', 'math.h').
+dr_lib_fn(trunc, '''double (double)''', 'math.h').
+dr_lib_fn(rint, '''double (double)''', 'math.h').
+dr_lib_fn(lrint, '''long (double)''', 'math.h').
+dr_lib_fn(llrint, '''long long (double)''', 'math.h').
+dr_lib_fn(nearbyint, '''double (double)''', 'math.h').
+dr_lib_fn(remainder, '''double (double, double)''', 'math.h').
+dr_lib_fn(remquo, '''double (double, double, int *)''', 'math.h').
+dr_lib_fn(fmin, '''double (double, double)''', 'math.h').
+dr_lib_fn(fmax, '''double (double, double)''', 'math.h').
+dr_lib_fn(fdim, '''double (double, double)''', 'math.h').
+dr_lib_fn(fma, '''double (double, double, double)''', 'math.h').
+dr_lib_fn(copysign, '''double (double, double)''', 'math.h').
+dr_lib_fn(nan, '''double (const char *)''', 'math.h').
+dr_lib_fn(frexp, '''double (double, int *)''', 'math.h').
+dr_lib_fn(ldexp, '''double (double, int)''', 'math.h').
+dr_lib_fn(modf, '''double (double, double *)''', 'math.h').
+dr_lib_fn(scalbn, '''double (double, int)''', 'math.h').
+dr_lib_fn(scalbln, '''double (double, long)''', 'math.h').
+dr_lib_fn(ilogb, '''int (double)''', 'math.h').
+dr_lib_fn(erf, '''double (double)''', 'math.h').
+dr_lib_fn(erfc, '''double (double)''', 'math.h').
+dr_lib_fn(tgamma, '''double (double)''', 'math.h').
+dr_lib_fn(lgamma, '''double (double)''', 'math.h').
+dr_lib_fn(sinf, '''float (float)''', 'math.h').
+dr_lib_fn(cosf, '''float (float)''', 'math.h').
+dr_lib_fn(tanf, '''float (float)''', 'math.h').
+dr_lib_fn(expf, '''float (float)''', 'math.h').
+dr_lib_fn(logf, '''float (float)''', 'math.h').
+dr_lib_fn(powf, '''float (float, float)''', 'math.h').
+dr_lib_fn(sqrtf, '''float (float)''', 'math.h').
+dr_lib_fn(fabsf, '''float (float)''', 'math.h').
+dr_lib_fn(floorf, '''float (float)''', 'math.h').
+dr_lib_fn(ceilf, '''float (float)''', 'math.h').
+dr_lib_fn(roundf, '''float (float)''', 'math.h').
+dr_lib_fn(fmodf, '''float (float, float)''', 'math.h').
+dr_lib_fn(atan2f, '''float (float, float)''', 'math.h').
+dr_lib_fn(sinl, '''long double (long double)''', 'math.h').
+dr_lib_fn(cosl, '''long double (long double)''', 'math.h').
+dr_lib_fn(expl, '''long double (long double)''', 'math.h').
+dr_lib_fn(logl, '''long double (long double)''', 'math.h').
+dr_lib_fn(powl, '''long double (long double, long double)''', 'math.h').
+dr_lib_fn(sqrtl, '''long double (long double)''', 'math.h').
+dr_lib_fn(fabsl, '''long double (long double)''', 'math.h').
+dr_lib_fn(floorl, '''long double (long double)''', 'math.h').
+dr_lib_fn(ceill, '''long double (long double)''', 'math.h').
+dr_lib_fn(llabs, '''long long (long long)''', 'stdlib.h').
+dr_lib_fn(strtoll, '''long long (const char *, char **, int)''', 'stdlib.h').
+dr_lib_fn(strtoull, '''unsigned long long (const char *, char **, int)''', 'stdlib.h').
+dr_lib_fn(strtod, '''double (const char *, char **)''', 'stdlib.h').
+dr_lib_fn(strtof, '''float (const char *, char **)''', 'stdlib.h').
+dr_lib_fn(strtold, '''long double (const char *, char **)''', 'stdlib.h').
+dr_lib_fn('_Exit', '''void (int) __attribute__((noreturn))''', 'stdlib.h').
+dr_lib_fn(aligned_alloc, '''void *(__size_t, __size_t)'' (aka ''void *(unsigned long, unsigned long)'')', 'stdlib.h').
+dr_lib_fn(isalnum, '''int (int)''', 'ctype.h').
+dr_lib_fn(islower, '''int (int)''', 'ctype.h').
+dr_lib_fn(isupper, '''int (int)''', 'ctype.h').
+dr_lib_fn(isxdigit, '''int (int)''', 'ctype.h').
+dr_lib_fn(iscntrl, '''int (int)''', 'ctype.h').
+dr_lib_fn(isgraph, '''int (int)''', 'ctype.h').
+dr_lib_fn(isprint, '''int (int)''', 'ctype.h').
+dr_lib_fn(ispunct, '''int (int)''', 'ctype.h').
+dr_lib_fn(isblank, '''int (int)''', 'ctype.h').
+dr_lib_fn(strerror, '''char *(int)''', 'string.h').
+dr_lib_fn(strtok, '''char *(char *, const char *)''', 'string.h').
+dr_lib_fn(strspn, '''__size_t (const char *, const char *)'' (aka ''unsigned long (const char *, const char *)'')', 'string.h').
+dr_lib_fn(strcspn, '''__size_t (const char *, const char *)'' (aka ''unsigned long (const char *, const char *)'')', 'string.h').
+dr_lib_fn(strpbrk, '''char *(const char *, const char *)''', 'string.h').
+dr_lib_fn(strxfrm, '''__size_t (char *, const char *, __size_t)'' (aka ''unsigned long (char *, const char *, unsigned long)'')', 'string.h').
+dr_lib_fn(memchr, '''void *(const void *, int, __size_t)'' (aka ''void *(const void *, int, unsigned long)'')', 'string.h').
+dr_lib_fn(vprintf, '''int (const char *restrict, struct __va_list_tag *)''', 'stdio.h').
+dr_lib_fn(vsprintf, '''int (char *restrict, const char *restrict, struct __va_list_tag *)''', 'stdio.h').
+dr_lib_fn(vsnprintf, '''int (char *restrict, __size_t, const char *restrict, struct __va_list_tag *)'' (aka ''int (char *restrict, unsigned long, const char *restrict, struct __va_list_tag *)'')', 'stdio.h').
+dr_lib_fn(vscanf, '''int (const char *restrict, struct __va_list_tag *)''', 'stdio.h').
+dr_lib_fn(vsscanf, '''int (const char *restrict, const char *restrict, struct __va_list_tag *)''', 'stdio.h').
+dr_lib_fn(wcslen, '''__size_t (const int *)'' (aka ''unsigned long (const int *)'')', 'wchar.h').
+dr_lib_fn(wcscmp, '''int (const int *, const int *)''', 'wchar.h').
+dr_lib_fn(wcsncmp, '''int (const int *, const int *, __size_t)'' (aka ''int (const int *, const int *, unsigned long)'')', 'wchar.h').
+dr_lib_fn(wcschr, '''int *(const int *, int)''', 'wchar.h').
 %% ---- the IR beside the units in the store (M4) ----------------------------------------
 %% A unit's IR is kept under a predicate of its own, '$ccl_ir:<Path>'(Index,
 %% Chunk) -- chunks of 3500 characters, well under the store's clause budget
