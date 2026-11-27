@@ -53,9 +53,19 @@ dr_setup(Options, Flags) :-
     findall(D, ( member(O, Options), ( O = define(_) ; O = undef(_) ), D = O ), Ds), ccl_pp_cmdline(Ds),                       % -D and -U (0.112): the macros the command line defines and undefines, before every file's own
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),
     ( memberchk(opt(O), Options) -> Flags0 = [O] ; Flags0 = ['-O0'] ),
-    ( memberchk(target(Tg1), Options) -> atom_concat('--target=', Tg1, TF), append(Flags0, [TF], Flags) ; Flags = Flags0 ),   % the embedded LLVM's target
+    ( memberchk(target(Tg1), Options) -> atom_concat('--target=', Tg1, TF), append(Flags0, [TF], Flags00) ; Flags00 = Flags0 ),   % the embedded LLVM's target
+    ( dr_cpu_flag(Options, CF) -> append(Flags00, [CF], Flags) ; Flags = Flags00 ),   % ... and its CPU (1.6.46), below
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
     nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none).
+%% THE OBJECT'S CPU (1.6.46, the owner's decision: clang's default, the host's on -march=native): the embedded LLVM takes
+%% clang's default CPU for the triple where no flag names one (module/ccl_llvm.cicili), and `--cpu=NAME' from the last
+%% -march= or -mcpu= of the command, as clang takes them -- `native' by either, the host's CPU and its features; another
+%% NAME by -march= on x86, where it is a CPU's name (`-march=x86-64-v3', `skylake'), and by -mcpu= elsewhere, where
+%% -march= names an architecture (`armv8.2-a'), which names no CPU here
+dr_cpu_flag(Options, F) :- findall(X, member(cpu(X), Options), Xs), last(Xs, X0), dr_cpu_name(X0, N), !, atom_concat('--cpu=', N, F).
+dr_cpu_name(X, N) :- ( atom_concat('-march=', N, X) -> K = march ; atom_concat('-mcpu=', N, X), K = mcpu ), N \== '',
+    ( N == native -> true ; dr_cpu_x86 -> K == march ; K == mcpu ).
+dr_cpu_x86 :- ( nb_current('$ccl_target', target(A, _, _)) -> true ; catch(ccl_host_arch(A), _, fail) ), memberchk(A, [x86_64, i386, i486, i586, i686]), !.
 %% ONE COLD LIBRARY HEADER, READ FOR A BUILD BY A PROCESS OF ITS OWN (0.188; ccl_cold_headers_read/2): the build's options
 %% set as the build sets them, then the header read as the build's prescan reads it, its summary written; it starts no
 %% process of its own

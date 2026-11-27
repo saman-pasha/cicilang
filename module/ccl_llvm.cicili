@@ -54,8 +54,22 @@
   (code "static void ccl_ll_all(void) { LLVMInitializeAllTargetInfos(); LLVMInitializeAllTargets(); LLVMInitializeAllTargetMCs(); LLVMInitializeAllAsmPrinters(); LLVMInitializeAllAsmParsers(); }")
   (code "static void ccl_ll_target_flag(const char *f, char *d) { size_t i = 0; if (strncmp(f, \"--target=\", 9) != 0) return; f += 9; while (i + 1 < 128 && f[i]) { d[i] = f[i]; i++; } d[i] = 0; }")
   (code "static char *ccl_ll_target_triple(const char *t) { return t[0] ? LLVMCreateMessage(t) : LLVMGetDefaultTargetTriple(); }")
-  (code "static char *ccl_ll_target_cpu(const char *t) { return t[0] ? LLVMCreateMessage(\"generic\") : LLVMGetHostCPUName(); }")
-  (code "static char *ccl_ll_target_features(const char *t) { return t[0] ? LLVMCreateMessage(\"\") : LLVMGetHostCPUFeatures(); }")
+  ;;; THE CPU IS CLANG'S DEFAULT FOR THE TRIPLE (1.6.46, the owner's decision; clang 23's getX86TargetCPU and
+  ;;; getAArch64TargetCPU, for every triple that dr_set_target/1 takes): x86_64's `x86-64'; on Darwin x86_64h's
+  ;;; `core-avx2', macOS 10.12's and later (darwin 16) `penryn', DriverKit's `nehalem', any other `core2'; Apple's arm64
+  ;;; `apple-m1' on macOS, a simulator and Mac Catalyst, `apple-a12' on visionOS and for arm64e, `apple-s4' for arm64_32,
+  ;;; `apple-s9' on watchOS, any other `apple-a7'; any other `generic' -- its features the CPU's own --; `--cpu=NAME' names
+  ;;; it, and `--cpu=native' is the host's CPU with the host's features, which clang's -march=native gives. Until 1.6.45 an
+  ;;; object built with no --target had the host's CPU and features, and on a box with AVX-512 a conversion of a uint32_t
+  ;;; to a double was vcvtusi2sd, which a CPU without it, and valgrind, stop at; one with a --target had `generic'.
+  (code "static void ccl_ll_cpu_flag(const char *f, char *d) { size_t i = 0; if (strncmp(f, \"--cpu=\", 6) != 0) return; f += 6; while (i + 1 < 64 && f[i]) { d[i] = f[i]; i++; } d[i] = 0; }")
+  (code "static int ccl_ll_darwin_penryn(const char *t) { const char *d = strstr(t, \"darwin\"), *m = strstr(t, \"macos\"); if (d) return atoi(d + 6) >= 16; if (m) { int a = 0, b = 0; m += 5; if (*m == 'x') m++; a = atoi(m); while (*m && *m != '.') m++; if (*m == '.') b = atoi(m + 1); return a > 10 || (a == 10 && b >= 12); } return 0; }")
+  (code "static int ccl_ll_apple_mac(const char *t) { return strstr(t, \"darwin\") || strstr(t, \"macos\") || strstr(t, \"simulator\") || strstr(t, \"macabi\"); }")
+  (code "static const char *ccl_ll_apple_x86(const char *t) { if (strncmp(t, \"x86_64h\", 7) == 0) return \"core-avx2\"; if (ccl_ll_darwin_penryn(t)) return \"penryn\"; if (strstr(t, \"driverkit\")) return \"nehalem\"; return \"core2\"; }")
+  (code "static const char *ccl_ll_apple_arm(const char *t) { if (ccl_ll_apple_mac(t)) return \"apple-m1\"; if (strstr(t, \"xros\") || strstr(t, \"visionos\") || strncmp(t, \"arm64e\", 6) == 0) return \"apple-a12\"; if (strncmp(t, \"arm64_32\", 8) == 0) return \"apple-s4\"; if (strstr(t, \"watchos\")) return \"apple-s9\"; return \"apple-a7\"; }")
+  (code "static const char *ccl_ll_default_cpu(const char *t) { int apple = strstr(t, \"apple\") || strstr(t, \"darwin\") || strstr(t, \"macos\"); if (strncmp(t, \"x86_64\", 6) == 0) return apple ? ccl_ll_apple_x86(t) : \"x86-64\"; if ((strncmp(t, \"aarch64\", 7) == 0 || strncmp(t, \"arm64\", 5) == 0) && apple) return ccl_ll_apple_arm(t); return \"generic\"; }")
+  (code "static char *ccl_ll_target_cpu(const char *t, const char *c) { if (strcmp(c, \"native\") == 0) return LLVMGetHostCPUName(); return LLVMCreateMessage(c[0] ? c : ccl_ll_default_cpu(t)); }")
+  (code "static char *ccl_ll_target_features(const char *c) { return strcmp(c, \"native\") == 0 ? LLVMGetHostCPUFeatures() : LLVMCreateMessage(\"\"); }")
   (code "static LLVMCodeGenOptLevel ccl_ll_codegen(int l) { return l <= 0 ? LLVMCodeGenLevelNone : l == 1 ? LLVMCodeGenLevelLess : l == 2 ? LLVMCodeGenLevelDefault : LLVMCodeGenLevelAggressive; }")
   (code "static LLVMRelocMode ccl_ll_reloc(void) { return LLVMRelocPIC; }")
   (code "static LLVMCodeModel ccl_ll_model(void) { return LLVMCodeModelDefault; }")
@@ -65,8 +79,9 @@
   (decl) (func ccl_ll_all ())
   (decl) (func ccl_ll_target_flag ((const char * f) (char * d)))
   (decl) (func ccl_ll_target_triple ((const char * t)) (out char *))
-  (decl) (func ccl_ll_target_cpu ((const char * t)) (out char *))
-  (decl) (func ccl_ll_target_features ((const char * t)) (out char *))
+  (decl) (func ccl_ll_cpu_flag ((const char * f) (char * d)))
+  (decl) (func ccl_ll_target_cpu ((const char * t) (const char * c)) (out char *))
+  (decl) (func ccl_ll_target_features ((const char * c)) (out char *))
   (decl) (func ccl_ll_codegen ((int l)) (out LLVMCodeGenOptLevel))
   (decl) (func ccl_ll_reloc () (out LLVMRelocMode))
   (decl) (func ccl_ll_model () (out LLVMCodeModel))
@@ -98,12 +113,13 @@
   (decl) (func LLVMTargetMachineEmitToFile ((LLVMTargetMachineRef t) (LLVMModuleRef m) (const char * file) (LLVMCodeGenFileType kind) (char ** msg)) (out LLVMBool))
 
   ;; the flags: the -O level (0..3; 4 is -Os, 5 is -Oz) and -S
-  (func ccl_llvm_flags ((coco_engine * e) (size_t t) (int * level) (int * emit_asm) (char * tgt)) (out int)
+  (func ccl_llvm_flags ((coco_engine * e) (size_t t) (int * level) (int * emit_asm) (char * tgt) (char * cpuf)) (out int)
     (let ((size_t * cells . nil) (size_t n . 0) (size_t i . 0))
       (if (not (coco_m_list_array e t (aof cells) (aof n))) (return 0))
       (while (< i n)
         (let ((const char * f . #'(coco_m_atom e (nth i cells))))
           (if f (ccl_ll_target_flag f tgt))   ; --target=TRIPLE (0.131): another machine
+          (if f (ccl_ll_cpu_flag f cpuf))     ; --cpu=NAME (1.6.46): -march= and -mcpu= of the command
           (if f
             (cond
               ((== 0 (strcmp f "-O0")) (set (cof level) 0))
@@ -210,14 +226,15 @@
   (func ccl_llvm_p_compile ((coco_engine * e) (size_t g)) (out int)
     (let ((const char * ir . #'(coco_m_atom e (coco_m_arg e g 0)))
           (const char * file . #'(coco_m_atom e (coco_m_arg e g 1)))
-          (int level . 1) (int emit_asm . 0) (int rc . 0) (char tgt [128])
+          (int level . 1) (int emit_asm . 0) (int rc . 0) (char tgt [128]) (char cpuf [64])
           (LLVMContextRef ctx . nil) (LLVMModuleRef mod . nil)
           (LLVMTargetRef target . nil) (LLVMTargetMachineRef tm . nil) (LLVMTargetDataRef dl . nil)
           (char * triple . nil) (char * cpu . nil) (char * features . nil) (char * msg . nil)
           (LLVMPassBuilderOptionsRef opts . nil) (LLVMErrorRef err . nil))
       (if (or (not ir) (not file)) (return (coco_m_instantiation_error e)))
       (set (nth 0 tgt) 0)
-      (if (not (ccl_llvm_flags e (coco_m_arg e g 2) (aof level) (aof emit_asm) tgt))
+      (set (nth 0 cpuf) 0)
+      (if (not (ccl_llvm_flags e (coco_m_arg e g 2) (aof level) (aof emit_asm) tgt cpuf))
         (return (coco_m_type_error e "list" (coco_m_arg e g 2))))
       (if (not (ccl_llvm_load e ir (aof ctx) (aof mod) (aof rc))) (return rc))
       (ccl_ll_all)
@@ -231,8 +248,8 @@
             (LLVMDisposeModule mod)
             (LLVMContextDispose ctx)
             (return (coco_m_error e "no_target" text)))))
-      (set cpu (ccl_ll_target_cpu tgt))
-      (set features (ccl_ll_target_features tgt))
+      (set cpu (ccl_ll_target_cpu triple cpuf))
+      (set features (ccl_ll_target_features cpuf))
       (set tm (LLVMCreateTargetMachine target triple cpu features (ccl_ll_codegen level) (ccl_ll_reloc) (ccl_ll_model)))
       (LLVMSetTarget mod triple)
       (set dl (LLVMCreateTargetDataLayout tm))

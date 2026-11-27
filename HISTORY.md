@@ -362,6 +362,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.43 | a C++ const object with no initializer | a C++ const object of a type that is no class, with no initializer, is clang++'s default initialization words, a constexpr one its own (reader 221, lowering 211) |
 | 1.6.44 | GCC's error in C++, a null pointer constant for an array parameter | a C++ call of a function that GCC's error marks is clang++'s words, the callee by its demangled name, a plain call alone; 0 for an array parameter (reader 221, lowering 212) |
 | 1.6.45 | a constexpr object of a class builds again | a C++ constexpr object of a class with no initializer is its constexpr default constructor's, which 1.6.43 refused; the chain over 1.6.44 (reader 221, lowering 213) |
+| 1.6.46 | the object's CPU is clang's default | an object's CPU is clang's default for its triple, the host's on -march=native, and -march= and -mcpu= name it as clang takes them (reader 221, lowering 213) |
 
 ## M5 — the C++ mode
 
@@ -26942,3 +26943,73 @@ rule of 0.271.
 - RULES.md (the rule in the C reader's topic), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.45, the reader 221 and the lowering 213.
+
+## 1.6.46 — the object's CPU is clang's default
+
+**1.6.46: at the user's word "Set default cpu like clang, then next", which is the owner's decision that Not done's
+record of the default CPU asked for, after 1.6.45: an object's CPU is clang's default for its triple, and the host's on
+`-march=native`. The library read and the C++ gate ran over 1.6.45's commit (below); this step was committed with its
+nets and its broken copies, and claims nothing GREEN of the chain.**
+
+1. THE OBJECT'S CPU IS CLANG'S DEFAULT FOR THE TRIPLE (`module/ccl_llvm.cicili`'s `ccl_ll_default_cpu`,
+   `ccl_ll_apple_x86`, `ccl_ll_apple_arm`, `ccl_ll_apple_mac` and `ccl_ll_darwin_penryn`; clang 23's `getX86TargetCPU`
+   and `getAArch64TargetCPU`): `x86-64` on x86_64 Linux, and on Darwin `core-avx2` for `x86_64h`, `penryn` from macOS
+   10.12 on, `nehalem` on DriverKit and `core2` otherwise; on Apple's arm64 `apple-m1` on macOS, a simulator and Mac
+   Catalyst, `apple-a12` on visionOS and for `arm64e`, `apple-s4` for `arm64_32`, `apple-s9` on watchOS and `apple-a7`
+   otherwise; `generic` on any other, aarch64 Linux among them -- each as clang 23's `-###` names it. An object with no
+   `--target` was for the build box's CPU and features (0.283), as clang's `-march=native` makes it: on this box, whose
+   CPU is `emeraldrapids`, a conversion of an `unsigned` to a double was AVX-512's `vcvtusi2sd`, at which a CPU with no
+   AVX-512 and valgrind 3.22 stop -- the Ambitious session's finding 10 (0.290), whose author asked for the plain CPU.
+   An object with a `--target` was for the triple's `generic` CPU, which clang names for no Apple triple and for no
+   x86_64 one. The first form of the table gave `apple-m1` to every Apple arm64 triple: clang 23's `-###` over some
+   fifty triples showed iOS's `apple-a7`, watchOS's `apple-s9`, visionOS's and `arm64e`'s `apple-a12` and DriverKit's
+   `nehalem`. It had branches for 32-bit x86 and RISC-V too, which no triple that `dr_set_target/1` takes reaches, and
+   they are out. The predefined macros were the hosts' default CPUs' already: the Linux x86_64 table's are `x86-64`'s,
+   so that an object's instructions and its macros agree now.
+2. `-march=` AND `-mcpu=` NAME THE CPU, AS CLANG TAKES THEM (`bin/cicilang`'s `cpu(F)`; `dr_setup/2`, `dr_cpu_flag/2`,
+   `dr_cpu_name/2` and `dr_cpu_x86/0`; the module's `ccl_ll_cpu_flag`): they went to the link alone. The last one of the
+   command names it; `native`, by either, is the host's CPU with the host's features (`LLVMGetHostCPUName`,
+   `LLVMGetHostCPUFeatures`); another name by `-march=` where the architecture -- the triple's, else the host's -- is
+   x86, and by `-mcpu=` elsewhere.
+3. FOUND: `-march=ARCH` off x86 names no CPU here, where clang sets the architecture's features; `-mcpu=` on x86 is
+   ignored, where clang 23 refuses it; `-mtune=` and the feature flags go to the link alone; no `-march=` changes a
+   predefined macro; an Apple triple that is no macOS one has macOS's CPU macros; on aarch64 Linux clang 23 calls
+   outline atomics where this compiler's object has the load-exclusive loop; and `-march=native`'s features are held by
+   no check on this box (below). Not done records them. And `__builtin_floor`, which clang takes as `floor` with no
+   declaration, is `call to undeclared function '__builtin_floor'`: the checks' text calls `floor` through its
+   declaration.
+
+The driver gate's three checks hold items 1 and 2 against clang 23's assembly on the same box: on x86 a popcount and a
+conversion of an `unsigned` to a double with no flag, `-march=native`, `-march=x86-64-v3` and `-march=native
+-march=x86-64`; nineteen triples by `--target`, each branch of the table and its bounds, `-O2 -S`, by the instructions
+that the CPU chooses for floor, a popcount, a loop of absolute values, an atomic add, a dot product of unsigned and
+signed bytes and a zero double -- SSE4.1's `roundsd`, POPCNT's `popcnt`, SSSE3's `pabsd`, AVX2's forms, LSE's `ldadd`,
+the dot products' `udot` and `usdot`, and an Apple CPU's `fmov` of a zero --; and `-mcpu=apple-m1` beside
+`--target=aarch64-linux-gnu` and `-march=x86-64-v3` beside `--target=x86_64-linux-gnu`.
+
+THE LIBRARY READ AND THE C++ GATE OVER 1.6.45'S COMMIT, over LLVM 23 and libc++ 23, a fresh HOME: the library read GREEN
+in 217 s (24 ok) and the C++ gate GREEN in 1196 s (1275 ok), where the chain over 1.6.44 was RED at the two fixtures
+that 1.6.45 mended.
+
+THE NETS. Over the copy: the flow gate GREEN in 488 s, over the library, which the second build of the LLVM module below
+did not change; after that build, which took clang's whole table, the reader gate GREEN in 4 s (173 ok), the compile
+gate GREEN in 36 s (482 ok), the driver gate GREEN in 259 s (197 ok), the cross gate GREEN in 320 s (294 ok) and the
+pool of 105 C++ run fixtures of 1.6.45, each built as the C++ gate builds it over a HOME of its own, 105 the same, in
+130 s. THE BROKEN COPIES: twenty-four, each run from a copy of the copy over a fresh HOME, the LLVM module built again
+where it was broken. Twenty-three were caught by the three checks: the default as the host's CPU, the driver's flag, the
+last flag, `-march=` read as `-mcpu=` on x86, the command's `cpu(F)`, `x86_64h`, the darwin bound, the macOS bound, the
+macOS 10 branch, DriverKit, Darwin's x86, a simulator, Mac Catalyst, macOS's arm64, visionOS, `arm64e`, `arm64_32`,
+watchOS, Apple's last branch, a Darwin triple with no `apple`, an `aarch64` Apple triple, Apple's arm64 branch and the
+triple's architecture under `--target`. CPU4, which took `-march=native`'s features away and kept the host's CPU's name,
+was caught by nothing: on this box the name gives the instructions of the features. The features stay, as clang passes
+them, for a host whose features its CPU's name does not give, and Not done records it. Over the work tree after the
+port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `module/ccl_llvm.cicili` (`ccl_ll_cpu_flag`, `ccl_ll_darwin_penryn`, `ccl_ll_apple_mac`, `ccl_ll_apple_x86`,
+  `ccl_ll_apple_arm`, `ccl_ll_default_cpu`, `ccl_ll_target_cpu`, `ccl_ll_target_features`, `ccl_llvm_flags`);
+  `bin/cicilang` (`-march=`, `-mcpu=`); `library/ccl_driver.pl` (`dr_setup/2`, `dr_cpu_flag/2`, `dr_cpu_name/2`,
+  `dr_cpu_x86/0`); `test/driver.sh` (three checks); the module's version.
+- RULES.md (the rules in the Arguments and the embedded LLVM topics; Not done: one record out, one new), HISTORY.md,
+  CLAUDE.md (the versions).
+
+The module 1.6.46, the reader 221 and the lowering 213.

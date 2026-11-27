@@ -83,6 +83,7 @@ while [ $# -gt 0 ]; do
     -O0|-O1|-O2|-O3|-Os|-Oz) opt="$1" ;;
     -I) need "$@"; shift; opts="$opts include($(q "$1"))," ;;
     -I*) opts="$opts include($(q "${1#-I}"))," ;;
+    -march=*|-mcpu=*) opts="$opts cpu($(q "$1")), link($(q "$1"))," ;;   # the object's CPU (1.6.46), as clang takes them, and the link's flag as before
     -l*|-L*|-shared|-Wl,*|-framework|-static|-rdynamic|-fPIC|-pthread|-m*) case "$1" in -framework) need "$@"; opts="$opts link('-framework'),"; shift ;; esac; opts="$opts link($(q "$1"))," ;;
     -std=c++17|-std=c++1z) lvl="std(17), iso," ;;   # the language level: C++17 the baseline, then the majors; an ISO mode predefines __STRICT_ANSI__ (0.214)
     -std=gnu++17|-std=gnu++1z) lvl="std(17)," ;;
