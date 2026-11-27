@@ -364,6 +364,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.45 | a constexpr object of a class builds again | a C++ constexpr object of a class with no initializer is its constexpr default constructor's, which 1.6.43 refused; the chain over 1.6.44 (reader 221, lowering 213) |
 | 1.6.46 | the object's CPU is clang's default | an object's CPU is clang's default for its triple, the host's on -march=native, and -march= and -mcpu= name it as clang takes them (reader 221, lowering 213) |
 | 1.6.47 | clang's library builtins in C, and their counts in C++ | `__builtin_memcpy`, `__builtin_floor` and kin are the C library's functions with no declaration, the math ones that clang lowers so LLVM's intrinsics; C++ declares them and counts their arguments (reader 221, lowering 214) |
+| 1.6.48 | the CPU flags as clang reads them | -mcpu= on x86 is clang's error, -march= on aarch64 gives clang 23's features of the architecture, what clang refuses is refused in its words, and a flag's error stops the build; the chain over 1.6.47 (reader 221, lowering 214) |
 
 ## M5 — the C++ mode
 
@@ -27086,3 +27087,65 @@ tree after the port: the toolchain check strict GREEN. No CI job ran, by the own
   HISTORY.md, CLAUDE.md (the versions, the fixture).
 
 The module 1.6.47, the reader 221 and the lowering 214.
+
+## 1.6.48 — the CPU flags as clang reads them
+
+**1.6.48: at the user's word "then next", after 1.6.47: Not done's record of the CPU flags that clang reads otherwise
+narrowed, against clang 23 -- `-mcpu=` on x86, an aarch64 architecture's features, the forms that clang refuses -- and a
+flag's error stops the build. The chain ran over 1.6.47's commit (below); this step was committed with its nets and its
+broken copies, and claims nothing GREEN of the chain.**
+
+1. ON X86 EACH `-mcpu=` IS CLANG'S `unsupported option '-mcpu=' for target 'x86_64-pc-linux-gnu'` (`dr_cpu_flags/2`,
+   `dr_cpu_x86_flags/2`, `dr_cpu_triple/1`): the triple as the command names it, `x86_64-apple-macos12`, or the host's,
+   once for each flag as clang says it. It was dropped, and the build went on.
+2. ON AARCH64 `-march=ARCH` GIVES CLANG 23'S FEATURES OF THE ARCHITECTURE, AND `-mcpu=` THE CPU BESIDE THEM
+   (`dr_cpu_arm_flags/2`, `dr_cpu_arm_name/2`, `dr_cpu_arm_arch/2`, `dr_arm_arch/2`; the module's `--features=`,
+   `ccl_ll_feat_flag`): nineteen architectures, `armv8-a` to `armv8.9-a`, `armv9-a` to `armv9.7-a` and `armv8-r`, each
+   list of features as clang 23's `-###` gives it for `--target=aarch64-linux-gnu -march=NAME`, clang's own
+   `+outline-atomics` and `-fmv` apart; the CPU is the last `-mcpu=`'s, or the triple's default, so that
+   `-mcpu=cortex-a72 -march=armv8.2-a` in either order is cortex-a72 with v8.2's features and Apple's `apple-m1` stays
+   beside a `-march=`, as clang's. A `-march=` named nothing there, the CPU's own features taken.
+3. WHAT CLANG REFUSES OF THE FLAGS IS REFUSED IN ITS WORDS (`dr_diag/3`'s `unsupported_option/2` and
+   `unsupported_argument/2`, `dr_cpu_other_arch/0`, `dr_cpu_host_refused/1`; the module's `ccl_llvm_host_cpu/1`): an
+   architecture that clang 23 does not take, `armv8.10-a`, `x86-64`, the last of two among them, is `unsupported
+   argument 'armv8.10-a' to option '-march='`; `native` on a triple of another architecture than the host's names the
+   host's CPU so, `unsupported argument 'emeraldrapids' to option '-mcpu='`, where it built for the host's CPU's name,
+   which the target did not know. An extension after `+`, `-march=armv8.2-a+crypto` and `-mcpu=cortex-a72+crypto`, is
+   refused by name, as no table here holds an extension's features: the second was a CPU's name that LLVM did not know,
+   its generic CPU taken.
+4. A FLAG'S ERROR STOPS THE BUILD (`dr_drive/2`), as clang's driver stops: an unknown triple's LLVM line, `LLVM:
+   no_target: No available targets are compatible with triple "nosuch-x"`, came after its `unknown target triple`.
+5. FOUND: a CPU's name that LLVM does not know, `-march=nosuch` on x86 or `-mcpu=nosuch` on aarch64, builds with no word
+   for LLVM's generic CPU, where clang refuses it, since llvm-c asks no CPU's name; and no `-march=` changes a
+   predefined macro, `__ARM_FEATURE_DOTPROD` among them. Not done's record holds them.
+
+The driver gate's two checks hold items 1 to 4: the refusals as clang 23's words from `error:` on, and the build
+stopped, ten forms on x86 and eight elsewhere; and on aarch64 twelve forms -- no flag, six architectures, `armv8-r`, a
+CPU and an architecture in either order, a CPU alone, Apple's macOS and iOS with an architecture -- by the instructions
+that the features choose (LSE's `ldadd`, the dot products' `sdot`, `udot` and i8mm's `usdot`, an Apple CPU's `fmov` of a
+zero) against clang 23's assembly, its outline atomics off on Linux, and the two extensions refused by name.
+
+THE CHAIN OVER 1.6.47'S COMMIT, over LLVM 23 and libc++ 23, a fresh HOME, the toolchain check strict: the toolchain
+check GREEN in 1 s, the flow gate GREEN in 519 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in 35 s
+(483 ok), the driver gate GREEN in 316 s (200 ok), the objects gate GREEN in 5 s (29 ok), M0's proof GREEN, the cross
+gate GREEN in 304 s (295 ok), the library read GREEN in 201 s (24 ok), the C++ gate GREEN in 1211 s (1276 ok) and the
+ccllib gate GREEN in 1388 s (625 ok: 36 programs in three runs, 189 refused, 21 alone), 3984 s in all.
+
+THE NETS. Over the copy: the flow gate GREEN in 480 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+36 s (483 ok), the driver gate GREEN in 268 s (202 ok) and the cross gate GREEN in 314 s (295 ok). THE BROKEN COPIES:
+seventeen, each run from a copy of the copy over a fresh HOME, and each caught by the driver gate's two checks: the
+refusal of `-mcpu=` on x86 taken out, and its triple; the road of the triple; an architecture's features; the last
+`-mcpu=` taken; the refusal of an unknown architecture and of an extension; another machine's architecture; the host's
+refusal; a CPU's extension; the build that a flag's error stops; the module's host features and its flag of the
+features; two rows of the architectures' table; and `native`. Over the work tree after the port: the toolchain check
+strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `module/ccl_llvm.cicili` (`ccl_ll_feat_flag`, `ccl_ll_target_features`, `ccl_llvm_flags`, `ccl_llvm_p_compile`,
+  `ccl_llvm_p_host_cpu`); `library/ccl_driver.pl` (`dr_drive/2`, `dr_setup/2`, `dr_cpu_flags/2`, `dr_cpu_x86_flags/2`,
+  `dr_cpu_arm_flags/2`, `dr_cpu_arm_name/2`, `dr_cpu_arm_arch/2`, `dr_cpu_last/3`, `dr_cpu_triple/1`,
+  `dr_cpu_other_arch/0`, `dr_cpu_host_refused/1`, `dr_arm_arch/2`, `dr_diag/3`; `dr_cpu_flag/2` and `dr_cpu_name/2`
+  out); `test/driver.sh` (two checks); the module's version.
+- RULES.md (the rules in the Arguments and the embedded LLVM topics; Not done: one record narrowed), HISTORY.md,
+  CLAUDE.md (the versions).
+
+The module 1.6.48, the reader 221 and the lowering 214.

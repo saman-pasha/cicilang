@@ -10,10 +10,12 @@
 ;;;; THE SURFACE:
 ;;;;   ccl_llvm_version(-Atom)              LLVM's version, e.g. '23.1.0'
 ;;;;   ccl_llvm_triple(-Atom)               the host's target triple
+;;;;   ccl_llvm_host_cpu(-Atom)             the host's CPU, as -march=native names it (1.6.48)
 ;;;;   ccl_llvm_check(+IR, -Report)         parse and verify only: ok, or the message
 ;;;;   ccl_llvm_compile(+IR, +File, +Flags) the object (or assembly) file
 ;;;;     Flags: '-O0' .. '-O3', '-Os', '-Oz' (the pipeline default<On>; -O1 if none),
-;;;;            '-S' for assembly instead of an object; others are ignored
+;;;;            '-S' for assembly instead of an object, '--target=TRIPLE', '--cpu=NAME' and
+;;;;            '--features=+a,+b' (1.6.48); others are ignored
 ;;;;
 ;;;; BUILD: sh module/build-llvm.sh, with LLVM naming the LLVM prefix
 ;;;; (Homebrew's, /usr/local/opt/llvm or /opt/homebrew/opt/llvm).
@@ -21,6 +23,7 @@
 (DEFPARAMETER *ccl-llvm-predicates*
   '(("ccl_llvm_version" 1 ccl_llvm_p_version)
     ("ccl_llvm_triple"  1 ccl_llvm_p_triple)
+    ("ccl_llvm_host_cpu" 1 ccl_llvm_p_host_cpu)
     ("ccl_llvm_check"   2 ccl_llvm_p_check)
     ("ccl_llvm_compile" 3 ccl_llvm_p_compile)))
 
@@ -69,7 +72,10 @@
   (code "static const char *ccl_ll_apple_arm(const char *t) { if (ccl_ll_apple_mac(t)) return \"apple-m1\"; if (strstr(t, \"xros\") || strstr(t, \"visionos\") || strncmp(t, \"arm64e\", 6) == 0) return \"apple-a12\"; if (strncmp(t, \"arm64_32\", 8) == 0) return \"apple-s4\"; if (strstr(t, \"watchos\")) return \"apple-s9\"; return \"apple-a7\"; }")
   (code "static const char *ccl_ll_default_cpu(const char *t) { int apple = strstr(t, \"apple\") || strstr(t, \"darwin\") || strstr(t, \"macos\"); if (strncmp(t, \"x86_64\", 6) == 0) return apple ? ccl_ll_apple_x86(t) : \"x86-64\"; if ((strncmp(t, \"aarch64\", 7) == 0 || strncmp(t, \"arm64\", 5) == 0) && apple) return ccl_ll_apple_arm(t); return \"generic\"; }")
   (code "static char *ccl_ll_target_cpu(const char *t, const char *c) { if (strcmp(c, \"native\") == 0) return LLVMGetHostCPUName(); return LLVMCreateMessage(c[0] ? c : ccl_ll_default_cpu(t)); }")
-  (code "static char *ccl_ll_target_features(const char *c) { return strcmp(c, \"native\") == 0 ? LLVMGetHostCPUFeatures() : LLVMCreateMessage(\"\"); }")
+  ;;; ... AND ITS FEATURES ARE THE CPU'S OWN, or the host's on `--cpu=native', or `--features=+a,+b' where the driver names an
+  ;;; architecture's (1.6.48: aarch64's -march=, dr_cpu_flags/2)
+  (code "static void ccl_ll_feat_flag(const char *f, char *d) { size_t i = 0; if (strncmp(f, \"--features=\", 11) != 0) return; f += 11; while (i + 1 < 1024 && f[i]) { d[i] = f[i]; i++; } d[i] = 0; }")
+  (code "static char *ccl_ll_target_features(const char *c, const char *x) { return strcmp(c, \"native\") == 0 ? LLVMGetHostCPUFeatures() : LLVMCreateMessage(x); }")
   (code "static LLVMCodeGenOptLevel ccl_ll_codegen(int l) { return l <= 0 ? LLVMCodeGenLevelNone : l == 1 ? LLVMCodeGenLevelLess : l == 2 ? LLVMCodeGenLevelDefault : LLVMCodeGenLevelAggressive; }")
   (code "static LLVMRelocMode ccl_ll_reloc(void) { return LLVMRelocPIC; }")
   (code "static LLVMCodeModel ccl_ll_model(void) { return LLVMCodeModelDefault; }")
@@ -81,7 +87,8 @@
   (decl) (func ccl_ll_target_triple ((const char * t)) (out char *))
   (decl) (func ccl_ll_cpu_flag ((const char * f) (char * d)))
   (decl) (func ccl_ll_target_cpu ((const char * t) (const char * c)) (out char *))
-  (decl) (func ccl_ll_target_features ((const char * c)) (out char *))
+  (decl) (func ccl_ll_feat_flag ((const char * f) (char * d)))
+  (decl) (func ccl_ll_target_features ((const char * c) (const char * x)) (out char *))
   (decl) (func ccl_ll_codegen ((int l)) (out LLVMCodeGenOptLevel))
   (decl) (func ccl_ll_reloc () (out LLVMRelocMode))
   (decl) (func ccl_ll_model () (out LLVMCodeModel))
@@ -113,13 +120,14 @@
   (decl) (func LLVMTargetMachineEmitToFile ((LLVMTargetMachineRef t) (LLVMModuleRef m) (const char * file) (LLVMCodeGenFileType kind) (char ** msg)) (out LLVMBool))
 
   ;; the flags: the -O level (0..3; 4 is -Os, 5 is -Oz) and -S
-  (func ccl_llvm_flags ((coco_engine * e) (size_t t) (int * level) (int * emit_asm) (char * tgt) (char * cpuf)) (out int)
+  (func ccl_llvm_flags ((coco_engine * e) (size_t t) (int * level) (int * emit_asm) (char * tgt) (char * cpuf) (char * featf)) (out int)
     (let ((size_t * cells . nil) (size_t n . 0) (size_t i . 0))
       (if (not (coco_m_list_array e t (aof cells) (aof n))) (return 0))
       (while (< i n)
         (let ((const char * f . #'(coco_m_atom e (nth i cells))))
           (if f (ccl_ll_target_flag f tgt))   ; --target=TRIPLE (0.131): another machine
           (if f (ccl_ll_cpu_flag f cpuf))     ; --cpu=NAME (1.6.46): -march= and -mcpu= of the command
+          (if f (ccl_ll_feat_flag f featf))   ; --features=+a,+b (1.6.48): an architecture's features, aarch64's -march=
           (if f
             (cond
               ((== 0 (strcmp f "-O0")) (set (cof level) 0))
@@ -200,6 +208,13 @@
       (LLVMDisposeMessage triple)
       (return rc)))
 
+  ;; ccl_llvm_host_cpu(-Atom): the host's CPU, which the driver names where -march=native is refused (1.6.48)
+  (func ccl_llvm_p_host_cpu ((coco_engine * e) (size_t g)) (out int)
+    (let ((char * cpu . #'(LLVMGetHostCPUName)) (int rc . 0))
+      (set rc (coco_m_unify_atom e (coco_m_arg e g 0) cpu))
+      (LLVMDisposeMessage cpu)
+      (return rc)))
+
   ;; ccl_llvm_check(+IR, -Report): ok, or what the parser or the verifier said
   (func ccl_llvm_p_check ((coco_engine * e) (size_t g)) (out int)
     (let ((const char * ir . #'(coco_m_atom e (coco_m_arg e g 0)))
@@ -226,7 +241,7 @@
   (func ccl_llvm_p_compile ((coco_engine * e) (size_t g)) (out int)
     (let ((const char * ir . #'(coco_m_atom e (coco_m_arg e g 0)))
           (const char * file . #'(coco_m_atom e (coco_m_arg e g 1)))
-          (int level . 1) (int emit_asm . 0) (int rc . 0) (char tgt [128]) (char cpuf [64])
+          (int level . 1) (int emit_asm . 0) (int rc . 0) (char tgt [128]) (char cpuf [64]) (char featf [1024])
           (LLVMContextRef ctx . nil) (LLVMModuleRef mod . nil)
           (LLVMTargetRef target . nil) (LLVMTargetMachineRef tm . nil) (LLVMTargetDataRef dl . nil)
           (char * triple . nil) (char * cpu . nil) (char * features . nil) (char * msg . nil)
@@ -234,7 +249,8 @@
       (if (or (not ir) (not file)) (return (coco_m_instantiation_error e)))
       (set (nth 0 tgt) 0)
       (set (nth 0 cpuf) 0)
-      (if (not (ccl_llvm_flags e (coco_m_arg e g 2) (aof level) (aof emit_asm) tgt cpuf))
+      (set (nth 0 featf) 0)
+      (if (not (ccl_llvm_flags e (coco_m_arg e g 2) (aof level) (aof emit_asm) tgt cpuf featf))
         (return (coco_m_type_error e "list" (coco_m_arg e g 2))))
       (if (not (ccl_llvm_load e ir (aof ctx) (aof mod) (aof rc))) (return rc))
       (ccl_ll_all)
@@ -249,7 +265,7 @@
             (LLVMContextDispose ctx)
             (return (coco_m_error e "no_target" text)))))
       (set cpu (ccl_ll_target_cpu triple cpuf))
-      (set features (ccl_ll_target_features cpuf))
+      (set features (ccl_ll_target_features cpuf featf))
       (set tm (LLVMCreateTargetMachine target triple cpu features (ccl_ll_codegen level) (ccl_ll_reloc) (ccl_ll_model)))
       (LLVMSetTarget mod triple)
       (set dl (LLVMCreateTargetDataLayout tm))

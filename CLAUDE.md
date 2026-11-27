@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.47 the versions are: the module 1.6.47 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.6.48 the versions are: the module 1.6.48 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 214 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -327,7 +327,8 @@ module/cicilang.cicili      library(cicilang), in Cicili. The C side: ccl_versio
                             native lexer ccl_lex_native/6, ccl_host_arch/1, ccl_host_os/1, ccl_uname_code. The
                             Prolog half: the four cicilang_ doors and the objects layer
 module/ccl_llvm.cicili      library(ccl_llvm), the embedded LLVM over llvm-c: ccl_llvm_version/1, ccl_llvm_triple/1,
-                            ccl_llvm_check/2, ccl_llvm_compile/3 (parse, verify, target, passes, object)
+                            ccl_llvm_host_cpu/1, ccl_llvm_check/2, ccl_llvm_compile/3 (parse, verify, target, passes,
+                            object)
 module/build.sh             writes ccl_uninames.h and ccl_xid.h, transpiles cicilang.cicili, compiles
                             library/cicilang.so
 module/build-llvm.sh        transpiles ccl_llvm.cicili, compiles library/ccl_llvm.so against LLVM's C API

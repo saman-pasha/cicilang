@@ -1127,11 +1127,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `--target=TRIPLE` and `-target TRIPLE`, clang's spellings, are `target(T)` (0.131): another machine (`dr_set_target/1`,
   the Driver topic below). A run with one keeps no C store (`--local`): another machine reads this compiler's own
   headers (`float.h`, `limits.h`) under its own macros, and the store keys a header by its path.
-- `-march=NAME` and `-mcpu=NAME` are `cpu(F)` and `link(F)` (1.6.46; they were `link(F)` alone): the object's CPU, as
-  clang takes them (`dr_cpu_flag/2`, `dr_cpu_name/2`, `dr_cpu_x86/0`). The last of the command names it; `native`, by
-  either, is the host's CPU and its features; another NAME by `-march=` where the architecture is x86 -- the triple's
-  under `--target`, else the host's --, since there it is a CPU's name (`x86-64-v3`, `skylake`), and by `-mcpu=`
-  elsewhere. The driver hands `--cpu=NAME` to the embedded LLVM, whose topic names the default and the checks.
+- `-march=NAME` and `-mcpu=NAME` are `cpu(F)` and `link(F)` (1.6.46; they were `link(F)` alone): the object's CPU and
+  its features, as clang reads them (`dr_cpu_flags/2`, `dr_cpu_x86/0`; 1.6.48). Where the architecture is x86 -- the
+  triple's under `--target`, else the host's -- the last `-march=` names the CPU (`x86-64-v3`, `skylake`; `native` the
+  host's CPU and its features), and each `-mcpu=` is clang's `unsupported option '-mcpu=' for target
+  'x86_64-pc-linux-gnu'`, the triple as the command names it or the host's (`dr_cpu_triple/1`). On aarch64 the last
+  `-mcpu=` names the CPU and the last `-march=` an architecture, whose features are clang 23's for it (`dr_arm_arch/2`,
+  nineteen architectures, `armv8-a` to `armv8.9-a`, `armv9-a` to `armv9.7-a` and `armv8-r`, each list as clang 23's
+  `-###` gives it), the CPU the triple's default where no `-mcpu=` names one: `-mcpu=cortex-a72 -march=armv8.2-a` is
+  cortex-a72 with v8.2's features, and Apple's `apple-m1` stays beside a `-march=`. An architecture that clang 23 does
+  not take is its `unsupported argument 'armv8.10-a' to option '-march='`, an x86 CPU's name among them; `native` on a
+  triple of another architecture than the host's is the same words of the host's CPU (`unsupported argument
+  'emeraldrapids' to option '-mcpu='`, the module's `ccl_llvm_host_cpu/1`); an extension after `+`,
+  `-march=armv8.2-a+crypto` or `-mcpu=cortex-a72+crypto`, is refused by name, `not lowered yet: an extension of
+  -march=armv8.2-a+crypto`, as no table here holds an extension's features. A flag's error stops the build there, as
+  clang's driver stops: an unknown triple's LLVM line after its error is gone. Until 1.6.47 a `-march=` on aarch64 named
+  nothing, a `-mcpu=` on x86 was dropped, and `cortex-a72+crypto` was a CPU's name that LLVM did not know, its generic
+  CPU taken. The driver hands `--cpu=NAME` and `--features=+a,+b` to the embedded LLVM, whose topic names the default
+  and the checks.
 - `-W -f* -pedantic` and an unknown `-g` form are accepted and ignored; no `-std=` is (0.257, the levels below). Any
   other dash argument is
   `unknown argument`. `-fexperimental-library` acts (0.138), as clang++'s does: libc++ asks
@@ -14948,27 +14961,31 @@ in the first topic (The ccllib gate).
 - `module/ccl_llvm.cicili` is the whole back end, a cocolog module over llvm-c (owner's rule: no clang, no LLVM binary).
   It initializes every target LLVM was built with (`ccl_ll_all`, 0.131), and a `--target=TRIPLE` flag makes the target
   machine that triple's (`ccl_ll_target_flag`, `ccl_ll_target_triple`); without one it is the host's. Its surface:
-  `ccl_llvm_version/1`, `ccl_llvm_triple/1`, `ccl_llvm_check/2` (parse and verify) and `ccl_llvm_compile/3`.
-  `cicilang_compile/3` calls it through `ccl_compile/3` (`library/ccl_build.pl`); without the module it is
-  `no_embedded_llvm`. (M2, M5, 0.283)
+  `ccl_llvm_version/1`, `ccl_llvm_triple/1`, `ccl_llvm_host_cpu/1` (the host's CPU, 1.6.48), `ccl_llvm_check/2` (parse
+  and verify) and `ccl_llvm_compile/3`. `cicilang_compile/3` calls it through `ccl_compile/3` (`library/ccl_build.pl`);
+  without the module it is `no_embedded_llvm`. (M2, M5, 0.283, 1.6.48)
 - THE OBJECT'S CPU IS CLANG'S DEFAULT FOR THE TRIPLE (owner's decision, 1.6.46; `ccl_ll_default_cpu`,
   `ccl_ll_apple_x86`, `ccl_ll_apple_arm`, `ccl_ll_apple_mac`, `ccl_ll_darwin_penryn`; clang 23's `getX86TargetCPU` and
   `getAArch64TargetCPU`, for every triple that `dr_set_target/1` takes): on x86_64 `x86-64`, and on Darwin `core-avx2`
   for `x86_64h`, `penryn` from macOS 10.12 (darwin 16) on, `nehalem` on DriverKit and `core2` otherwise; on Apple's
   arm64 `apple-m1` on macOS, a simulator and Mac Catalyst, `apple-a12` on visionOS and for `arm64e`, `apple-s4` for
   `arm64_32`, `apple-s9` on watchOS and `apple-a7` otherwise; `generic` on any other, aarch64 Linux among them. Its
-  features are the CPU's own. The driver's `--cpu=NAME` (`ccl_ll_cpu_flag`; `dr_cpu_flag/2`, the Arguments topic) names
-  another, and `--cpu=native` is the host's CPU with the host's features (`LLVMGetHostCPUName`,
-  `LLVMGetHostCPUFeatures`), as clang's `-march=native` gives them. The predefined macros are the hosts' default CPUs':
-  Linux x86_64's `x86-64`, macOS's `penryn` (SSE4.1) and `apple-m1`, aarch64 Linux's `generic` (Not done for another
-  Apple triple). Until 1.6.45 an object with no `--target` was for the build box's CPU and features, and one with a
-  `--target` for the triple's `generic`: a program built on a box with AVX-512 stopped with an illegal instruction on a
-  CPU that has none, and under valgrind 3.22 at the `vcvtusi2sd` of a conversion of a `uint32_t` to a double (0.290, the
-  Ambitious session's finding 10). The driver gate's three checks hold it against clang 23's assembly on the same box:
-  on x86 the default, `-march=native`, `-march=x86-64-v3` and two flags of which the last wins; nineteen triples by
-  `--target`, each branch of the table and its bounds, by the instructions that the CPU chooses -- SSE4.1's `roundsd`,
-  POPCNT's `popcnt`, SSSE3's `pabsd`, AVX2's forms, LSE's `ldadd`, the dot products' `udot` and `usdot`, and an Apple
-  CPU's zero --; and a flag beside `--target`, read by the triple's architecture. (1.6.46)
+  features are the CPU's own, or the driver's `--features=+a,+b` (`ccl_ll_feat_flag`, 1.6.48: an aarch64 architecture's,
+  the Arguments topic). The driver's `--cpu=NAME` (`ccl_ll_cpu_flag`; `dr_cpu_flags/2`) names another, and
+  `--cpu=native` is the host's CPU with the host's features (`LLVMGetHostCPUName`, `LLVMGetHostCPUFeatures`), as clang's
+  `-march=native` gives them. The predefined macros are the hosts' default CPUs': Linux x86_64's `x86-64`, macOS's
+  `penryn` (SSE4.1) and `apple-m1`, aarch64 Linux's `generic` (Not done for another Apple triple). Until 1.6.45 an
+  object with no `--target` was for the build box's CPU and features, and one with a `--target` for the triple's
+  `generic`: a program built on a box with AVX-512 stopped with an illegal instruction on a CPU that has none, and under
+  valgrind 3.22 at the `vcvtusi2sd` of a conversion of a `uint32_t` to a double (0.290, the Ambitious session's finding
+  10). The driver gate's three checks hold it against clang 23's assembly on the same box: on x86 the default,
+  `-march=native`, `-march=x86-64-v3` and two flags of which the last wins; nineteen triples by `--target`, each branch
+  of the table and its bounds, by the instructions that the CPU chooses -- SSE4.1's `roundsd`, POPCNT's `popcnt`,
+  SSSE3's `pabsd`, AVX2's forms, LSE's `ldadd`, the dot products' `udot` and `usdot`, and an Apple CPU's zero --; and a
+  flag beside `--target`, read by the triple's architecture. Two more hold 1.6.48's flags: the refusals in clang 23's
+  words, from `error:` on, and the build stopped; and on aarch64 six architectures, `armv8-r`, a CPU and an architecture
+  in either order, a CPU alone and Apple's macOS and iOS with an architecture, by the same instructions against clang
+  23's assembly, and the extensions refused by name. (1.6.46, 1.6.48)
 - `ccl_llvm_compile/3` parses and verifies the IR in a fresh context. It sets the triple, the CPU and its features
   (above) and the data layout, runs the pass pipeline, and writes an object file, or assembly under `-S`. An LLVM error
   is `error(ccl_llvm(What), Detail)`, for example `no_target`, `passes_failed` or `emit_failed`. (M2)
@@ -17661,18 +17678,20 @@ Declarations topic of the C++ reader).
 - The decimal runtime (0.243) rounds half to even alone -- C23's `fe_dec_setround` is no part of glibc, so a program
   here has no way to ask another direction --, keeps no exception flag (libgcc keeps its own, which no standard function
   reads), and makes a NaN's payload its own way, not as libgcc's plumbing does.
-- A CPU FLAG THAT CLANG READS OTHERWISE (1.6.46; `dr_cpu_name/2`): `-march=ARCH` off x86 (`-march=armv8.2-a`) names an
-  architecture whose features clang sets, and here it names nothing, the CPU the triple's default; `-mcpu=` on x86 is
-  ignored where clang 23 refuses it (`unsupported option '-mcpu=' for target 'x86_64-pc-linux-gnu'`); `-mtune=` and the
+- A CPU FLAG THAT CLANG READS OTHERWISE (1.6.46, narrowed at 1.6.48, which takes aarch64's architectures and refuses
+  `-mcpu=` on x86 in clang's words; `dr_cpu_flags/2`): a CPU's name that LLVM does not know, `-march=nosuch` on x86 or
+  `-mcpu=nosuch` on aarch64, builds with no word for LLVM's generic CPU, where clang refuses it, `unknown target CPU
+  'nosuch'` and `unsupported argument 'nosuch' to option '-mcpu='` -- llvm-c asks no CPU's name; an extension after `+`
+  is refused by name, where clang sets its features (`+crypto` is aes and sha2), and so is `+nolse`; `-mtune=` and the
   feature flags (`-mavx2`, `-mno-sse4.2`, `-mno-outline-atomics`) go to the link alone; and no `-march=` changes a
-  predefined macro (`__AVX2__`, `__AVX512F__`), which clang defines for the CPU. On aarch64 Linux clang 23 calls
-  libgcc's outline atomics (`__aarch64_ldadd4_acq_rel`) where the CPU has no LSE, and this compiler's object has the
-  load-exclusive loop. And `-march=native`'s features beside its CPU's name are held by no check on the gates' box,
-  where the host's CPU name gives the instructions of its features: the copy that took them away was caught by nothing;
-  they stay, as clang passes them, for a host whose features its CPU's name does not give (a virtual machine that hides
-  AVX-512). An Apple triple that is no macOS one -- iOS's `apple-a7`, `x86_64h`'s `core-avx2` -- has macOS's CPU macros,
-  the M1's `__ARM_FEATURE_*` and SSE4.1. The default CPU itself was Not done's record from 0.283 to 1.6.45 (the embedded
-  LLVM's topic).
+  predefined macro (`__AVX2__`, `__AVX512F__`, `__ARM_FEATURE_DOTPROD`), which clang defines for the CPU and the
+  architecture. On aarch64 Linux clang 23 calls libgcc's outline atomics (`__aarch64_ldadd4_acq_rel`) where the CPU has
+  no LSE, and this compiler's object has the load-exclusive loop. And `-march=native`'s features beside its CPU's name
+  are held by no check on the gates' box, where the host's CPU name gives the instructions of its features: the copy
+  that took them away was caught by nothing; they stay, as clang passes them, for a host whose features its CPU's name
+  does not give (a virtual machine that hides AVX-512). An Apple triple that is no macOS one -- iOS's `apple-a7`,
+  `x86_64h`'s `core-avx2` -- has macOS's CPU macros, the M1's `__ARM_FEATURE_*` and SSE4.1. The default CPU itself was
+  Not done's record from 0.283 to 1.6.45 (the embedded LLVM's topic).
 
 ### The safe part
 

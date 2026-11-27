@@ -20,7 +20,8 @@
 ccl_drive(Inputs, Options) :- once(dr_drive(Inputs, Options)).          % one answer: the query loop would re-run a second
 dr_drive(Inputs, Options) :-
     dr_setup(Options, Flags), nb_setval('$ccl_children', opts(Options)),   % a cold library header read by a process of its own (0.188)
-    (   dr_out_dir_missing(Options, Out0, Dir0)
+    (   nb_getval('$dr_errors', N0), N0 > 0 -> Objects = []     % A FLAG'S ERROR STOPS THE BUILD (1.6.48), as clang's driver stops: an unknown triple, a CPU flag
+    ;   dr_out_dir_missing(Options, Out0, Dir0)
     ->  dr_error(Out0, 0, ['unable to open the output file: no such directory ''', Dir0, '''']), Objects = []
     ;   dr_inputs(Inputs, Options, Flags, Objects) ),
     nb_getval('$dr_errors', N),
@@ -54,17 +55,59 @@ dr_setup(Options, Flags) :-
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),
     ( memberchk(opt(O), Options) -> Flags0 = [O] ; Flags0 = ['-O0'] ),
     ( memberchk(target(Tg1), Options) -> atom_concat('--target=', Tg1, TF), append(Flags0, [TF], Flags00) ; Flags00 = Flags0 ),   % the embedded LLVM's target
-    ( dr_cpu_flag(Options, CF) -> append(Flags00, [CF], Flags) ; Flags = Flags00 ),   % ... and its CPU (1.6.46), below
+    dr_cpu_flags(Options, CFs), append(Flags00, CFs, Flags),   % ... and its CPU and features (1.6.46, 1.6.48), below
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
     nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none).
-%% THE OBJECT'S CPU (1.6.46, the owner's decision: clang's default, the host's on -march=native): the embedded LLVM takes
-%% clang's default CPU for the triple where no flag names one (module/ccl_llvm.cicili), and `--cpu=NAME' from the last
-%% -march= or -mcpu= of the command, as clang takes them -- `native' by either, the host's CPU and its features; another
-%% NAME by -march= on x86, where it is a CPU's name (`-march=x86-64-v3', `skylake'), and by -mcpu= elsewhere, where
-%% -march= names an architecture (`armv8.2-a'), which names no CPU here
-dr_cpu_flag(Options, F) :- findall(X, member(cpu(X), Options), Xs), last(Xs, X0), dr_cpu_name(X0, N), !, atom_concat('--cpu=', N, F).
-dr_cpu_name(X, N) :- ( atom_concat('-march=', N, X) -> K = march ; atom_concat('-mcpu=', N, X), K = mcpu ), N \== '',
-    ( N == native -> true ; dr_cpu_x86 -> K == march ; K == mcpu ).
+%% THE OBJECT'S CPU AND ITS FEATURES, AS CLANG READS THE FLAGS (1.6.46, the owner's decision: clang's default, the host's on
+%% -march=native; 1.6.48): the embedded LLVM takes clang's default CPU for the triple where no flag names one
+%% (module/ccl_llvm.cicili), `--cpu=NAME' and `--features=+a,+b'. On x86 the last -march= names the CPU -- `native' the
+%% host's CPU and its features, `x86-64-v3', `skylake' --, and each -mcpu= is clang's `unsupported option '-mcpu=' for
+%% target 'x86_64-pc-linux-gnu''. On aarch64 the last -mcpu= names the CPU and the last -march= an architecture, whose
+%% features are clang 23's for it (dr_arm_arch/2), the CPU the triple's default where no -mcpu= names one: an architecture
+%% that clang 23 does not take is its `unsupported argument 'armv8.10-a' to option '-march='', `native' on a triple of
+%% another architecture than the host's the same words of the host's CPU, and an extension after `+' -- `armv8.2-a+crypto',
+%% `cortex-a72+crypto' -- is refused by name, since no table here holds its features. Until 1.6.47 a -march= on aarch64
+%% named nothing, a -mcpu= on x86 was dropped, and `cortex-a72+crypto' was a CPU's name that LLVM did not know
+dr_cpu_flags(Options, Fs) :- findall(X, member(cpu(X), Options), Xs), ( dr_cpu_x86 -> dr_cpu_x86_flags(Xs, Fs) ; dr_cpu_arm_flags(Xs, Fs) ).
+dr_cpu_x86_flags(Xs, Fs) :-
+    forall(( member(X, Xs), atom_concat('-mcpu=', _, X) ), ( dr_cpu_triple(T), dr_report(cicilang, error(unsupported_option('-mcpu=', T), cicilang)) )),
+    ( dr_cpu_last('-march=', Xs, N) -> atom_concat('--cpu=', N, F), Fs = [F] ; Fs = [] ).
+dr_cpu_arm_flags(Xs, Fs) :-
+    ( dr_cpu_last('-mcpu=', Xs, C) -> dr_cpu_arm_name(C, Fs1) ; Fs1 = [] ),
+    ( dr_cpu_last('-march=', Xs, A) -> dr_cpu_arm_arch(A, Fs2) ; Fs2 = [] ),
+    append(Fs1, Fs2, Fs).
+dr_cpu_arm_name(native, Fs) :- !, ( dr_cpu_other_arch -> dr_cpu_host_refused('-mcpu='), Fs = [] ; Fs = ['--cpu=native'] ).
+dr_cpu_arm_name(C, []) :- sub_atom(C, _, _, _, '+'), !, atom_concat('-mcpu=', C, O), dr_report(cicilang, error(cpu_extension(O), cicilang)).
+dr_cpu_arm_name(C, [F]) :- atom_concat('--cpu=', C, F).
+dr_cpu_arm_arch(native, Fs) :- !, ( dr_cpu_other_arch -> dr_cpu_host_refused('-march='), Fs = [] ; Fs = ['--cpu=native'] ).
+dr_cpu_arm_arch(A, []) :- sub_atom(A, B, _, _, '+'), sub_atom(A, 0, B, _, A0), dr_arm_arch(A0, _), !, atom_concat('-march=', A, O), dr_report(cicilang, error(cpu_extension(O), cicilang)).
+dr_cpu_arm_arch(A, [F]) :- dr_arm_arch(A, Ft), !, atom_concat('--features=', Ft, F).
+dr_cpu_arm_arch(A, []) :- dr_report(cicilang, error(unsupported_argument(A, '-march='), cicilang)).
+dr_cpu_last(O, Xs, N) :- reverse(Xs, Rs), member(X, Rs), atom_concat(O, N, X), N \== '', !.
+dr_cpu_triple(T) :- ( nb_current('$ccl_target', target(_, _, T)) -> true ; ccl_llvm_ready, catch(ccl_llvm_triple(T), _, fail) -> true ; T = 'x86_64-pc-linux-gnu' ).
+dr_cpu_other_arch :- nb_current('$ccl_target', target(A, _, _)), catch(ccl_host_arch(H), _, fail), A \== H.
+dr_cpu_host_refused(O) :- ( ccl_llvm_ready, catch(ccl_llvm_host_cpu(C), _, fail) -> true ; C = native ), dr_report(cicilang, error(unsupported_argument(C, O), cicilang)).
+%% aarch64's architectures and their features, each as clang 23's -### gives them for `--target=aarch64-linux-gnu
+%% -march=NAME' -- clang's `+outline-atomics' and `-fmv' apart, which are its own and no architecture's (1.6.48)
+dr_arm_arch('armv8-a', '+v8a,+fp-armv8,+neon').
+dr_arm_arch('armv8.1-a', '+v8.1a,+crc,+fp-armv8,+lse,+neon,+rdm').
+dr_arm_arch('armv8.2-a', '+v8.2a,+crc,+fp-armv8,+lse,+neon,+ras,+rdm').
+dr_arm_arch('armv8.3-a', '+v8.3a,+ccidx,+complxnum,+crc,+fp-armv8,+jsconv,+lse,+neon,+pauth,+ras,+rcpc,+rdm').
+dr_arm_arch('armv8.4-a', '+v8.4a,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+jsconv,+lse,+neon,+pauth,+ras,+rcpc,+rdm').
+dr_arm_arch('armv8.5-a', '+v8.5a,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+jsconv,+lse,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+sb,+ssbs').
+dr_arm_arch('armv8.6-a', '+v8.6a,+bf16,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+i8mm,+jsconv,+lse,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+sb,+ssbs').
+dr_arm_arch('armv8.7-a', '+v8.7a,+bf16,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+i8mm,+jsconv,+lse,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+sb,+spe-eef,+ssbs,+wfxt').
+dr_arm_arch('armv8.8-a', '+v8.8a,+bf16,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+hbc,+i8mm,+jsconv,+lse,+mops,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+sb,+spe-eef,+ssbs,+wfxt').
+dr_arm_arch('armv8.9-a', '+v8.9a,+bf16,+bti,+ccidx,+complxnum,+crc,+cssc,+dit,+dotprod,+flagm,+fp-armv8,+hbc,+i8mm,+jsconv,+lse,+mops,+neon,+pauth,+predres,+ras,+rasv2,+rcpc,+rdm,+sb,+spe-eef,+specres2,+ssbs,+wfxt').
+dr_arm_arch('armv9-a', '+v9a,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+fullfp16,+jsconv,+lse,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+sb,+ssbs,+sve,+sve2').
+dr_arm_arch('armv9.1-a', '+v9.1a,+bf16,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+fullfp16,+i8mm,+jsconv,+lse,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+rme,+sb,+ssbs,+sve,+sve2').
+dr_arm_arch('armv9.2-a', '+v9.2a,+bf16,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+fullfp16,+i8mm,+jsconv,+lse,+mec,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+rme,+sb,+spe-eef,+ssbs,+sve,+sve2,+wfxt').
+dr_arm_arch('armv9.3-a', '+v9.3a,+bf16,+bti,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+fullfp16,+hbc,+i8mm,+jsconv,+lse,+mec,+mops,+neon,+pauth,+predres,+ras,+rcpc,+rdm,+rme,+sb,+spe-eef,+ssbs,+sve,+sve2,+wfxt').
+dr_arm_arch('armv9.4-a', '+v9.4a,+bf16,+bti,+ccidx,+complxnum,+crc,+cssc,+dit,+dotprod,+flagm,+fp-armv8,+fullfp16,+hbc,+i8mm,+jsconv,+lse,+mec,+mops,+neon,+pauth,+predres,+ras,+rasv2,+rcpc,+rdm,+rme,+sb,+spe-eef,+specres2,+ssbs,+sve,+sve2,+sve2p1,+wfxt').
+dr_arm_arch('armv9.5-a', '+v9.5a,+bf16,+bti,+ccidx,+complxnum,+cpa,+crc,+cssc,+dit,+dotprod,+faminmax,+flagm,+fp-armv8,+fullfp16,+hbc,+i8mm,+jsconv,+lse,+lut,+mec,+mops,+neon,+pauth,+predres,+ras,+rasv2,+rcpc,+rdm,+rme,+sb,+spe-eef,+specres2,+ssbs,+sve,+sve2,+sve2p1,+wfxt').
+dr_arm_arch('armv9.6-a', '+v9.6a,+bf16,+bti,+ccidx,+cmpbr,+complxnum,+cpa,+crc,+cssc,+dit,+dotprod,+faminmax,+flagm,+fp-armv8,+fullfp16,+hbc,+hinte,+i8mm,+jsconv,+lse,+lsui,+lut,+mec,+mops,+neon,+occmo,+pauth,+predres,+ras,+rasv2,+rcpc,+rdm,+rme,+sb,+spe-eef,+specres2,+ssbs,+sve,+sve2,+sve2p1,+wfxt').
+dr_arm_arch('armv9.7-a', '+v9.7a,+bf16,+bti,+ccidx,+cmpbr,+complxnum,+cpa,+crc,+cssc,+dit,+dotprod,+f16f32dot,+faminmax,+flagm,+fp-armv8,+fprcvt,+fullfp16,+hbc,+hinte,+i8mm,+jsconv,+lse,+lsui,+lut,+mec,+mops,+neon,+occmo,+pauth,+predres,+ras,+rasv2,+rcpc,+rdm,+rme,+sb,+spe-eef,+specres2,+ssbs,+sve,+sve2,+sve2p1,+sve2p2,+sve2p3,+wfxt').
+dr_arm_arch('armv8-r', '+v8r,+ccidx,+complxnum,+crc,+dit,+dotprod,+flagm,+fp-armv8,+fp16fml,+fullfp16,+jsconv,+lse,+neon,+pauth,+ras,+rcpc,+rdm,+sb,+ssbs').
 dr_cpu_x86 :- ( nb_current('$ccl_target', target(A, _, _)) -> true ; catch(ccl_host_arch(A), _, fail) ), memberchk(A, [x86_64, i386, i486, i586, i686]), !.
 %% ONE COLD LIBRARY HEADER, READ FOR A BUILD BY A PROCESS OF ITS OWN (0.188; ccl_cold_headers_read/2): the build's options
 %% set as the build sets them, then the header read as the build's prescan reads it, its summary written; it starts no
@@ -581,6 +624,9 @@ dr_diag(F, not_lowered(int_conversion(Dir, Site, A, B)), where(_, line(L))) :- !
 dr_diag(F, not_lowered(What), where(Fn, line(L))) :- !, dr_error(F, L, ['not lowered yet: ', What, ' (function ', Fn, ')']).
 dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
 dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).
+dr_diag(F, unsupported_option(O, T), _) :- !, dr_error(F, 0, ['unsupported option \'', O, '\' for target \'', T, '\'']).   % a CPU flag, in clang's words (1.6.48)
+dr_diag(F, unsupported_argument(A, O), _) :- !, dr_error(F, 0, ['unsupported argument \'', A, '\' to option \'', O, '\'']).
+dr_diag(F, cpu_extension(O), _) :- !, dr_error(F, 0, ['not lowered yet: an extension of ', O]).
 dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not built: LLVM=... sh module/build-llvm.sh']).
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
 dr_diag(F, link_failed(Msg), _) :- !, dr_link_lines(Msg, Ls), ( Ls = [L1|Rest] -> true ; L1 = Msg, Rest = [] ), dr_error(F, 0, ['link: ', L1]), dr_link_notes(F, Rest).
