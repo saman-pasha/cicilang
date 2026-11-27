@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.38 the versions are: the module 1.6.38 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 207 (`ccl_lowering_version/1`,
+At 1.6.39 the versions are: the module 1.6.39 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 219 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 208 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -646,7 +646,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             (1.6.35); globalnames.c, a local named as a global and the program's own extern of stdin,
                             and stmtstatics.c, statement expressions whose value is a place of their own static
                             local, each built as C and as C++ (1.6.36); complitblocks.c, compound literals used while
-                            their blocks run, C alone (1.6.37)
+                            their blocks run, C alone (1.6.37); gnuinline.c, GNU's extern inline with gnu_inline, and
+                            deadbranch.c, branches that clang's code generation drops, and bracedstr.c, string literals in
+                            braces for arrays of no bound (1.6.39)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -735,7 +737,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             pointer deleted twice and read after its delete (1.6.32); va_ambiguous.cpp and
                             va_ambiguous_member.cpp, a call that an overload with an ellipsis and its plain twin both
                             fit, in clang++'s words, va_few_qualified.cpp, a qualified call of too few arguments beside
-                            them, and va_static_value.cpp, a static one's value, refused (1.6.38)
+                            them, and va_static_value.cpp, a static one's value, refused (1.6.38); complit_static.cpp, a
+                            compound literal's storage class, refused (1.6.39)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -788,7 +791,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             (1.6.33); qualglobal.cpp, qualified calls beside a local pointer of their name, and a local
                             pointer beside the file's overloads of its name (1.6.34); varoverload.cpp, overloads with an
                             ellipsis beside their plain twins, free and members, overloads declared before their
-                            definitions, and static overloads named with their class as values (1.6.38)
+                            definitions, and static overloads named with their class as values (1.6.38); nsvalues.cpp,
+                            a namespace's overload sets named as values (1.6.39)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

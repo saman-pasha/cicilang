@@ -2488,7 +2488,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (1.6.33, reader 218; `ccl_gnu_scope//0` in `ccl_skip_attr//0`): `[[gnu::error("m")]]`, `[[gnu::__error__("m")]]` and
   `[[__gnu__::error("m")]]` are the attribute, and `[[error("m")]]` and `[[clang::error("m")]]`, which clang ignores,
   were each a call refused; the `__attribute__` form is read by its own scan (`ccl_layout_scan/1`). The driver gate's
-  nine bodies. (1.6.29, 1.6.33)
+  nine bodies. A CALL IN A BRANCH THAT CLANG'S CODE GENERATION DROPS IS NONE (1.6.39; `ir_dead_branch/3`, its
+  CodeGenFunction's EmitIfStmt and ContainsLabel): a branch of an `if` whose condition folds to the other one and that
+  holds no label -- `if (0) f();`, the `else` of `if (1)`, `if (sizeof(int) == 3)` -- is walked, so that what the
+  lowering refuses in it is refused, as clang's Sema refuses it, and the lines that it emits are dropped, so that a
+  function that it alone calls needs no definition. It was refused, where clang builds and runs it
+  (`test/c/run/deadbranch.c`; the driver gate's check of a branch with a label and of a condition that does not fold).
+  (1.6.29, 1.6.33, 1.6.39)
+- GNU'S `extern inline` WITH `gnu_inline` IS THE FUNCTION'S DECLARATION (1.6.39, reader 219; GCC's manual, the
+  gnu_inline attribute; `ccl_gnu_inline_item/3` after `ccl_external//3`, the file's storage words
+  `'$ccl_file_sto_words'`, the attribute's note in `ccl_layout_scan/1`): in C a definition whose storage words hold
+  `extern` and `inline` and that carries `gnu_inline` or `__gnu_inline__` has a body for inlining alone, and clang emits
+  no symbol for it, so the external definition after it is the one that a call calls -- `extern inline
+  __attribute__((gnu_inline)) int k(int x) { return x + 1; }` and `int k(int x) { return x + 2; }` print 3 by clang, and
+  were `redefinition of 'k'`; with no definition after it a call names the external symbol, as clang's call does at -O0.
+  A `static inline` or a plain `inline` with the attribute is a definition, and so is an `extern` one with no `inline`,
+  whose attribute clang ignores (`test/c/run/gnuinline.c`). An `extern inline` without the attribute, C99's external
+  definition, defined again is `redefinition of 'k'` (the driver gate; Not done holds clang's words).
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -3976,6 +3992,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `if constexpr (using _SpecialAlg = ...; ...)` stopped the read of `<algorithm>`. (0.43, 0.91)
 - An attribute before a statement is dropped, except `[[assume(e)]];`. A label's body may be a declaration
   (`ccl_label_body`). (0.42, 0.91)
+- A COMPOUND LITERAL'S TYPE NAME TAKES NO STORAGE CLASS (1.6.39, reader 219; [dcl.name]/1; `ccl_complit_stored/5`): in
+  C++ `(static int){ 7 }` is clang++ 23's `type name does not allow storage class to be specified` at its line, where it
+  was read as an automatic literal; C23's static compound literal is C's alone (the C reader's topic). The C++ gate's
+  `complit_static.cpp`. (1.6.39)
 
 ### `auto` and structured bindings
 
@@ -7945,7 +7965,11 @@ is in `test/cpp/run/`.
 - An overload set named as a value is chosen by its target's parameter keys ([over.over]; `cpp_conv_to/4` on `id(F)`,
   `cpp_fn_target/2`) and emitted by `cpp_use_fn`: `int (*pi)(int) = twice`. `overloadset.cpp`. Its address too, `&m`
   (0.181; it was `undeclared(m)`), and a namespace-scope object's initializer (`cpp_set_value/3` in `cpp_vars`; it was
-  refused, `global_init(id(m))`). `declfirst.cpp`. (0.99, 0.181)
+  refused, `global_init(id(m))`). `declfirst.cpp`. A NAMESPACE'S SET NAMED WITH ITS NAMESPACE TOO (1.6.39;
+  `cpp_conv_to/4` on `scoped(Path, N)` and its address, `cpp_ns_set_key/3`, `cpp_set_value/3`): the set is the
+  namespace's key's, or its bare name's -- `int (*p)(int) = n::h` beside `n::h(double)` reached the lowering as
+  `scoped([n], h)`, `use of undeclared identifier 'h'`; in a block, at namespace scope, as an argument and through its
+  address (`test/cpp/run/nsvalues.cpp`, as clang++ 23 prints it). (0.99, 0.181, 1.6.39)
 - A function template's name is `tmplfn(F)` (`cpp_fn_template_ref/2`). A function-pointer, -reference or -type parameter
   deduces it from its target ([temp.deduct.funcaddr]; `cpp_target_deduces/2`) and scores it exact; no other parameter
   takes it. The argument pass makes it the instance (`cpp_deduce_target/3`). Why: `cout << std::endl`. (0.74)
@@ -14165,7 +14189,11 @@ in the first topic (The ccllib gate).
   [dcl.init.string]/1; `ir_char_array_lit/2`, a local's `ir_init/3`, a global's `ir_gconst/3` and `ir_gconst_t/5`):
   `char s[4] = {"abc"};` was an array's list of one item, and the literal's address went into `s[0]` -- the program
   printed nothing. A narrow literal's elements are of a byte, a wide one's of its unit; an array of pointers takes its
-  literal as its first element. AN ARRAY'S DESIGNATOR IS ANY INTEGER CONSTANT EXPRESSION (`ir_at_index/3`,
+  literal as its first element. AN ARRAY OF NO BOUND IS SIZED BY THE LITERAL IN ITS BRACES (1.6.39, reader 219;
+  `ccl_braced_string/3` in `ccl_init_declarator//3`): the reader gives the literal for the braces where the element is a
+  character type, so `static const char b[] = { "braced" };` has the literal's bound, where it had a bound of one item
+  and was `initializer-string for char array is too long`; an array of pointers and a two-dimensional array keep their
+  items (`test/c/run/bracedstr.c`). AN ARRAY'S DESIGNATOR IS ANY INTEGER CONSTANT EXPRESSION (`ir_at_index/3`,
   `ccl_const_eval/2`): `int a[4] = {[1 + 1] = 5};` put the 5 where the cursor stood, a local's designator read as a
   literal alone. A SCALAR GLOBAL'S BRACED VALUE IS ITS VALUE (C17 6.7.9/11; `ir_gconst/3`, `ir_gscalar/1`): `static int
   g = {5};` was refused, `global_init`, where a local's was taken. `test/c/run/initfit.c`, against clang's build.
@@ -14501,8 +14529,12 @@ in the first topic (The ccllib gate).
   constant string`) or one that holds a `$`, the separator of the frame's name below (`... must not contain $`; clang's
   `checkBuiltinVerboseTrap`; `ir_trap_strings/2`, `ir_trap_no_string/1`). The strings read are a literal, a cast of one
   to a pointer, one moved by a constant (`"abc" + 1`, `&"abc"[1]`), a conditional whose condition folds and the
-  function's own name (`__func__`), each up to its first null character; any other form -- a constant object's name,
-  which clang's evaluator reads, a call -- is refused by name, `not lowered yet: verbose_trap_string(N)` (Not done).
+  function's own name (`__func__`), each up to its first null character; A CONSTANT OBJECT'S NAME IS ITS INITIALIZER'S
+  (1.6.39; `ir_note_trap_init/3`, `ir_note_local_traps/1`, `ir_trap_key/2`), as clang's evaluator reads it: a constant
+  array of characters or a constant pointer to characters, of the file, a static local or a local, kept by its address
+  -- a global's and a static local's symbol, a local's register in its function --, so that a local that hides a global
+  of its name is its own; it was `not lowered yet: verbose_trap_string(m)`. Any other form -- a call -- is refused by
+  name, `not lowered yet: verbose_trap_string(N)` (Not done). The driver gate's two checks against clang 23.
   UNDER `-g` A VERBOSE TRAP'S CALL IS IN AN ARTIFICIAL FUNCTION, `__clang_trap_msg$CATEGORY$MESSAGE`, inlined at the
   call's line and column, as clang's debug information makes it (`CreateTrapFailureMessageFor`; `ir_trap_call/2`,
   `ir_dbg_trap_sp/3`): a `DISubprogram` made once a name in the unit, its quotes, its backslashes and its bytes past
@@ -17176,32 +17208,29 @@ Declarations topic of the C++ reader).
   1.6.25, the safe part's topic): A CLEANUP THAT FREES THROUGH ITS PARAMETER, `void free_str(char **p) { free(*p); }`,
   is refused by the safe part, `a borrow consumed`, as the same defer written by hand is. THE OTHER ATTRIBUTES that the
   probes took (`p113/forms`, s02 to s08) are read and dropped as before: `section`, `weak` and `alias` fail at the link,
-  `transparent_union` in LLVM's parser, `error` is clang's words in C since 1.6.29 -- but a call in a branch that a
-  constant condition drops, `if (0) f();`, is refused, where clang's code generation drops it first, and `-fsyntax-only`
-  refuses none, as clang; in C++, where clang++ names `'f()'`, it builds --, C's and C++'s `unavailable` are clang's
+  `transparent_union` in LLVM's parser, `error` is clang's words in C since 1.6.29 -- a call in a branch that clang's
+  code generation drops is none since 1.6.39, and `-fsyntax-only` refuses none, as clang; in C++, where clang++ names
+  `'f()'`, it builds --, C's and C++'s `unavailable` are clang's
   words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
   `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
   `register_t`, an `int` of four bytes where clang's is a `long`.
-- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.7 LEAVES (the C reader's topic): GNU'S `extern inline` WITH
-  `__attribute__((gnu_inline))`, then the function's external definition, is refused `redefinition of 'k'`, where clang
-  builds it and calls the second: the reader keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, and drops
-  `inline` and the attribute, so neither the walk nor the lowering tells it from an external definition -- 1.6.6 refused
-  it too, in LLVM's words. A HEADER OF THE LIBRARY AND A MACRO FILE'S C
-  HEADER are not walked: a function of the program's under the name of a function that such a header defines builds with
-  one body, and two of the program's own macro files' C headers that define one helper with no shared guard build with
-  the first one's -- ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two
-  macro files of one predicate that a process loaded (the bullet below) still make one function two times with no word.
-  IN C++ the walk is the desugaring's since 1.6.24, over the file's own items: a namespace's two definitions, and a
-  header's, are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own since 1.6.38.)
+- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.39 LEAVES (the C reader's topic; GNU's `extern inline` with `gnu_inline`
+  is the function's declaration since 1.6.39): AN `extern inline` WITHOUT THE ATTRIBUTE, C99's external definition,
+  defined again is `redefinition of 'k'`, where clang says `redefinition of a 'extern inline' function 'k' is not
+  supported in C99 mode`: the item keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, so the walk does not
+  tell it from another external definition. A HEADER OF THE LIBRARY AND A MACRO FILE'S C HEADER are not walked: a
+  function of the program's under the name of a function that such a header defines builds with one body, and two of the
+  program's own macro files' C headers that define one helper with no shared guard build with the first one's --
+  ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two macro files of one
+  predicate that a process loaded (the bullet below) still make one function two times with no word. IN C++ the walk is
+  the desugaring's since 1.6.24, over the file's own items: a namespace's two definitions, and a header's, are LLVM's to
+  meet. (A variadic overload beside its plain twin is an overload of its own since 1.6.38.)
 ### C++ language
 
 - C++: A STATIC MEMBER FUNCTION WITH AN ELLIPSIS TAKEN AS A VALUE IS REFUSED BY NAME (found at 1.6.38): `not lowered
   yet: static_member_ellipsis_value(s)`, where clang++ takes it. The value of a static member is a thunk over its named
   parameters that passes the null `this` (the topic of classes), and a thunk passes no argument past the named ones. In
   a library's body the thunk is made as before, over the named parameters alone.
-- C++: A NAMESPACE'S OVERLOAD SET NAMED AS A VALUE, `int (*p)(int) = n::h` beside `n::h(double)`, is `use of undeclared
-  identifier 'h'`, where clang++ takes it (found at 1.6.38, an older fault: 1.6.37 gives the same words): the target's
-  road takes a bare name and its keys (`cpp_conv_to/4` on `id(F)`), and the qualified name reaches it as neither.
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only
   the names that collide in it; 0.218, 0.219 and 0.221 take a qualified and an unqualified CLASS name to its own
   namespace's items -- the class's own namespace among them where a function or an object of the name stands in another
@@ -17369,10 +17398,9 @@ Declarations topic of the C++ reader).
   (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is
   gated on Linux over libc++ 18, 21 and 22 (the full job: The CI job), on the Intel Mac over libc++ 18 (the C++ job,
   GREEN on 0.252, its first: The Mac's job), and on Apple's arm64 by the driver gate's C++ checks alone.
-- THE VERBOSE TRAP'S LIMITS (1.6.10, the lowering's topic): a string by a constant object's name -- `static const char
-  m[] = "x"`, a `const char *const`, C++'s `constexpr const char *m` -- and a call that folds to one (`v.data()` of a
-  constexpr `string_view`), which clang's evaluator reads, are refused by name, `not lowered yet:
-  verbose_trap_string(m)` and `verbose_trap_string(call)`: the lowering reads no object's initializer. A wide or a UTF-8
+- THE VERBOSE TRAP'S LIMITS (1.6.10, narrowed at 1.6.39, whose constant objects' names are their initializers'; the
+  lowering's topic): a call that folds to a string (`v.data()` of a constexpr `string_view`), which clang's evaluator
+  reads, is refused by name, `not lowered yet: verbose_trap_string(call)`: the lowering folds no call. A wide or a UTF-8
   literal is refused in clang 21's words, `must be a pointer to a constant string`, where clang 22 names the types
   (`incompatible pointer types passing 'int[5]' to parameter of type 'const char *'`; in C++ `cannot initialize a
   parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'`). In C++ `auto f = __builtin_trap;` has
@@ -17400,9 +17428,6 @@ Declarations topic of the C++ reader).
 - C++: A LAMBDA THAT CAPTURED NO `this`, WHAT 1.6.29 LEAVES (the lambdas' topic): a generic lambda's refusal is `not
   lowered yet: auto_result(...)`, the deduction's; and a lambda made in another lambda is not asked, its member's use
   the words of before.
-- C++: A STATIC COMPOUND LITERAL IS READ AS AN AUTOMATIC ONE (found at 1.6.31, narrowed at 1.6.37, whose compound
-  literals that a pointer borrows are keys of their blocks): `(static int){ 7 }` in C++, as clang++ reads no storage
-  class there.
 - C++: A VOID POINTER FOR ANOTHER AND A POINTER THAT DROPS A QUALIFIER BUILD (found at 1.6.28): `int *p = malloc(4);`,
   `f(&cx)` of `int f(int *)` over a `const int`, where clang++ says `cannot initialize a variable of type 'int *' with an
   rvalue of type 'void *'` and `no matching function for call to 'f'`. They are C's, and ccllib's programs, C, are built

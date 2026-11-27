@@ -312,6 +312,7 @@ cpp_vars(Ctx, [var(N, T0, I)|Vs], [var(N, T, I1)|Ws]) :- cpp_type(T0, T1), cpp_e
 %% a local's is (cpp_conv_to/3): `int (*pm)(int) = m;' beside a defined `int m(long)' was refused, `global_init(id(m))',
 %% and beside a DECLARED one (cpp_fn_overloaded/1's third clause) it named the declaration
 cpp_set_value(E0, T, E) :- ( E0 = id(F) ; E0 = addr(id(F)) ), atom(F), cpp_fn_overloaded(F), !, cpp_conv_to(E0, T, E).
+cpp_set_value(E0, T, E) :- ( E0 = scoped(_, F) ; E0 = addr(scoped(_, F)) ), atom(F), cpp_conv_to(E0, T, E), E \== E0, !.   % a namespace's set (1.6.39)
 cpp_set_value(E, _, E).
 %% the static members: declared with the class, defined out of it (Counter::made, above) -- except one initialized in
 %% the class (`static constexpr bool value = __v;', integral_constant's), which is its own definition, linkonce as the

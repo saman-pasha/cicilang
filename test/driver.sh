@@ -1381,9 +1381,9 @@ pn_unread.c:3: error: call to undeclared function 'loop'; ISO C99 and later do n
 4"
 # THE TRAPS' REFUSALS (1.6.10): a trap's call of another count, an argument of the verbose trap that is no constant string
 # or holds a `$', and a trap or __builtin_unreachable taken as a value are refused in clang's words at their line, in C and in
-# C++ -- each was `undeclared'; a constant object's name, which clang's evaluator reads, is refused by name. C++'s are built
-# with -c: its -fsyntax-only stops after the reader
-check "the traps' refusals in clang's words at their line (1.6.10): __builtin_trap and __builtin_debugtrap of an argument, __builtin_verbose_trap of one and of three, of an integer, of a plain array and of a \$, a trap and __builtin_unreachable taken as a value; a constant array by name; in C++ an argument, a value and a constexpr pointer" "$(n=0; for body in 'int main(void) { __builtin_trap(1); return 0; }' 'int main(void) { __builtin_debugtrap(2); return 0; }' 'int main(void) { __builtin_verbose_trap("m"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", "m", "x"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", 0); return 0; }' 'static char m[] = "x";\nint main(void) { __builtin_verbose_trap("c", m); return 0; }' 'int main(void) { __builtin_verbose_trap("c", "costs $5"); return 0; }' 'int main(void) { void (*f)(void) = __builtin_trap; (void)f; return 0; }' 'int main(void) { void (*f)(void) = &__builtin_debugtrap; (void)f; return 0; }' 'int main(void) { void (*f)(void) = __builtin_unreachable; (void)f; return 0; }' 'static const char m[] = "x";\nint main(void) { __builtin_verbose_trap("c", m); return 0; }'; do n=$((n + 1)); printf '%b\n' "$body" > trapr$n.c; "$CICILI" -std=c17 -fsyntax-only trapr$n.c 2>&1 | head -1; done; n=0; for body in 'int main() { __builtin_trap(1); }' 'int main() { void (*f)() = __builtin_trap; (void)f; }' 'constexpr const char *m = "x";\nint main() { __builtin_verbose_trap("c", m); }'; do n=$((n + 1)); printf '%b\n' "$body" > trapp$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c trapp$n.cpp -o trapp$n.o 2>&1 | head -1; done)" "trapr1.c:1: error: too many arguments to function call, expected 0, have 1
+# C++ -- each was `undeclared'; a constant object's name, which clang's evaluator reads, is its initializer's since 1.6.39 (its
+# checks below). C++'s are built with -c: its -fsyntax-only stops after the reader
+check "the traps' refusals in clang's words at their line (1.6.10): __builtin_trap and __builtin_debugtrap of an argument, __builtin_verbose_trap of one and of three, of an integer, of a plain array and of a \$, a trap and __builtin_unreachable taken as a value; in C++ an argument and a value -- a constant array and a constexpr pointer by name, refused by name until 1.6.39, build, as clang's do (the checks of 1.6.39 below)" "$(n=0; for body in 'int main(void) { __builtin_trap(1); return 0; }' 'int main(void) { __builtin_debugtrap(2); return 0; }' 'int main(void) { __builtin_verbose_trap("m"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", "m", "x"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", 0); return 0; }' 'static char m[] = "x";\nint main(void) { __builtin_verbose_trap("c", m); return 0; }' 'int main(void) { __builtin_verbose_trap("c", "costs $5"); return 0; }' 'int main(void) { void (*f)(void) = __builtin_trap; (void)f; return 0; }' 'int main(void) { void (*f)(void) = &__builtin_debugtrap; (void)f; return 0; }' 'int main(void) { void (*f)(void) = __builtin_unreachable; (void)f; return 0; }' 'static const char m[] = "x";\nint main(void) { __builtin_verbose_trap("c", m); return 0; }'; do n=$((n + 1)); printf '%b\n' "$body" > trapr$n.c; "$CICILI" -std=c17 -fsyntax-only trapr$n.c 2>&1 | head -1; done; n=0; for body in 'int main() { __builtin_trap(1); }' 'int main() { void (*f)() = __builtin_trap; (void)f; }' 'constexpr const char *m = "x";\nint main() { __builtin_verbose_trap("c", m); }'; do n=$((n + 1)); printf '%b\n' "$body" > trapp$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c trapp$n.cpp -o trapp$n.o 2>&1 | head -1; done)" "trapr1.c:1: error: too many arguments to function call, expected 0, have 1
 trapr2.c:1: error: too many arguments to function call, expected 0, have 1
 trapr3.c:1: error: too few arguments to function call, expected 2, have 1
 trapr4.c:1: error: too many arguments to function call, expected 2, have 3
@@ -1393,10 +1393,8 @@ trapr7.c:1: error: argument to __builtin_verbose_trap must not contain \$
 trapr8.c:1: error: builtin functions must be directly called
 trapr9.c:1: error: builtin functions must be directly called
 trapr10.c:1: error: builtin functions must be directly called
-trapr11.c:2: error: not lowered yet: verbose_trap_string(m) (function main)
 trapp1.cpp:1: error: too many arguments to function call, expected 0, have 1
-trapp2.cpp:1: error: builtin functions must be directly called
-trapp3.cpp:2: error: not lowered yet: verbose_trap_string(m) (function main)"
+trapp2.cpp:1: error: builtin functions must be directly called"
 # THE STREAMS AS C++'S (1.6.3): `cin >> a >> b' chains, a character is read after the white space before it, as C++'s
 # skipws, and `while (cin >> x)' ends where the input does, the stream failed after it -- the ccllib gate's programs
 # read no input, so this check gives cin its own; clang++'s build of the same program over std::cin prints the line
@@ -1586,4 +1584,26 @@ blkunk2.c:2: error: use of undeclared identifier 'widget'
 blkunk3.c:2: error: use of undeclared identifier 'widget'
 blkunk4.c:2: error: unknown type name 'widget'"
 check "C: a compound literal of a block, read after the block, is a borrow of a dead object, its words naming it a compound literal (1.6.37) -- it was built" "$(printf 'int main(void) { int *p; { p = &(int){ 1 }; } return *p; }\n' > cldead.c; "$CICILI" -c cldead.c -o cldead.o 2>&1 | head -1)" "cldead.c:1: error: use of a borrow after its owner was consumed: 'p' in borrowed_from('a compound literal') (function main)"
+# A VERBOSE TRAP'S STRING THROUGH A CONSTANT OBJECT'S NAME (1.6.39): a constant array of characters and a constant pointer to
+# characters of the file are read as their initializers, as clang's evaluator reads them; they were `not lowered yet:
+# verbose_trap_string(m)'
+check "-g: a verbose trap's strings through a constant object's name, a constant array's and a constant pointer's, and one moved by a constant, as clang 23's (1.6.39)" "$(printf 'static const char m[] = "my message";\nconst char *const k = "other";\nint main(int argc, char **argv) {\n  if (argc > 5) __builtin_verbose_trap("cat", m);\n  if (argc > 6) __builtin_verbose_trap(k, m + 3);\n  return 0;\n}\n' > vtobj.c; "$CICILI" -g -S -emit-llvm vtobj.c -o vtobj.ll 2>&1 | head -1; grep -o '__clang_trap_msg[^"]*' vtobj.ll | sort -u)" '__clang_trap_msg$cat$my message
+__clang_trap_msg$other$message'
+# ... AND A FUNCTION'S, KEYED BY ITS ADDRESS (1.6.39, ir_trap_key/2): a local constant array that hides a global of its name and
+# a static local are read as clang reads them; a global array that is not constant is refused in clang's words
+check "-g: a verbose trap's string through a local constant array that hides a global and through a static local, as clang 23's, and a global array that is not constant refused in clang's words (1.6.39)" "$(printf 'static const char m[] = "g";\nint f(int argc) { const char m[] = "f local"; if (argc > 5) __builtin_verbose_trap("c", m); return 0; }\nint main(int argc, char **argv) {\n  char m[] = "plain";\n  static const char s[] = "static local";\n  if (argc > 5) __builtin_verbose_trap("c", s);\n  return f(argc) + (int)sizeof m - 6;\n}\n' > vtloc.c; "$CICILI" -g -S -emit-llvm vtloc.c -o vtloc.ll 2>&1 | head -1; grep -o '__clang_trap_msg[^"]*' vtloc.ll | sort -u; printf 'static char n[] = "x";\nint main(int argc, char **argv) {\n  if (argc > 5) __builtin_verbose_trap("c", n);\n  return 0;\n}\n' > vtplain.c; "$CICILI" -c vtplain.c -o vtplain.o 2>&1 | head -1)" '__clang_trap_msg$c$f local
+__clang_trap_msg$c$static local
+vtplain.c:3: error: argument to __builtin_verbose_trap must be a pointer to a constant string'
+# A DEAD BRANCH'S LIMITS (1.6.39, ir_dead_branch/3): clang's code generation emits a branch that holds a label, and one whose
+# condition does not fold, so a call of a function that GCC's error marks in either is refused in its words
+check "C: GCC's error attribute in a branch that clang's code generation emits -- one with a label, one whose condition does not fold --, in clang's words (1.6.39)" "$(n=0; for src in '__attribute__((error("never call"))) void f(void);
+int main(int argc, char **argv) { if (0) { lbl: f(); } if (argc > 9) goto lbl; return 0; }' '__attribute__((error("never call"))) void f(void);
+int main(int argc, char **argv) {
+  if (argc > 3) f();
+  return 0;
+}'; do n=$((n + 1)); printf "$src\n" > deadbr$n.c; "$CICILI" -c deadbr$n.c -o deadbr$n.o 2>&1 | head -1; done)" "deadbr1.c:2: error: call to 'f' declared with 'error' attribute: never call
+deadbr2.c:3: error: call to 'f' declared with 'error' attribute: never call"
+# AN `extern inline' WITHOUT GCC'S gnu_inline IS C99'S EXTERNAL DEFINITION (1.6.39, ccl_gnu_inline_item/3): defined again, it is
+# refused -- clang's words are `redefinition of a 'extern inline' function 'k' is not supported in C99 mode' (Not done)
+check "C: an extern inline function without gnu_inline, defined again, is refused at its second definition (1.6.39)" "$(printf '#include <stdio.h>\nextern inline int k(int x) { return x + 1; }\nint k(int x) { return x + 2; }\nint main(void) { printf("%%d\\n", k(1)); return 0; }\n' > einl.c; "$CICILI" -c einl.c -o einl.o 2>&1 | head -1)" "einl.c:3: error: redefinition of 'k'"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

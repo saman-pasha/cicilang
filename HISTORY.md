@@ -355,6 +355,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.36 | the program's own headers in the words, unknown type names, a statement expression's statics | an error in a function of the program's own header names the header, and a header that no read takes stops the build at its line; a type name that nothing declares is clang's `unknown type name` at its declaration's line; a statement expression's static local is static storage, so its free is refused; 1.6.30's and 1.6.31's broken copies carried (reader 218, lowering 205) |
 | 1.6.37 | include chains before a header's error, a block's unknown type names, a compound literal's block | an error in a header is led by clang's `In file included from` lines; a block's unknown type name is clang's use of an undeclared identifier, a for's own among them; a compound literal that a pointer borrows ends with its block; two stale texts of RULES.md corrected (reader 218, lowering 206) |
 | 1.6.38 | overloads with an ellipsis, prototypes before definitions, static overloads as values | C++: a function or member with an ellipsis beside its plain twin is an overload of its own, `.z` after its key, a call that both fit clang++'s ambiguity; a prototype of the program's own names its definition; `T::s` of several static members waits for its target; 1.6.34's qualified call no longer takes a frame's function for a local, which the chain's C++ gate found (reader 218, lowering 207) |
+| 1.6.39 | a dead branch, gnu_inline, a trap's constant objects, a namespace's sets, a compound literal's storage | a call in a branch that clang's code generation drops is none; GNU's extern inline with gnu_inline is a declaration; a verbose trap's string through a constant object's name is its initializer's; a namespace's overload set named as a value meets its target; a C++ compound literal's storage class is clang++'s refusal; a braced string literal sizes its array (reader 219, lowering 208) |
 
 ## M5 — the C++ mode
 
@@ -26539,3 +26540,77 @@ the owner's rule of 0.271.
   CLAUDE.md (the versions and the fixtures).
 
 The module 1.6.38, the reader 218 and the lowering 207.
+
+## 1.6.39 — a dead branch, gnu_inline, a trap's constant objects, a namespace's sets, a compound literal's storage
+
+**1.6.39: at the user's word "Do many of the not done tasks": five records of Not done closed or narrowed, each against
+clang 23 or clang++ 23 -- two records out, three narrowed, so that ninety are left -- and an older fault that a broken
+copy's probe found. The step was committed with its nets and its broken copies; no chain ran, by the user's word "try to
+run less chain and do more tasks before every chain", and it claims nothing GREEN of the chain.**
+
+1. C: A CALL IN A BRANCH THAT CLANG'S CODE GENERATION DROPS IS NONE (`ir_dead_branch/3`; clang's EmitIfStmt,
+   ConstantFoldsToSimpleInteger and ContainsLabel): a branch of an `if` whose condition folds to the other one and that
+   holds no label is walked -- what the lowering refuses in it is refused, as clang's Sema refuses it -- and the lines
+   that it emits are dropped. `if (0) f();` over GCC's `error` was refused, where clang builds and runs it; the first
+   form of the rule kept the lines and met the link, `undefined reference to 'f'`, since clang emits no call there and a
+   function that the branch alone calls needs no definition. A branch with a label, and a condition that does not fold,
+   keep the attribute's words.
+2. C: GNU'S `extern inline` WITH `gnu_inline` IS THE FUNCTION'S DECLARATION (reader 219; `ccl_gnu_inline_item/3`, the
+   file's storage words, the attribute's note): `extern inline __attribute__((gnu_inline)) int k(int x) { ... }` and
+   `int k(int x) { ... }` print 3 by clang, the second called, and were `redefinition of 'k'`. A `static inline` or a
+   plain `inline` with the attribute, and an `extern` one with no `inline`, whose attribute clang ignores, are
+   definitions. The first form of the rule took C before C99 for GNU89's `extern inline`, which the driver's levels, C99
+   to C23, never give: that test is out. An `extern inline` without the attribute defined again is refused at C17, in
+   words that are not clang's whole (Not done, narrowed).
+3. C AND C++: A VERBOSE TRAP'S STRING THROUGH A CONSTANT OBJECT'S NAME IS ITS INITIALIZER'S (`ir_note_trap_init/3`,
+   `ir_note_local_traps/1`, `ir_trap_key/2`): a constant array of characters or a constant pointer to characters, of the
+   file, a static local or a local, as clang's evaluator reads it -- `static const char m[] = "x"`, `const char *const
+   k`, C++'s `constexpr const char *m`; each was `not lowered yet: verbose_trap_string(m)`. The first form kept a
+   global's initializer by its name alone, and a probe found that clang reads a local constant array too: the
+   initializers are kept by address, a global's and a static local's symbol and a local's register in its function, so a
+   local that hides a global of its name is its own. A global array that is not constant is clang's `must be a pointer
+   to a constant string` as before. Not done's record narrows to a call that folds.
+4. C++: A NAMESPACE'S OVERLOAD SET NAMED WITH ITS NAMESPACE AS A VALUE MEETS ITS TARGET (`cpp_conv_to/4` on
+   `scoped(Path, N)` and its address, `cpp_ns_set_key/3`, `cpp_set_value/3`): `int (*p)(int) = n::h` beside
+   `n::h(double)` reached the lowering as `scoped([n], h)`, `use of undeclared identifier 'h'` -- 1.6.38's record --; in
+   a block, at namespace scope, as an argument and through its address, nested namespaces among them.
+5. C++: A COMPOUND LITERAL'S TYPE NAME TAKES NO STORAGE CLASS (reader 219; `ccl_complit_stored/5`; [dcl.name]/1):
+   `(static int){ 7 }` is clang++ 23's `type name does not allow storage class to be specified` at its line, where it
+   was read as an automatic literal. Not done's record held that clang++ reads no storage class there: clang++ 23
+   refuses it.
+6. C AND C++: A STRING LITERAL IN BRACES FOR AN ARRAY OF NO BOUND SIZES IT (reader 219; `ccl_braced_string/3`; C17
+   6.7.9/14): item 3's broken copy VT2, a trap's string kept in braces, was caught by nothing, and its probe found that
+   `static const char b[] = { "braced" };` was refused, `initializer-string for char array is too long` -- the reader
+   sized the array by its one item, where the lowering has taken a braced literal with a bound since 0.302 --, in 1.6.38
+   too. The reader gives the literal for the braces where the element is a character type; an array of pointers and a
+   two-dimensional array keep their items. The trap's braced clause holds nothing now, and is out.
+
+`test/c/run/gnuinline.c`, `deadbranch.c` and `bracedstr.c`, and `test/cpp/run/nsvalues.cpp`, hold items 1, 2, 6 and 4,
+and clang 23, clang++ 23 and this step print each alike; the C++ gate's `complit_static.cpp` holds item 5, the driver
+gate's three checks item 3 under `-g`, against clang 23's names of the traps' functions, and one more item 1's limits
+and item 2's refusal at C17. The raw lexer's record of a directive's comment is left: the native lexer mirrors the DCG
+lexer token for token, so its rule needs both lexers and a module build, and its gain is time alone.
+
+THE NETS. Over the copy: the flow gate GREEN in 504 s, the reader gate GREEN in 5 s (173 ok), the compile gate GREEN in
+37 s (481 ok), the driver gate GREEN in 232 s (183 ok) -- RED at first, at 1.6.10's check of the traps' refusals, which
+held a constant array's and a constexpr pointer's names refused by name: both build now, as clang's do, and the check
+holds the rest --; the pool of 51 C++ run fixtures that reach an ellipsis, a member pointer, a static member function,
+an overload set or a namespace's set, each built as the C++ gate builds it over a HOME of its own, 51 the same, in 81 s.
+THE BROKEN COPIES: nineteen, each run from a copy of the copy over a fresh HOME, all caught. Of the first set, two were
+caught by nothing: VT2, which took the trap's clause of a braced initializer away, and whose probe found item 6, so that
+the clause holds nothing and is out; and NS4, which took a namespace's key out of `cpp_ns_set_key/3` -- a keyed set
+reaches the road as `id(Key)` already, so the key's branch held nothing and is out. BS1 and BS2, item 6's rule and its
+test of a character type, stand in their places. Over the work tree after the port: the toolchain check strict GREEN. No
+CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_syntax.pl` (`ccl_complit_stored/5`, `ccl_external//3`, `ccl_gnu_inline_item/3`, `ccl_decl_specs//4`'s
+  file storage words, `ccl_layout_scan/1`, `ccl_init_declarator//3`, `ccl_braced_string/3`, `ccl_char_spec/1`; the
+  reader 219); `library/ccl_ir.pl` (`ir_stmt_/1`'s `if`, `ir_dead_branch/3`, `ir_sub_stmt/2`, `ir_error_attr_call/1`,
+  `ir_globals/2`, `ir_stmt_/1`'s declaration, `ir_trap_string/2`, `ir_note_trap_init/3`, `ir_trap_key/2`,
+  `ir_note_local_traps/1`; the lowering 208); `library/ccl_cpp_stmt.pl` (`cpp_conv_to/4`, `cpp_ns_set_key/3`);
+  `library/ccl_cpp_init.pl` (`cpp_set_value/3`); `test/driver.sh` (four checks, and 1.6.10's trap check without the two
+  forms that build now); `test/cpp.sh` (one refusal); the step's fixtures; the module's version.
+- RULES.md (the rules in their topics; Not done: two records out, three narrowed), HISTORY.md, CLAUDE.md (the versions
+  and the fixtures).
+
+The module 1.6.39, the reader 219 and the lowering 208.

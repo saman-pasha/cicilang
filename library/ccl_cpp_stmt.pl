@@ -486,7 +486,11 @@ cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_using_key(F
     cpp_params_key(Ps1, K), cpp_fn_of_target(KF, K, V1, Ps, Vt), !, cpp_fn_name_va(KF, Ps, Vt, yes, Name), cpp_use_fn(KF, Ps, Name).
 cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_fn_target(T0, fn(_, Ps1, V1)),   % AN OVERLOAD SET NAMED AS A VALUE IS CHOSEN BY ITS TARGET ([over.over]; 0.99): `int (*pi)(int) = twice' beside `double twice(double)'
     cpp_params_key(Ps1, K), cpp_fn_of_target(F, K, V1, Ps, Vt), !, cpp_fn_name_va(F, Ps, Vt, yes, Name), cpp_use_fn(F, Ps, Name).   % ... and by its ellipsis (1.6.38)
-cpp_conv_to(How, addr(id(F)), T0, addr(E)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_conv_to(How, id(F), T0, E), E \== id(F), !.   % ... AND ITS ADDRESS, `&m' ([over.over]/1; 0.181): it was `undeclared(m)', the set's own name no function's
+cpp_conv_to(How, addr(id(F)), T0, addr(E)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_conv_to(How, id(F), T0, E), E \== id(F), !.
+%% ... AND A NAMESPACE'S, NAMED WITH ITS NAMESPACE (1.6.39; [over.over]): `int (*p)(int) = n::h' beside `n::h(double)' reached the
+%% lowering as `scoped([n], h)', `use of undeclared identifier 'h''; the set is its bare name's
+cpp_conv_to(How, scoped(Path, N), T0, E) :- atom(N), \+ catch(cpp_scope_class(Path, _), _, fail), cpp_ns_set_key(Path, N, K), cpp_conv_to(How, id(K), T0, E), E \== id(K), !.
+cpp_conv_to(How, addr(scoped(Path, N)), T0, addr(E)) :- atom(N), \+ catch(cpp_scope_class(Path, _), _, fail), cpp_ns_set_key(Path, N, K), cpp_conv_to(How, id(K), T0, E), E \== id(K), !.   % ... AND ITS ADDRESS, `&m' ([over.over]/1; 0.181): it was `undeclared(m)', the set's own name no function's
 cpp_conv_to(_, '$memaddr'(C, N), T0, E) :- cpp_type_or_self(T0, T1), ccl_resolve_type(T1, memptr(_, _, F0)), ccl_resolve_type(F0, fn(_, Ps1, V1)), cpp_params_key(Ps1, K), cpp_fn_q(V1, Vt, TQs),   % AN OVERLOADED MEMBER'S ADDRESS IS CHOSEN BY ITS TARGET ([over.over]; 0.112): the overload whose parameters are the pointer's
     (   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_va_eq(V0, Vt), cpp_method_mfq(Qs, MQs), cpp_mfq_fits(MQs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose ellipsis is the target's (1.6.38)
     ;   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_method_mfq(Qs, MQs), cpp_mfq_fits(MQs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose qualifiers are the target's (0.181): `int (A::*pc)() const = &A::get' is the const `get'
@@ -500,6 +504,7 @@ cpp_conv_to(_, E, _, E).
 %% whichever definition of the key gives the parameters: `int (*q)(int, ...) = f' beside `int f(int)' took the plain one
 cpp_fn_of_target(F, K, V1, Ps, Vt) :- cpp_fn_q(V1, V2, _), ( V2 == true -> Vt = true ; Vt = false ), '$cpp_fn'(F, K, Ps, yes, _).
 cpp_va_eq(V0, Vt) :- ( V0 == true -> Vt == true ; Vt \== true ).
+cpp_ns_set_key(_, N, N) :- \+ cpp_local(N), cpp_fn_overloaded(N).   % a keyed set reaches the road as id(Key) already (1.6.39's broken copy NS4)
 cpp_static_of_target(C, Ms, N, K, Vt, Qs, Ps0) :- member(method(_, Qs, _, N, Ps0, V0, _), Ms), memberchk(static, Qs), cpp_va_eq(V0, Vt), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K), !.
 cpp_static_of_target(C, Ms, N, K, _, Qs, Ps0) :- member(method(_, Qs, _, N, Ps0, _, _), Ms), memberchk(static, Qs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K), !.
 %% A CLASS PRVALUE CONVERTED THROUGH ITS CONVERSION FUNCTION IS A TEMPORARY OF THE STATEMENT ([class.temporary]/2 and /4; 0.206):
