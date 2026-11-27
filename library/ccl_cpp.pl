@@ -108,11 +108,12 @@ cpp_kept_assert_failure :- ( '$cpp_assert_failed'(Err, L) -> throw(error(Err, he
 %% function's overloads are one kind, a class's or an enumeration's tag no name of these, and a namespace's names are
 %% its own scope's; C's file scope is the reader's (ccl_kind_clash/2)
 cpp_kind_clashes([]).
-cpp_kind_clashes([unit(Is)|Us]) :- !, cpp_kind_walk(Is, [], _), cpp_redef_walk(Is, [], _), cpp_kind_clashes(Us).
+cpp_kind_clashes([unit(Is0)|Us]) :- !, nb_setval('$cpp_kind_file', none), cpp_live_units(Is0, Is), cpp_kind_walk(Is, [], _), cpp_redef_walk(Is, [], _), cpp_kind_clashes(Us).
 cpp_kind_clashes([_|Us]) :- cpp_kind_clashes(Us).
 cpp_kind_walk([], K, K).
 cpp_kind_walk([extern_c(_, Js)|Is], K0, K) :- !, cpp_kind_walk(Js, K0, K1), cpp_kind_walk(Is, K1, K).
-cpp_kind_walk([include(_, local(_), file(P, _, unit(Js)))|Is], K0, K) :- atom(P), \+ cpp_system_path(P), !, cpp_kind_seed(Js, K0, K1), cpp_kind_walk(Is, K1, K).   % THE PROGRAM'S OWN HEADER (1.6.28): its items noted first
+cpp_kind_walk(['$live_header'(P, Js)|Is], K0, K) :- !, cpp_kind_in(P, cpp_kind_walk(Js, K0, K1)), cpp_kind_walk(Is, K1, K).   % THE PROGRAM'S OWN HEADER AS THE RUN KEPT IT (1.6.42), below
+
 cpp_kind_walk([namespace(_, Nm, Js)|Is], K0, K) :- atom(Nm), is_list(Js), !, cpp_kind_walk_ns([Nm], Js, K0, K1), cpp_kind_walk(Is, K1, K).   % A NAMESPACE'S ITEMS (1.6.28), its blocks one scope
 cpp_kind_walk([I|Is], K0, K) :- findall(N-Kd-L, cpp_item_kind(I, N, Kd, L), NKs), cpp_kind_note(NKs, K0, K1), cpp_kind_walk(Is, K1, K).
 cpp_item_kind(function(L, _, _, N, _, _, _), N, fn, L) :- atom(N).
@@ -121,14 +122,29 @@ cpp_item_kind(declaration(L, _, B, Vs), N, Kd, L) :- ( member(var(N, T, _), Vs),
 cpp_item_kind(declare(L, B), N, enumerator, L) :- cpp_base_enumerator(B, N).
 cpp_item_kind(typedef(L, Vs), N, type, L) :- member(var(N, _, _), Vs), atom(N).
 cpp_base_enumerator(base(_, [enum(_, Es)]), N) :- is_list(Es), member(enumerator(N, _), Es), atom(N).
-%% ... A HEADER OF THE PROGRAM'S OWN, `#include "h.h"', is noted before the items after it, with no refusal of its own --
-%% its clash would stand at a line of the header, which the words give for the file (1.6.28): `int t(void);' in the header
-%% and `int t;' in the file built, where clang++ refuses the file's at its line
-cpp_kind_seed([], K, K).
-cpp_kind_seed([I|Is], K0, K) :- ( I = include(_, local(_), file(P, _, unit(Js))), atom(P), \+ cpp_system_path(P) -> cpp_kind_seed(Js, K0, K1)
-    ; I = extern_c(_, Js) -> cpp_kind_seed(Js, K0, K1)
-    ; findall(N-Kd, cpp_item_kind(I, N, Kd, _), NKs), foldl(cpp_kind_first, NKs, K0, K1) ), cpp_kind_seed(Is, K1, K).
-cpp_kind_first(N-Kd, K0, K) :- ( memberchk(N-_, K0) -> K = K0 ; K = [N-Kd|K0] ).
+%% ... A HEADER AS THE FILE'S RUN KEPT IT IS WALKED WHERE IT STANDS (1.6.42), and a clash in it is refused at the header's
+%% line, the header named as the `#include' found it (`'$cpp_kind_file'', which the driver reads through `'$ir_fail_file'',
+%% dr_where_file/3), as clang++ names it: `int f(int); int f;' in the header, and `int t;' in the file before an `#include'
+%% whose `int t(void);' clashes, are `./h.h:2:5: error: redefinition of 'f' as different kind of symbol', and a header's
+%% second definition of a function, or one beside the file's, `redefinition of 'f''. They built, the header's first
+%% function called, or met LLVM's `invalid redefinition of function'. The reader reads a header of the program's own at
+%% each `#include', raw, so that a guarded header's second inclusion, a `#pragma once' one's and both arms of its
+%% conditionals stand among the unit's items: the run of the file records the lines that it keeps of each, as C's does
+%% (pp_live_end/1, ccl_live_top/2, `'$cpp_live''), and the walks take a header's item only where a range holds its line
+%% (ccl_redef_live/2), an `extern "C"' block's too. A header that the run did not run (ccl_redef_entry/5) -- a macro file's C
+%% header, which the reader includes -- is no text of the program's, as in C, and where the run left no record a header
+%% is not walked. Through 1.6.41 a header was noted before the items after it with no refusal of its own (1.6.28,
+%% cpp_kind_seed/3), each name keeping its first kind (1.6.32), which cpp_kind_note/3 keeps now
+cpp_kind_in(P, G) :- nb_getval('$cpp_kind_file', P0), nb_setval('$cpp_kind_file', P), call(G), nb_setval('$cpp_kind_file', P0).
+cpp_live_units(Is0, Is) :- ( nb_current('$cpp_live', Es), Es \== none -> cpp_live_items(Is0, all, Es, _, Is) ; Is = Is0 ).
+cpp_live_items([], _, Es, Es, []).
+cpp_live_items([I|Is], Live, Es0, Es, Out) :- cpp_live_item(I, Live, Es0, Es1, Out, Out1), cpp_live_items(Is, Live, Es1, Es, Out1).
+cpp_live_item(I, Live, Es0, Es, Out, Out1) :- I = include(L, local(_), file(P, _, unit(Js))), atom(P), \+ cpp_system_path(P), !,
+    (   ccl_redef_live(Live, L), ccl_redef_entry(Es0, P, L, Rs, Es1) -> cpp_live_items(Js, Rs, Es1, Es, Js1), Out = ['$live_header'(P, Js1)|Out1]
+    ;   Es = Es0, Out = Out1 ).   % one that the run did not run, a macro file's C header, is no text of the program's
+cpp_live_item(extern_c(X, Js), Live, Es0, Es, [extern_c(X, Js1)|Out1], Out1) :- is_list(Js), !, cpp_live_items(Js, Live, Es0, Es, Js1).
+cpp_live_item(I, Live, Es, Es, Out, Out1) :- ( compound(I), functor(I, F, _), memberchk(F, [function, declaration, declare, typedef]), arg(1, I, L), \+ cpp_live_at(Live, L) -> Out = Out1 ; Out = [I|Out1] ).
+cpp_live_at(Live, L) :- ( integer(L) -> ccl_redef_live(Live, L) ; true ).
 %% ... AND A NAMESPACE'S, ITS BLOCKS ONE SCOPE (1.6.28; [namespace.def]/2: a namespace's later blocks extend it): each name
 %% keyed by its namespace, `ns([n], t)', and refused by its own name, `int t();' in one block of n and `int t;' in another
 %% as in one, which built; a nested namespace is its own scope
@@ -137,7 +153,7 @@ cpp_kind_walk_ns(P, [namespace(_, Nm, Js)|Is], K0, K) :- atom(Nm), is_list(Js), 
 cpp_kind_walk_ns(P, [extern_c(_, Js)|Is], K0, K) :- !, cpp_kind_walk_ns(P, Js, K0, K1), cpp_kind_walk_ns(P, Is, K1, K).
 cpp_kind_walk_ns(P, [I|Is], K0, K) :- findall(ns(P, N)-Kd-L, cpp_item_kind(I, N, Kd, L), NKs), cpp_kind_note(NKs, K0, K1), cpp_kind_walk_ns(P, Is, K1, K).
 cpp_kind_note([], K, K).
-cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> ( N = ns(_, N1) -> true ; N1 = N ), throw(error(not_lowered(kind_redefinition(N1)), where(file, line(L)))) ; true ),   % before the desugaring's state: no trace to note it in
+cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> ( N = ns(_, N1) -> true ; N1 = N ), cpp_redef_throw(kind_redefinition(N1), L) ; true ),   % before the desugaring's state: no trace to note it in
     ( memberchk(N-_, K0) -> K1 = K0 ; K1 = [N-Kd|K0] ), cpp_kind_note(T, K1, K).
 %% ... AND A SECOND DEFINITION (1.6.24; [basic.def.odr]/1: no translation unit holds two definitions of a variable, a
 %% function, a class or an enumeration), in clang++'s words, `redefinition of 'f'': a function of one name and one list of
@@ -148,6 +164,7 @@ cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> ( N = 
 %% over (`linkonce'), and a type that does not resolve leaves its function out
 cpp_redef_walk([], S, S).
 cpp_redef_walk([extern_c(_, Js)|Is], S0, S) :- !, cpp_redef_walk(Js, S0, S1), cpp_redef_walk(Is, S1, S).
+cpp_redef_walk(['$live_header'(P, Js)|Is], S0, S) :- !, cpp_kind_in(P, cpp_redef_walk(Js, S0, S1)), cpp_redef_walk(Is, S1, S).   % the program's own header as the run kept it (1.6.42)
 cpp_redef_walk([I|Is], S0, S) :- ( cpp_redef_item(I, S0, S1) -> true ; S1 = S0 ), cpp_redef_walk(Is, S1, S).
 cpp_redef_item(function(L, Sto, _, N, Ps, V, block(_)), S0, [fn(N, Sig)|S0]) :- atom(N), Sto \== linkonce, catch(cpp_redef_sig(Ps, V, Sig), _, fail),
     ( memberchk(fn(N, Sig), S0) -> cpp_redef_throw(redefinition(N), L) ; true ).
@@ -168,7 +185,7 @@ cpp_redef_vars([var(N, T, Init)|Vs], Sto, L, S0, S) :- atom(N), \+ ccl_redef_fn_
     ;   true ),
     cpp_redef_vars(Vs, Sto, L, [ob(N, T, D)|S0], S).
 cpp_redef_vars([_|Vs], Sto, L, S0, S) :- cpp_redef_vars(Vs, Sto, L, S0, S).
-cpp_redef_throw(W, L) :- throw(error(not_lowered(W), where(file, line(L)))).
+cpp_redef_throw(W, L) :- ( nb_current('$cpp_kind_file', P), atom(P), P \== none -> nb_setval('$ir_fail_file', P) ; true ), throw(error(not_lowered(W), where(file, line(L)))).   % a line of the program's own header is named by its file (1.6.42)
 %% a function's parameter types as they make its type: adjusted, then each level's typedefs resolved and its qualifiers
 %% sorted; a variadic one apart
 cpp_redef_sig(Ps, V, sig(Ks, Va)) :- findall(K, ( member(P, Ps), arg(1, P, T), cpp_redef_ptype(T, K) ), Ks), length(Ps, N), length(Ks, N), ( ck_c_variadic(V) -> Va = yes ; Va = no ).

@@ -203,14 +203,16 @@ ccl_read_file_(File, AST, Rest) :-
     nb_setval('$ccl_far', F),
     ( nb_current('$pp_ftm', FT1) -> true ; FT1 = [] ),
     ( Rest == [], FT1 == FT0, \+ ccl_inst_since(IM) -> ccl_kb_remember(File, top, AST) ; true ).
-%% THE TOP RUN OF THE PROGRAM'S FILE IN C RECORDS THE LIVE LINES OF ITS OWN HEADERS (1.6.7; pp_live_end/1), for the walk of
-%% a second definition ('$ccl_live', ccl_redefinitions/3); a run that throws or fails records nothing, and no other run
+%% THE TOP RUN OF THE PROGRAM'S FILE RECORDS THE LIVE LINES OF ITS OWN HEADERS (1.6.7; pp_live_end/1), for the walk of a
+%% second definition: in C '$ccl_live' (ccl_redefinitions/3), in C++ '$cpp_live', which the desugaring's walks of the kinds
+%% and of the definitions read after the parse (1.6.42, cpp_live_units/2); a run that throws or fails records nothing, and
+%% no other run
 ccl_live_top(File, Tokens) :-
-    nb_setval('$ccl_live', none),
-    (   ccl_lang(c), nb_current('$ccl_reading', [])
+    nb_setval('$ccl_live', none), nb_setval('$cpp_live', none),
+    (   nb_current('$ccl_reading', [])
     ->  pp_live_begin,
         (   catch(ccl_pp_top(File, Tokens, _), E, ( pp_live_end(_), throw(E) ))
-        ->  pp_live_end(Es), nb_setval('$ccl_live', Es)
+        ->  pp_live_end(Es), ( ccl_lang(c) -> nb_setval('$ccl_live', Es) ; nb_setval('$cpp_live', Es) )
         ;   pp_live_end(_), fail )
     ;   ccl_pp_top(File, Tokens, _) ).
 

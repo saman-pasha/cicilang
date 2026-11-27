@@ -655,7 +655,7 @@ int main() { D d; return f(d) - 3; }' 'static int f(int **p) { return p != 0; }
 int main() { char *c = 0; return f(&c); }' 'namespace n { extern "C" { int t(); } int t; }
 int main() { return 0; }'; do n=$((n + 1)); printf "$src\n" > bcopy$n.cpp; "$ROOT/bin/cicilang++" -c bcopy$n.cpp -o bcopy$n.o 2>&1 | head -1; done)" "bcopy4.cpp:2: error: no matching function for call to 'f'
 bcopy5.cpp:1: error: redefinition of 't' as different kind of symbol"
-check "C++: a header of the program's own whose name clashes inside it keeps its first kind (1.6.32; 1.6.28's broken copies): the file's own declaration of the other kind is refused at its line, in clang++'s words -- clang++ refuses the header's at the header's line, which the words give for the file -- where a header's later kind was taken and the file built" "$(printf 'int t(void);\nint t;\n' > kindh.h; printf '#include "kindh.h"\nint t;\nint main() { return 0; }\n' > kindh1.cpp; "$ROOT/bin/cicilang++" -c kindh1.cpp -o kindh1.o 2>&1 | head -1)" "kindh1.cpp:2: error: redefinition of 't' as different kind of symbol"
+check "C++: a header of the program's own whose name clashes inside it is refused at the header's line, the header named, in clang++'s words (1.6.32, 1.6.42; 1.6.28's broken copies) -- through 1.6.41 the header kept its first kind and the file's own declaration of the other kind was refused at its line, and before 1.6.32 a header's later kind was taken and the file built" "$(printf 'int t(void);\nint t;\n' > kindh.h; printf '#include "kindh.h"\nint t;\nint main() { return 0; }\n' > kindh1.cpp; "$ROOT/bin/cicilang++" -c kindh1.cpp -o kindh1.o 2>&1 | grep error | head -1)" "./kindh.h:2: error: redefinition of 't' as different kind of symbol"
 check "C: a bracketed attribute's error and unavailable are read in their own scope alone, as clang reads them (1.6.33): gnu::error, its __error__ and __gnu__ spellings, clang::unavailable and _Clang's, each a call refused -- after the same words with no scope or another one, which clang ignores and which were each a call refused, first" "$(n=0; for src in '[[error("boom")]] void f(void);
 void f(void) {}
 int main(void) { f(); return 0; }' '[[clang::error("boom")]] void f(void);
@@ -1628,4 +1628,57 @@ check "C and C++: a void variable of a typeof or decltype type names the type as
 tyv2.c:4: error: variable has incomplete type 'typeof (h(1, g(2)))' (aka 'void')
 exit 0
 tyv4.cpp:3: error: variable has incomplete type 'decltype(f())' (aka 'void')"
+# THE VERBOSE TRAP'S ARGUMENTS AS ITS `const char *' PARAMETERS (1.6.42; ir_trap_param/1): a value that no `const char *'
+# takes is refused in clang 23's words of a call's argument, before the trap's own words -- in C a wide, UTF-16 and UTF-32
+# literal by its array's type, an integer, a pointer, an array, a struct and a floating value, a name that nothing declares;
+# a cast of a wide literal keeps the trap's own words, and C17's u8 literal, a plain one, builds
+check "C: the verbose trap's arguments as its const char * parameters, in clang 23's words: wide literals by their arrays, an integer, a pointer, an array, a struct, a floating value, a wide pointer moved, a cast of a wide literal, an undeclared name, and a u8 literal that builds (1.6.42)" "$(n=0; for body in 'int main(void) { __builtin_verbose_trap("c", L"wide"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", u"x"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", U"x"); return 0; }' 'int main(void) { __builtin_verbose_trap(L"cat", "m"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", 5); return 0; }' '#include <stddef.h>\nconst wchar_t *w = L"x";\nint main(void) { __builtin_verbose_trap("c", w); return 0; }' 'const int iv[2] = { 1, 2 };\nint main(void) { __builtin_verbose_trap("c", iv); return 0; }' 'struct S { int a; };\nstruct S st;\nint main(void) { __builtin_verbose_trap("c", st); return 0; }' 'int main(void) { __builtin_verbose_trap("c", 1.5); return 0; }' 'int main(void) { __builtin_verbose_trap("c", L"ab" + 1); return 0; }' 'int main(void) { __builtin_verbose_trap("c", (const char *) L"x"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", nosuch); return 0; }' 'int main(int argc, char **argv) { if (argc > 5) __builtin_verbose_trap(u8"c", "m"); return 0; }'; do n=$((n + 1)); printf '%b\n' "$body" > vta$n.c; o=$("$CICILI" -std=c17 -fsyntax-only vta$n.c 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "vta$n.c: built"; done)" "vta1.c:1: error: incompatible pointer types passing 'int[5]' to parameter of type 'const char *'
+vta2.c:1: error: incompatible pointer types passing 'unsigned short[2]' to parameter of type 'const char *'
+vta3.c:1: error: incompatible pointer types passing 'unsigned int[2]' to parameter of type 'const char *'
+vta4.c:1: error: incompatible pointer types passing 'int[4]' to parameter of type 'const char *'
+vta5.c:1: error: incompatible integer to pointer conversion passing 'int' to parameter of type 'const char *'
+vta6.c:3: error: incompatible pointer types passing 'const wchar_t *' (aka 'const int *') to parameter of type 'const char *'
+vta7.c:2: error: incompatible pointer types passing 'const int[2]' to parameter of type 'const char *'
+vta8.c:3: error: passing 'struct S' to parameter of incompatible type 'const char *'
+vta9.c:1: error: passing 'double' to parameter of incompatible type 'const char *'
+vta10.c:1: error: incompatible pointer types passing 'int *' to parameter of type 'const char *'
+vta11.c:1: error: argument to __builtin_verbose_trap must be a pointer to a constant string
+vta12.c:1: error: use of undeclared identifier 'nosuch'
+vta13.c: built"
+# ... AND IN C++ (1.6.42) in clang++ 23's words, `cannot initialize a parameter of type 'const char *' with an lvalue of
+# type 'const wchar_t[2]'', an lvalue or an rvalue, a class's `no viable conversion'; a null pointer constant passes, to
+# the trap's own words; C++20's u8 literal is char8_t's and
+# C++17's a plain one, which builds. Built with -c: C++'s -fsyntax-only stops after the reader
+check "C++: the verbose trap's arguments as its const char * parameters, in clang++ 23's words: an integer, a wide pointer, an array, a class, a wide pointer moved, wide, UTF-8 and UTF-16 literals, a floating value, a bool, an undeclared name, an enumerator; 0 and nullptr pass to the trap's own words, and C++17's u8 literal builds (1.6.42)" "$(n=0; for body in 'int main() { __builtin_verbose_trap("c", 5); }' '#include <stddef.h>\nconst wchar_t *w = L"x";\nint main() { __builtin_verbose_trap("c", w); }' 'const int iv[2] = { 1, 2 };\nint main() { __builtin_verbose_trap("c", iv); }' 'struct S { int a; };\nS st;\nint main() { __builtin_verbose_trap("c", st); }' 'int main() { __builtin_verbose_trap("c", L"ab" + 1); }' 'int main() { __builtin_verbose_trap("c", L"x"); }' 'int main() { __builtin_verbose_trap("c", u8"x"); }' 'int main() { __builtin_verbose_trap("c", 1.5); }' 'int main() { __builtin_verbose_trap("c", false); }' 'int main() { __builtin_verbose_trap("c", nosuch); }' 'enum E { E1 = 1 };\nint main() { __builtin_verbose_trap("c", E1); }' 'int main() { __builtin_verbose_trap(u"c", "m"); }' 'int main() { __builtin_verbose_trap("c", 0); }' 'int main() { __builtin_verbose_trap("c", nullptr); }'; do n=$((n + 1)); printf '%b\n' "$body" > vtb$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++20 -c vtb$n.cpp -o vtb.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "vtb$n.cpp: built"; done; o=$("$ROOT/bin/cicilang++" -std=c++17 -c vtb7.cpp -o vtb.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "vtb7.cpp at C++17: built")" "vtb1.cpp:1: error: cannot initialize a parameter of type 'const char *' with an rvalue of type 'int'
+vtb2.cpp:3: error: cannot initialize a parameter of type 'const char *' with an lvalue of type 'const wchar_t *'
+vtb3.cpp:2: error: cannot initialize a parameter of type 'const char *' with an lvalue of type 'const int[2]'
+vtb4.cpp:3: error: no viable conversion from 'S' to 'const char *'
+vtb5.cpp:1: error: cannot initialize a parameter of type 'const char *' with an rvalue of type 'const wchar_t *'
+vtb6.cpp:1: error: cannot initialize a parameter of type 'const char *' with an lvalue of type 'const wchar_t[2]'
+vtb7.cpp:1: error: cannot initialize a parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'
+vtb8.cpp:1: error: cannot initialize a parameter of type 'const char *' with an rvalue of type 'double'
+vtb9.cpp:1: error: cannot initialize a parameter of type 'const char *' with an rvalue of type 'bool'
+vtb10.cpp:1: error: use of undeclared identifier 'nosuch'
+vtb11.cpp:2: error: cannot initialize a parameter of type 'const char *' with an rvalue of type 'E'
+vtb12.cpp:1: error: cannot initialize a parameter of type 'const char *' with an lvalue of type 'const char16_t[2]'
+vtb13.cpp:1: error: argument to __builtin_verbose_trap must be a pointer to a constant string
+vtb14.cpp:1: error: argument to __builtin_verbose_trap must be a pointer to a constant string
+vtb7.cpp at C++17: built"
+# C++: A HEADER OF THE PROGRAM'S OWN AS THE FILE'S RUN KEPT IT (1.6.42; cpp_live_units/2, cpp_kind_in/2): a clash in it and a
+# second definition in it, or beside the file's, are refused at the header's line, the header named, in clang++ 23's words,
+# one included in an `extern "C"' block too;
+# a guarded header and a `#pragma once' one included twice, a header in a header, and a header's dead arms -- in a namespace
+# and in an `extern "C"' block too -- build, as
+# clang++'s do; an unguarded header included twice is refused
+check "C++: a clash and a second definition in a header of the program's own, or beside the file's, refused at the header's line in clang++'s words, one in an extern \"C\" block too; guarded, #pragma once, nested headers and dead arms, a namespace's and an extern \"C\" block's among them, build; an unguarded header included twice refused (1.6.42)" "$(printf '#ifndef KH_H\n#define KH_H\nint f(int x);\nint f;\n#endif\n' > kh.h; printf '#include "kh.h"\nint main() { return 0; }\n' > kh.cpp; printf 'int f(int x) { return x; }\nint f(int y) { return y + 1; }\n' > rd.h; printf '#include "rd.h"\nint main() { return f(1); }\n' > rd.cpp; printf 'int t(void);\n' > kd.h; printf 'int t;\n#include "kd.h"\nint main() { return 0; }\n' > kd.cpp; printf 'int g(int x) { return x; }\n' > rd3.h; printf 'int g(int y) { return y; }\n#include "rd3.h"\nint main() { return g(1); }\n' > rd3.cpp; printf 'inline int nf(int x) { return x; }\n' > nh.h; printf '#include "nh.h"\n#include "nh.h"\nint main() { return nf(0); }\n' > nh.cpp; printf 'int ef(int x);\nint ef;\n' > ec.h; printf 'extern "C" {\n#include "ec.h"\n}\nint main() { return 0; }\n' > ec.cpp; for f in kh rd kd rd3 nh; do "$ROOT/bin/cicilang++" -c $f.cpp -o $f.o 2>&1 | grep error | head -1; done; "$ROOT/bin/cicilang++" -c ec.cpp -o ec.o 2>&1 | head -2; printf '#ifndef G_H\n#define G_H\ninline int gf(int x) { return x; }\nint gv = 3;\n#endif\n' > gh.h; printf '#include "gh.h"\n' > ggh.h; printf '#include "ggh.h"\n#include "gh.h"\n#include "ggh.h"\nint main() { return gf(gv) - 3; }\n' > gh.cpp; printf '#pragma once\ninline int pf(int x) { return x; }\n' > ph.h; printf '#include "ph.h"\n#include "ph.h"\nint main() { return pf(0); }\n' > ph.cpp; printf '#ifndef A_H\n#define A_H\n#if 0\nint af(int x) { return x + 1; }\n#else\nint af(int x) { return x; }\n#endif\n#endif\n' > ah.h; printf '#include "ah.h"\n#include "ah.h"\nint main() { return af(0); }\n' > ah.cpp; printf '#ifndef NS_H\n#define NS_H\nnamespace n {\n#if 0\nint t;\n#else\nint t(int x);\n#endif\n}\nextern "C" {\n#if 0\nint u;\n#else\nint u(int x);\n#endif\n}\n#endif\n' > nsh.h; printf '#include "nsh.h"\n#include "nsh.h"\nint n::t(int x) { return x; }\nextern "C" int u(int x) { return x; }\nint main() { return n::t(0) + u(0); }\n' > nsh.cpp; for f in gh ph ah nsh; do "$ROOT/bin/cicilang++" $f.cpp -o $f 2>&1 | head -1; ./$f; echo "$f: exit $?"; done)" "./kh.h:4: error: redefinition of 'f' as different kind of symbol
+./rd.h:2: error: redefinition of 'f'
+./kd.h:1: error: redefinition of 't' as different kind of symbol
+./rd3.h:1: error: redefinition of 'g'
+./nh.h:1: error: redefinition of 'nf'
+In file included from ec.cpp:2:
+./ec.h:2: error: redefinition of 'ef' as different kind of symbol
+gh: exit 0
+ph: exit 0
+ah: exit 0
+nsh: exit 0"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

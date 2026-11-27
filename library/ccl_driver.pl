@@ -621,6 +621,8 @@ dr_value_text(void_value(element, B), ['cannot initialize an array element of ty
 dr_value_text(void_value(new_value, B), ['cannot initialize a new value of type ''', B, ''' with an rvalue of type ''void''']).
 dr_value_text(void_value(return_object, B), ['cannot initialize return object of type ''', B, ''' with an rvalue of type ''void''']).
 dr_value_text(void_value(parameter, B), ['cannot initialize a parameter of type ''', B, ''' with an rvalue of type ''void''']).
+dr_value_text(param_mismatch(B, Cat, A), ['cannot initialize a parameter of type ''', B, ''' with an ', Cat, ' of type ''', A, '''']).   % C++: a trap's argument (1.6.42)
+dr_value_text(no_viable_conversion(A, B), ['no viable conversion from ''', A, ''' to ''', B, '''']).   % C++: a class for a trap's argument (1.6.42)
 dr_value_text(void_value(conversion, B), ['no viable conversion from ''void'' to ''', B, '''']).
 dr_value_text(void_value(return_conversion, B), ['no viable conversion from returned value of type ''void'' to function return type ''', B, '''']).
 dr_value_text(void_value(overloaded_assign, _), ['no viable overloaded ''=''']).
@@ -763,8 +765,10 @@ dr_error_as(F, L, K, Parts) :-
 %% the read (dr_note_includes/2) from the AST's include nodes, each at the line of its #include in the file that holds it
 dr_note_includes(F, unit(Is)) :- !, findall(P-Ch, dr_include_chain(Is, F, [], P, Ch), Cs), nb_setval('$dr_inc_chains', Cs).
 dr_note_includes(_, _) :- nb_setval('$dr_inc_chains', []).
-dr_include_chain(Is, Cur, Up, P, Ch) :- member(include(L, _, file(Q, _, U)), Is), atom(Q),
+dr_include_chain(Is, Cur, Up, P, Ch) :- dr_include_item(Is, include(L, _, file(Q, _, U))), atom(Q),
     Up1 = [Cur-L|Up], ( P = Q, reverse(Up1, Ch) ; ( U = unit(Js) ; U = partial(unit(Js), _, _) ), dr_include_chain(Js, Q, Up1, P, Ch) ).
+%% ... an #include in an `extern "C"' block or in a namespace's braces among them (1.6.42), as clang++ names its chain
+dr_include_item(Is, I) :- member(I0, Is), ( I0 = include(_, _, _) -> I = I0 ; ( I0 = extern_c(_, Js) ; I0 = namespace(_, _, Js) ), is_list(Js) -> dr_include_item(Js, I) ).
 dr_included_from(F) :- nb_current('$dr_inc_chains', Cs), memberchk(F-Ch, Cs), !, forall(member(X-L, Ch), ( write('In file included from '), write(X), write(':'), write(L), write(':'), nl )).
 dr_included_from(_).
 %% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the

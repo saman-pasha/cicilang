@@ -1277,14 +1277,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the read, `dr_included_from/1` in `dr_error_as/4`; `bin/cicilang` passes the lines), as clang leads its own: `In file
   included from main.c:1:`, the outermost first, a line for each header between, each at the line of its `#include` in
   the file that holds it -- an error of the check or of the lowering, a stopped header's, an unknown type name's; the
-  error stood alone. A HEADER OF THE PROGRAM'S OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS
-  THE BUILD AT THE HEADER'S LINE (1.6.36; `dr_own_header_stop/1`, `dr_own_stop_in/4`), in the file's own words, `syntax
-  error: could not read this item (gave up near line N)`, the read of a header that the program includes or that such a
-  header includes: the build went on, and `return 1 +;` in a function of `syn.h` was `call to undeclared function
-  'bad2'` at the user's line with a note of the stopped read, where clang says `./syn.h:1:35: error: expected
-  expression`. The raw read stops at what it does not read and the preprocessed read takes the header then (the topic of
-  includes): where that one stops too, the text is no C that the reader reads. A library header's stop is the note's,
-  below, and C++ reads its headers otherwise. The driver gate's two checks. (1.6.36)
+  error stood alone. An `#include` in a C++ `extern "C"` block or in a namespace's braces is in the chain too (1.6.42,
+  `dr_include_item/2`), as clang++ names it, where the chain stopped at the file's top level. A HEADER OF THE PROGRAM'S
+  OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS THE BUILD AT THE HEADER'S LINE (1.6.36; `dr_own_header_stop/1`,
+  `dr_own_stop_in/4`), in the file's own words, `syntax error: could not read this item (gave up near line N)`, the read
+  of a header that the program includes or that such a header includes: the build went on, and `return 1 +;` in a
+  function of `syn.h` was `call to undeclared function 'bad2'` at the user's line with a note of the stopped read, where
+  clang says `./syn.h:1:35: error: expected expression`. The raw read stops at what it does not read and the
+  preprocessed read takes the header then (the topic of includes): where that one stops too, the text is no C that the
+  reader reads. A library header's stop is the note's, below, and C++ reads its headers otherwise. The driver gate's two
+  checks. (1.6.36)
 - **A HEADER THAT WAS NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290; `dr_unread_notes/2`,
   `dr_unread_in/3`): the include layer goes on over a file that it does not find (`missing`), over a header that no read
   takes (`unreadable`) and over one whose read stopped (`partial`), with no message (the topic of includes), and the
@@ -2768,13 +2770,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   items of the global scope and of its `extern "C"` blocks, are clang++'s `redefinition of 't' as different kind of
   symbol` at the later one's line; `int t(void); int t;` was built, and other pairs were refused in LLVM's words or `not
   lowered yet: call(id(t))`. A function's overloads and its templates are one kind, a class's and an enumeration's tag
-  no name of these. A HEADER OF THE PROGRAM'S OWN is noted before the items after it (1.6.28; `cpp_kind_seed/3`): `int
-  t(void);` in the header and `int t;` in the file built; a clash inside a header has no line of the file, and is noted
-  only -- the header keeps its first kind, so that the file's own declaration of the other is refused at its line, as
-  clang++'s second error stands (1.6.32; `cpp_kind_first/3`). A namespace's `extern "C"` block is the namespace's scope
-  (`cpp_kind_walk_ns/4`; 1.6.32's body). A NAMESPACE'S NAMES ARE ITS OWN SCOPE'S, ITS BLOCKS ONE (1.6.28;
-  [namespace.def]/2; `cpp_kind_walk_ns/4`): `int t();` and `int t;` in two blocks of one namespace, or in one, built,
-  and are refused so now; a nested namespace is its own scope. The driver gate's ten bodies and ten. (1.6.24, 1.6.28)
+  no name of these. A HEADER OF THE PROGRAM'S OWN IS WALKED WHERE IT STANDS, AS THE FILE'S RUN KEPT IT (1.6.28, 1.6.42;
+  `cpp_live_units/2`, `cpp_kind_in/2`, `cpp_redef_throw/2`), and a clash in it is refused at the header's line, the
+  header named as the `#include` found it, `./h.h:4: error: redefinition of 'f' as different kind of symbol` after
+  clang++'s `In file included from` lines: `int f(int x); int f;` in the header, and `int t;` in the file before an
+  `#include` whose `int t(void);` clashes, built through 1.6.41. The reader reads such a header at each `#include`, raw,
+  so a guarded header's second inclusion, a `#pragma once` one's and both arms of its conditionals stand among the
+  unit's items: the run of the file records the lines that it keeps of each, as C's run does (`ccl_live_top/2`,
+  `pp_live_end/1`, `'$cpp_live'`), and the walk takes a header's item only where a range holds its line, a header in an
+  `extern "C"` block too. A header that the run did not run -- a macro file's C header, which the reader includes -- is
+  no text of the program's, as in C, and is not walked. Through 1.6.41 a header was noted before the items after it with
+  no refusal of its own (1.6.28), each name keeping its first kind (1.6.32), as the walk's note keeps it now
+  (`cpp_kind_note/3`). A namespace's `extern "C"` block is the namespace's scope (`cpp_kind_walk_ns/4`; 1.6.32's body).
+  A NAMESPACE'S NAMES ARE ITS OWN SCOPE'S, ITS BLOCKS ONE (1.6.28; [namespace.def]/2; `cpp_kind_walk_ns/4`): `int t();`
+  and `int t;` in two blocks of one namespace, or in one, built, and are refused so now; a nested namespace is its own
+  scope. The driver gate's ten bodies and ten. (1.6.24, 1.6.28)
 - IN C++ A SECOND DEFINITION AT FILE SCOPE IS REFUSED (1.6.24; [basic.def.odr]/1; `cpp_redef_walk/3`, beside the walk
   above), in clang++'s words at the second one's line, among the program's own items of the global scope and of its
   `extern "C"` blocks: a function of one name and one list of parameter types (`cpp_redef_sig/3`: each type adjusted as
@@ -2783,8 +2793,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   is a definition --, `redefinition of 'x'`, and one declared again with another type, C's words; a class, a union, an
   enumeration and a scoped one with two bodies, `redefinition of 'S'`. A function was LLVM's `invalid redefinition of
   function 'f'` at no line, an object or a class built with the first. A declaration and its definition, an object's
-  `extern` declaration, a class declared before its body and overloads build; an instance's function is passed over.
-  The driver gate's twenty-six bodies. (1.6.24)
+  `extern` declaration, a class declared before its body and overloads build; an instance's function is passed over. The
+  driver gate's twenty-six bodies. A HEADER OF THE PROGRAM'S OWN is walked as the kinds' walk walks it (1.6.42): a
+  second definition in it, or one beside the file's, is refused at the second one's line, the header named, `./rd.h:2:
+  error: redefinition of 'f'`, and an unguarded header included twice so; a header's two definitions built with the
+  first one's body, and one beside the file's was LLVM's `invalid redefinition of function`. A guarded header, a
+  `#pragma once` one included twice, a header in a header and a header's dead arms build. The driver gate's check of ten
+  bodies, as clang++ 23 refuses and builds them. (1.6.24, 1.6.42)
 - A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C (1.6.7; C17 6.9/3 and /5, 6.9.2/1, 6.7/3, 6.7.2.3/1 and /2,
   6.7.2.2/3; C23 6.7.2.3/1 and 6.2.7/1; `ccl_redefinitions/3` at the end of the file's read, `ccl_redef_check/5`), in
   clang's words at the second one's line. A FUNCTION'S SECOND BODY AND AN OBJECT'S SECOND INITIALIZER, `redefinition of
@@ -14551,29 +14566,43 @@ in the first topic (The ccllib gate).
   functions must be directly called`); a verbose trap's argument that is no constant string -- a value of no pointer to
   characters, the name of an object that is no constant -- (`argument to __builtin_verbose_trap must be a pointer to a
   constant string`) or one that holds a `$`, the separator of the frame's name below (`... must not contain $`; clang's
-  `checkBuiltinVerboseTrap`; `ir_trap_strings/2`, `ir_trap_no_string/1`). The strings read are a literal, a cast of one
-  to a pointer, one moved by a constant (`"abc" + 1`, `&"abc"[1]`), a conditional whose condition folds and the
-  function's own name (`__func__`), each up to its first null character; A CONSTANT OBJECT'S NAME IS ITS INITIALIZER'S
-  (1.6.39; `ir_note_trap_init/3`, `ir_note_local_traps/1`, `ir_trap_key/2`), as clang's evaluator reads it: a constant
-  array of characters or a constant pointer to characters, of the file, a static local or a local, kept by its address
-  -- a global's and a static local's symbol, a local's register in its function --, so that a local that hides a global
-  of its name is its own; it was `not lowered yet: verbose_trap_string(m)`. Any other form -- a call -- is refused by
-  name, `not lowered yet: verbose_trap_string(N)` (Not done). The driver gate's two checks against clang 23.
-  UNDER `-g` A VERBOSE TRAP'S CALL IS IN AN ARTIFICIAL FUNCTION, `__clang_trap_msg$CATEGORY$MESSAGE`, inlined at the
-  call's line and column, as clang's debug information makes it (`CreateTrapFailureMessageFor`; `ir_trap_call/2`,
-  `ir_dbg_trap_sp/3`): a `DISubprogram` made once a name in the unit, its quotes, its backslashes and its bytes past
-  ASCII's printable ones spelled `\XX` (`ir_dbg_mesc/2`), and the call's location line 0 of it. A debugger shows it
-  where the program stopped: lldb 18 names the frame `check [inlined] __clang_trap_msg$probe$too big`, for clang 22's
-  build and for this compiler's alike, and gdb 15 shows the call's line alone, for both. LIBC++'S HARDENING MODES ARE
-  WRITTEN ON THEM: an assertion of the fast and the extensive mode is `__builtin_verbose_trap("libc++", "FILE:LINE:
-  assertion ... failed: ...\n")` in libc++ 21 and 22, and `((void)message, __builtin_trap())` in libc++ 18; both were
-  `undeclared`, so `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST` refused every program that indexes a vector
-  (Not done since 0.250). The mode is a `_LIBCPP_` name of the configuration (`pp_cfg_names/1`, the preprocessor's
-  topic), so a header read in one mode is served to no file of another: three programs built in one HOME, with no mode,
-  in the fast mode and with none again, trap in the second alone. `test/c/run/traps.c` (each trap stops a child of its
-  own, whose handler of the trap's signal leaves with a status of its own; on aarch64 too, the cross gate),
-  `test/cpp/run/hardening.cpp` (the fast mode over libc++ 18, 21 and 22: an access in bounds works, nine out of bounds
-  stop), `trapscpp.cpp`; the driver gate's checks of the refusals, of the block's end and of `-g`. (1.6.10)
+  `checkBuiltinVerboseTrap`; `ir_trap_strings/2`, `ir_trap_no_string/1`). BEFORE THESE, EACH ARGUMENT IS ITS `const
+  char *` PARAMETER'S (1.6.42, lowering 210; `ir_trap_param/1`; clang 23's Sema converts a builtin's arguments to the
+  parameters of its signature first): a value that no `const char *` takes is refused in the words of a call's argument
+  -- in C `incompatible pointer types passing 'int[5]' to parameter of type 'const char *'`, an integer's `incompatible
+  integer to pointer conversion passing 'int' ...`, a record's and a floating value's `passing 'struct S' to parameter
+  of incompatible type 'const char *'`; in C++ `cannot initialize a parameter of type 'const char *' with an lvalue of
+  type 'const wchar_t[2]'`, an lvalue or an rvalue by its form, a class's `no viable conversion from 'S' to 'const
+  char *'`. A wide, a UTF-16, a UTF-32 and C++20's UTF-8 literal is named by its array, as clang names it -- C's
+  `int[5]`, `unsigned short[2]`, `unsigned int[2]`, C++'s `const wchar_t[2]`, `const char16_t[2]`, `const char8_t[2]` --
+  and in C a wide element by its integer type, `int *` for `L"ab" + 1`; a null pointer constant passes to the trap's own
+  words; a cast of a wide literal is `must be a pointer to a constant string`, where it was refused by name; a name that
+  nothing declares is `use of undeclared identifier`, where the trap named it as no string. Each was `must be a pointer
+  to a constant string`, clang 21's words, which clang 23 gives after these. The driver gate's two checks, thirteen
+  bodies in C and fourteen in C++, one of them at C++17 too, each as clang 23 and clang++ 23 refuse or build it. The
+  strings read are a literal, a cast of one to a pointer, one moved by a constant (`"abc" + 1`, `&"abc"[1]`), a
+  conditional whose condition folds and the function's own name (`__func__`), each up to its first null character; A
+  CONSTANT OBJECT'S NAME IS ITS INITIALIZER'S (1.6.39; `ir_note_trap_init/3`, `ir_note_local_traps/1`, `ir_trap_key/2`),
+  as clang's evaluator reads it: a constant array of characters or a constant pointer to characters, of the file, a
+  static local or a local, kept by its address -- a global's and a static local's symbol, a local's register in its
+  function --, so that a local that hides a global of its name is its own; it was `not lowered yet:
+  verbose_trap_string(m)`. Any other form -- a call -- is refused by name, `not lowered yet: verbose_trap_string(N)`
+  (Not done). The driver gate's two checks against clang 23. UNDER `-g` A VERBOSE TRAP'S CALL IS IN AN ARTIFICIAL
+  FUNCTION, `__clang_trap_msg$CATEGORY$MESSAGE`, inlined at the call's line and column, as clang's debug information
+  makes it (`CreateTrapFailureMessageFor`; `ir_trap_call/2`, `ir_dbg_trap_sp/3`): a `DISubprogram` made once a name in
+  the unit, its quotes, its backslashes and its bytes past ASCII's printable ones spelled `\XX` (`ir_dbg_mesc/2`), and
+  the call's location line 0 of it. A debugger shows it where the program stopped: lldb 18 names the frame `check
+  [inlined] __clang_trap_msg$probe$too big`, for clang 22's build and for this compiler's alike, and gdb 15 shows the
+  call's line alone, for both. LIBC++'S HARDENING MODES ARE WRITTEN ON THEM: an assertion of the fast and the extensive
+  mode is `__builtin_verbose_trap("libc++", "FILE:LINE: assertion ... failed: ...\n")` in libc++ 21 and 22, and
+  `((void)message, __builtin_trap())` in libc++ 18; both were `undeclared`, so
+  `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST` refused every program that indexes a vector (Not done since
+  0.250). The mode is a `_LIBCPP_` name of the configuration (`pp_cfg_names/1`, the preprocessor's topic), so a header
+  read in one mode is served to no file of another: three programs built in one HOME, with no mode, in the fast mode and
+  with none again, trap in the second alone. `test/c/run/traps.c` (each trap stops a child of its own, whose handler of
+  the trap's signal leaves with a status of its own; on aarch64 too, the cross gate), `test/cpp/run/hardening.cpp` (the
+  fast mode over libc++ 18, 21 and 22: an access in bounds works, nine out of bounds stop), `trapscpp.cpp`; the driver
+  gate's checks of the refusals, of the block's end and of `-g`. (1.6.10)
 - `__builtin_expect(e, c)` and `__builtin_expect_with_probability(e, c, p)` answer e's value as a `long`, through LLVM's
   `llvm.expect.i64` over c, as clang has them (the probability dropped). Apple's `<assert.h>` writes `assert` over
   `__builtin_expect`, so every program of a Mac that asserted met `undeclared(__builtin_expect)`; glibc's does not. In
@@ -17240,15 +17269,23 @@ Declarations topic of the C++ reader).
   words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
   `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
   `register_t`, an `int` of four bytes where clang's is a `long`.
-- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.41 LEAVES (the C reader's topic; GNU's `extern inline` with `gnu_inline`
-  is the function's declaration since 1.6.39, and one without the attribute defined again clang's words since 1.6.41): A
-  HEADER OF THE LIBRARY AND A MACRO FILE'S C HEADER are not walked: a
-  function of the program's under the name of a function that such a header defines builds with one body, and two of the
-  program's own macro files' C headers that define one helper with no shared guard build with the first one's --
-  ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two macro files of one
+- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.42 LEAVES (the C reader's topic; GNU's `extern inline` with `gnu_inline`
+  is the function's declaration since 1.6.39, one without the attribute defined again clang's words since 1.6.41, and in
+  C++ a header of the program's own walked since 1.6.42): A HEADER OF THE LIBRARY AND A MACRO FILE'S C HEADER are not
+  walked: a function of the program's under the name of a function that such a header defines builds with one body, and
+  two of the program's own macro files' C headers that define one helper with no shared guard build with the first one's
+  -- ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two macro files of one
   predicate that a process loaded (the bullet below) still make one function two times with no word. IN C++ the walk is
-  the desugaring's since 1.6.24, over the file's own items: a namespace's two definitions, and a header's, are LLVM's to
-  meet. (A variadic overload beside its plain twin is an overload of its own since 1.6.38.)
+  the desugaring's since 1.6.24, over the file's own items and, since 1.6.42, its own headers' as the run kept them: a
+  namespace's two definitions are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own
+  since 1.6.38.)
+- C++: WHAT 1.6.42'S WALK OF A HEADER LEAVES (the C reader's topic of the kinds and of the second definitions). A HEADER
+  THAT THE RUN DID NOT RUN IS DESUGARED STILL: a header of the program's own whose guard the file defined first,
+  `#define G_H` before `#include "g.h"`, is LLVM's `invalid redefinition of function 'gf'` where the file defines the
+  header's function again, and clang++ builds it -- the walks take such a header as the run kept it, none of it, but the
+  desugaring takes the reader's items, which the read of the header holds whole; C builds it (`ir_header_defs/2`). A
+  HEADER IN A NAMESPACE'S BRACES is the namespace's text, put in place (0.310), and a clash in it is refused at the
+  `#include`'s line of the file, where clang++ names the header's line, `./h.h:2:5`.
 ### C++ language
 
 - C++: A STATIC MEMBER FUNCTION WITH AN ELLIPSIS TAKEN AS A VALUE IS REFUSED BY NAME (found at 1.6.38): `not lowered
@@ -17316,10 +17353,6 @@ Declarations topic of the C++ reader).
   definitions of one name on one line the plain one marks both. A throw caught in a constant evaluation (C++26's P3068)
   and a construction through a VTT (a class with a virtual base, which has no constexpr constructor) are refused in a
   static assertion, as clang++ 22 refuses them: no limit.
-- A NAME OF THE PROGRAM'S OWN HEADER DECLARED AGAIN AS ANOTHER KIND OF SYMBOL IN C++, WHAT 1.6.28 LEAVES (0.298's probes,
-  narrowed at 1.6.24 and 1.6.28, which refuse it among the file's own items, the program's headers' before them and a
-  namespace's blocks): a clash inside a header of the program's builds, since its line is no line of the file that the
-  words give.
 - THE OPERANDS OF C++'S BINARY OPERATORS ARE NOT ALL ASKED (1.6.1, narrowed at 1.6.28, which asks the pairs that no
   guess makes): two pointers added, two pointers to incompatible types subtracted, and a pointer compared with an
   integer, which C refuses in clang's words (the lowering's topic), build in C++ over the operands' bits, as through
@@ -17422,14 +17455,13 @@ Declarations topic of the C++ reader).
   (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is
   gated on Linux over libc++ 18, 21 and 22 (the full job: The CI job), on the Intel Mac over libc++ 18 (the C++ job,
   GREEN on 0.252, its first: The Mac's job), and on Apple's arm64 by the driver gate's C++ checks alone.
-- THE VERBOSE TRAP'S LIMITS (1.6.10, narrowed at 1.6.39, whose constant objects' names are their initializers'; the
-  lowering's topic): a call that folds to a string (`v.data()` of a constexpr `string_view`), which clang's evaluator
-  reads, is refused by name, `not lowered yet: verbose_trap_string(call)`: the lowering folds no call. A wide or a UTF-8
-  literal is refused in clang 21's words, `must be a pointer to a constant string`, where clang 22 names the types
-  (`incompatible pointer types passing 'int[5]' to parameter of type 'const char *'`; in C++ `cannot initialize a
-  parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'`). In C++ `auto f = __builtin_trap;` has
-  clang's words, `builtin functions must be directly called`, since 1.6.29; and C++'s `-fsyntax-only`, which stops after
-  the reader, refuses no misuse of a trap, where a build does.
+- THE VERBOSE TRAP'S LIMITS (1.6.10, narrowed at 1.6.39, whose constant objects' names are their initializers', and at
+  1.6.42, whose arguments are their `const char *` parameters' in clang 23's words; the lowering's topic): a call that
+  folds to a string (`v.data()` of a constexpr `string_view`), which clang's evaluator reads, is refused by name, `not
+  lowered yet: verbose_trap_string(call)`: the lowering folds no call. Clang names an argument's column, which the
+  lowering does not keep. In C++ `auto f = __builtin_trap;` has clang's words, `builtin functions must be directly
+  called`, since 1.6.29; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap, where a
+  build does.
 - THE WORDS OF A VOID VALUE FOR A CLOSURE ARE NOT CLANG'S WHOLE (found at 1.6.14, narrowed at 1.6.41, whose void
   variables of a `typeof` or a `decltype` type name the type as written; a void value through `printf`'s ellipsis has
   the format's type since 1.6.27): a closure called with a void value is `cannot initialize a parameter of type 'int'

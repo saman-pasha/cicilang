@@ -358,6 +358,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.39 | a dead branch, gnu_inline, a trap's constant objects, a namespace's sets, a compound literal's storage | a call in a branch that clang's code generation drops is none; GNU's extern inline with gnu_inline is a declaration; a verbose trap's string through a constant object's name is its initializer's; a namespace's overload set named as a value meets its target; a C++ compound literal's storage class is clang++'s refusal; a braced string literal sizes its array (reader 219, lowering 208) |
 | 1.6.40 | GCC's weak, alias and section | GCC's weak, alias and section are qualifiers of the declarator's type, spelled as clang spells them -- define weak, weak and extern_weak globals and declarations, an alias's line, a section --, in C and in C++, where a leading attribute's notes carry them (reader 220, lowering 209) |
 | 1.6.41 | an extern inline's words, a void typeof's words | an extern inline definition defined again is clang's words of a GNU mode; a void variable of a typeof or a decltype type names the type as written, as clang's words do (reader 221, lowering 209) |
+| 1.6.42 | the verbose trap's arguments as its parameters, a C++ header's clashes and second definitions | a verbose trap's argument is its const char * parameter's first, in clang 23's words; a C++ header of the program's own is walked for a clash and a second definition as the file's run kept it (reader 221, lowering 210) |
 
 ## M5 — the C++ mode
 
@@ -26715,3 +26716,83 @@ port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.
 - RULES.md (the rules in their topics; Not done: two records narrowed), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.41, the reader 221 and the lowering 209.
+
+## 1.6.42 — the verbose trap's arguments as its parameters, a C++ header's clashes and second definitions
+
+**1.6.42: at the user's word "Do many of the not done tasks", after 1.6.41: two records of Not done closed or narrowed
+-- the verbose trap's words for a wide literal, clang 23's, and a clash in a header of the program's own in C++ -- each
+against clang 23 or clang++ 23, a record of a second definition narrowed, and one new. The chain ran over 1.6.41's
+commit (below); this step was committed with its nets and its broken copies, and claims nothing GREEN of the chain.**
+
+1. C AND C++: A VERBOSE TRAP'S ARGUMENT IS ITS `const char *` PARAMETER'S FIRST (lowering 210; `ir_trap_param/1`,
+   `ir_trap_arg_type/2`, `ir_trap_wide/3`, `ir_trap_misfit/3`; clang 23's Sema converts a builtin's arguments to the
+   parameters of its signature before checkBuiltinVerboseTrap reads them): a value that no `const char *` takes is
+   refused in the words of a call's argument -- in C `incompatible pointer types passing 'int[5]' to parameter of type
+   'const char *'`, `incompatible integer to pointer conversion passing 'int' ...` and `passing 'struct S' to parameter
+   of incompatible type 'const char *'`; in C++ `cannot initialize a parameter of type 'const char *' with an lvalue of
+   type 'const wchar_t[2]'`, and a class's `no viable conversion from 'S' to 'const char *'`. A wide, a UTF-16, a UTF-32
+   and C++20's UTF-8 literal is named by its array as clang names it, C's `int[5]`, `unsigned short[2]` and `unsigned
+   int[2]`, C++'s `const wchar_t[2]`, `const char16_t[2]` and `const char8_t[2]`; in C a wide element is its integer
+   type. Each was `argument to __builtin_verbose_trap must be a pointer to a constant string`, clang 21's words, which
+   Not done's record held for clang 22's; clang 23 gives them after these, and a null pointer constant still reaches
+   them.
+2. C AND C++: A TRAP'S ARGUMENT THAT NOTHING DECLARES IS `use of undeclared identifier 'nosuch'`, where the trap named
+   it as no string, `not lowered yet: verbose_trap_string(nosuch)`; and a cast of a wide literal, `(const char *) L"x"`,
+   is clang's `must be a pointer to a constant string`, where it was refused by name (`ir_trap_no_string/1`).
+3. C++: A HEADER OF THE PROGRAM'S OWN IS WALKED FOR A CLASH AND A SECOND DEFINITION, AS THE FILE'S RUN KEPT IT
+   (`cpp_live_units/2`, `cpp_kind_in/2`, `cpp_redef_throw/2`; `ccl_live_top/2`'s record of the run, `'$cpp_live'`, in
+   C++ too): `int f(int x); int f;` in a header, and `int t;` in the file before an `#include` whose `int t(void);`
+   clashes, are clang++'s `./kh.h:4: error: redefinition of 'f' as different kind of symbol` at the header's line, the
+   header named after clang++'s `In file included from` line; a header's second definition of a function, or one beside
+   the file's, `./rd.h:2: error: redefinition of 'f'`. The clashes built, a header's two definitions with the first
+   one's body, and one beside the file's met LLVM's `invalid redefinition of function`. The first form of the rule
+   walked every inclusion, and refused a guarded header and a `#pragma once` one included twice, which clang++ builds:
+   the reader reads such a header at each `#include`, so the walks take a header's item only where the run kept its
+   line, as C's walk has since 1.6.7. Through 1.6.41 a header was noted with no refusal of its own (1.6.28's
+   `cpp_kind_seed/3`), and that road is out: a header that the run did not run -- a macro file's C header -- is no text
+   of the program's, as in C.
+4. C++: AN `#include` IN AN `extern "C"` BLOCK OR IN A NAMESPACE'S BRACES IS IN THE CHAIN OF `In file included from`
+   LINES (`dr_include_item/2`), as clang++ names it: item 3's refusal in a header that an `extern "C"` block includes
+   stood alone, since the chain stopped at the file's top level.
+5. FOUND: in C++ a header whose guard the file defined first is desugared still, so the file's own definition of the
+   header's function meets LLVM's `invalid redefinition of function`, where clang++ and this compiler's C build it; and
+   a header in a namespace's braces, the namespace's text put in place (0.310), is refused at the `#include`'s line of
+   the file, where clang++ names the header's. Not done records them.
+
+The driver gate holds items 1 to 4: a check of thirteen bodies in C and one of fourteen in C++, one of them at C++17
+too, each as clang 23 or clang++ 23 refuses or builds it, and a check of ten headers -- six refused at the header's
+line, one of them in an `extern "C"` block with its chain, a guarded header, a `#pragma once` one, a header in a header
+and a namespace's and an `extern "C"` block's arms that build. 1.6.32's check of a header whose name clashes inside it
+held the file's line, where the header kept its first kind: it holds the header's line now, as clang++ refuses it -- the
+driver gate's first run over the copy was RED at it.
+
+THE CHAIN OVER 1.6.41'S COMMIT, over LLVM 23 and libc++ 23, a fresh HOME, the toolchain check strict: the toolchain
+check GREEN in 1 s, the flow gate GREEN in 503 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in 39 s
+(482 ok), the driver gate GREEN in 308 s (187 ok), the objects gate GREEN in 6 s (29 ok), M0's proof GREEN, the cross
+gate GREEN in 306 s (294 ok), the library read GREEN in 207 s (24 ok), the C++ gate GREEN in 1211 s (1275 ok) and the
+ccllib gate GREEN in 1371 s (625 ok: 36 programs in three runs, 189 refused, 21 alone), 3956 s in all.
+
+THE NETS. Over the copy: the flow gate GREEN in 477 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+35 s (482 ok), the driver gate GREEN in 321 s (190 ok) -- RED at its first run, at 1.6.32's check above --; the pool of
+64 C++ run fixtures, the 52 of 1.6.41's pool, the ones over the program's own headers and over the traps, each built as
+the C++ gate builds it over a HOME of its own, 64 the same, in 100 s. THE BROKEN COPIES: twenty-four at first, each run
+from a copy of the copy over a fresh HOME; twenty were caught. Four were caught by nothing: TA11, which took the C++
+guard off a UTF-8 literal's array -- C's is no misfit of the pointer test, so the guard held nothing and is out --; KH9,
+the filter of a namespace's items -- the read of a C++ header drops its dead arms itself, so that only a guarded
+header's second inclusion reaches the walk, and the filter is out --; KH7, which kept a header that the run did not run
+on 1.6.28's road, noted with no refusal -- such a header is dropped now, as C's walk drops it, and that road is out --;
+and KH10, the filter of an `extern "C"` block's items, which the check holds now with a header included in such a block.
+The second set, twenty-one over the changed code, and DI1, item 4's walk into the blocks, were all caught. Over the work
+tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_ir.pl` (`ir_trap_strings/2`, `ir_trap_param/1`, `ir_trap_arg_type/2`, `ir_trap_wide/3`,
+  `ir_trap_wide_elem/4`, `ir_trap_c_wide/2`, `ir_trap_misfit/3`, `ir_trap_cpp_misfit/2`, `ir_trap_lvalue/1`,
+  `ir_trap_no_string/1`, `ir_trap_wide_lit/1`; the lowering 210); `library/ccl_driver.pl` (two texts,
+  `dr_include_chain/5`, `dr_include_item/2`); `library/ccl_cpp.pl` (`cpp_kind_clashes/1`, `cpp_kind_walk/3`,
+  `cpp_kind_in/2`, `cpp_live_units/2`, `cpp_live_items/5`, `cpp_live_item/6`, `cpp_live_at/2`, `cpp_kind_note/3`,
+  `cpp_redef_walk/3`, `cpp_redef_throw/2`; `cpp_kind_seed/3` and `cpp_kind_first/3` out); `library/ccl_include.pl`
+  (`ccl_live_top/2`); `test/driver.sh` (three checks); the module's version.
+- RULES.md (the rules in their topics; Not done: one record out, two narrowed, one new), HISTORY.md, CLAUDE.md (the
+  versions).
+
+The module 1.6.42, the reader 221 and the lowering 210.
