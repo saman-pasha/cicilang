@@ -321,7 +321,7 @@ undecl23_2.c:2: error: use of undeclared identifier 'later'"
 check "a name that nothing declares is refused in clang's words at its line (1.1.2): a call, a value, an assignment's left side, printf with no <stdio.h>, a call at C23; an enumerator called keeps the words of a call of no function" "$(n=0; for body in 'int main(void) {\n  int x = 1;\n  return nowhere(x);\n}' 'int main(void) {\n  int x = 1;\n  return x + nothing;\n}' 'int main(void) {\n  nothing = 1;\n  return 0;\n}' 'int main(void) {\n  printf("x");\n  return 0;\n}' 'enum { B = 1 };\nint main(void) {\n  return B(1);\n}'; do n=$((n + 1)); printf '%b\n' "$body" > nodecl$n.c; "$CICILI" -std=c17 -fsyntax-only nodecl$n.c 2>&1 | head -1; done; printf '%b\n' 'int main(void) {\n  int x = 1;\n  return nowhere(x);\n}' > nodecl6.c; "$CICILI" -std=c23 -fsyntax-only nodecl6.c 2>&1 | head -1)" "nodecl1.c:3: error: call to undeclared function 'nowhere'; ISO C99 and later do not support implicit function declarations
 nodecl2.c:3: error: use of undeclared identifier 'nothing'
 nodecl3.c:2: error: use of undeclared identifier 'nothing'
-nodecl4.c:2: error: call to undeclared function 'printf'; ISO C99 and later do not support implicit function declarations
+nodecl4.c:2: error: call to undeclared library function 'printf' with type 'int (const char *, ...)'; ISO C99 and later do not support implicit function declarations
 nodecl5.c:3: error: not lowered yet: call(id('B')) (function main)
 nodecl6.c:3: error: use of undeclared identifier 'nowhere'"
 check "a unit so refused is not kept: a second build is refused again, and the file put right builds and runs (1.1.2)" "$(printf 'int g0;\nstatic int f(void) { return later(2); }\nstatic int later(int a) { return a; }\nint main(void) { return f(); }\n' > undeclkb.c; "$CICILI" -c undeclkb.c -o undeclkb.o 2>&1 | head -1; "$CICILI" -c undeclkb.c -o undeclkb.o 2>&1 | head -1; sleep 1; printf 'int g0;\nstatic int later(int a);\nstatic int f(void) { return later(2); }\nstatic int later(int a) { return a; }\nint main(void) { return f(); }\n' > undeclkb.c; "$CICILI" undeclkb.c -o undeclkb && ./undeclkb; echo "exit $?")" "undeclkb.c:2: error: call to undeclared function 'later'; ISO C99 and later do not support implicit function declarations
@@ -647,6 +647,85 @@ rdf23.cpp: builds
 rdf24.cpp: builds
 rdf25.cpp: builds
 rdf26.cpp: builds"
+# C++: A RETURN'S INTEGER AND POINTER (1.6.25; cpp_return_int_ptr/1): the return object's words, an lvalue's or an rvalue's;
+# a literal 0, nullptr, a cast, an auto result and a bool result build
+check "C++: a return of a pointer for an integer result, or of an integer for a pointer, is refused in clang++'s words (1.6.25)" "$(n=0; for body in 'long f1(int *q) { return q; }' 'int *f2(int x) { return x; }' 'int *f3() { return 0; }' 'int *f4() { return nullptr; }' 'long f5(int *q) { return (long)q; }' 'auto f6(int *q) { return q; }' 'bool f8(int *q) { return q; }' 'long f9(char *s) { return "ab"; }' 'struct S { long v; long get(int *q) const { return q; } };'; do n=$((n + 1)); printf '%s\nint main() { return 0; }\n' "$body" > rti$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c rti$n.cpp -o x$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(rti[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "rti$n.cpp: builds"; done)" "rti1.cpp:1: error: cannot initialize return object of type 'long' with an lvalue of type 'int *'
+rti2.cpp:1: error: cannot initialize return object of type 'int *' with an lvalue of type 'int'
+rti3.cpp: builds
+rti4.cpp: builds
+rti5.cpp: builds
+rti6.cpp: builds
+rti7.cpp: builds
+rti8.cpp:1: error: cannot initialize return object of type 'long' with an lvalue of type 'const char[3]'
+rti9.cpp:1: error: cannot initialize return object of type 'long' with an lvalue of type 'int *'"
+# C: A JUMP INTO A CLEANUP'S SCOPE (1.6.25; ck_jump_bypass/3, ck_switch_defers/2): a forward goto past the cleanup's
+# variable and a case label after it, a nested block's too, in clang's words at the goto's and the label's lines; a jump
+# out of the scope and C's jump past a plain initialization build
+check "C: a jump into a cleanup's scope is refused in clang's words, a goto's and a case label's, and what C takes builds (1.6.25)" "$(n=0; for body in 'if (argc > 5) goto in; { int s __attribute__((cleanup(fr))) = 4; in: return s; }' 'switch (argc) { case 1: { int s __attribute__((cleanup(fr))) = 4; (void)s; case 2: return 0; } } return 1;' 'switch (argc) { case 1: { int s __attribute__((cleanup(fr))) = 4; (void)s; return 2; } case 2: return 0; } return 1;' 'if (argc > 5) goto out; { int s __attribute__((cleanup(fr))) = 4; if (s > argc) goto out; } out: return 0;' 'if (argc > 5) goto in; { int k = 4; in: return k; }'; do n=$((n + 1)); printf 'static void fr(int *p) { (void)p; }\nint main(int argc, char **argv) {\n  (void)argv;\n  %s\n}\n' "$body" > jcl$n.c; o=$("$CICILI" -std=c17 -fsyntax-only jcl$n.c  2>&1 | grep -m1 'error:' | sed 's/^\(jcl[0-9]*\.c:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "jcl$n.c: builds"; done)" "jcl1.c:4: error: cannot jump from this goto statement to its label
+jcl2.c:4: error: cannot jump from switch statement to this case label
+jcl3.c: builds
+jcl4.c: builds
+jcl5.c: builds"
+# C++: A JUMP PAST A LOCAL WITH A DESTRUCTOR OR AN INITIALIZER ([stmt.dcl]/3; 1.6.25): a forward goto and a case label,
+# clang++'s words; a local with no initializer, a jump out of its scope and a backward goto build
+check "C++: a jump past a local's destructor or its initialization is refused in clang++'s words, and a jump out or back builds (1.6.25)" "$(n=0; for body in 'if (argc > 5) goto in; { D d; in: return 0; }' 'switch (argc) { case 1: { D d; case 2: return 0; } } return 1;' 'if (argc > 5) goto in; { int x = 1; in: return x; }' 'switch (argc) { case 1: int x = 1; (void)x; case 2: return 0; } return 1;' 'if (argc > 5) goto out; { D d; if (argc > 6) goto out; } out: return 0;' 'switch (argc) { case 1: { D d; return 1; } case 2: return 0; } return 1;' 'if (argc > 5) goto in; int y; { int x; in: x = 2; y = x; return y; }' 'int n = 0; again: int k = n + 1; n = k; if (n < 3) goto again; return n;'; do n=$((n + 1)); printf 'struct D { ~D() {} };\nint main(int argc, char **) {\n  %s\n}\n' "$body" > jcp$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c jcp$n.cpp -o x$n.o 2>&1 | grep -m1 'error:' | sed 's/^\(jcp[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "jcp$n.cpp: builds"; done)" "jcp1.cpp:3: error: cannot jump from this goto statement to its label
+jcp2.cpp:3: error: cannot jump from switch statement to this case label
+jcp3.cpp:3: error: cannot jump from this goto statement to its label
+jcp4.cpp:3: error: cannot jump from switch statement to this case label
+jcp5.cpp: builds
+jcp6.cpp: builds
+jcp7.cpp: builds
+jcp8.cpp: builds"
+# C: A BLOCK'S `extern' DECLARATION (1.6.25; ccl_redef_block_externs/4): of another type than the file's object, or
+# than another block's, clang's words, a later file-scope declaration held to it; the same type and a bound builds
+check "C: a block's extern declaration of another type than its object's is refused in clang's words, and the same type builds (1.6.25)" "$(n=0; for pair in 'long x;|void f(void) { extern int x; (void)x; }' 'void f(void) { extern long x; (void)x; }|int x;' 'int x;|void f(void) { extern int x; (void)x; }' 'void f(void) { extern int x; (void)x; }|void g(void) { extern long x; (void)x; }' 'int x;|void f(void) { { extern long x; (void)x; } }' 'int x;|void f(void) { long x = 1; { extern long x; (void)x; } }' 'static int x;|void f(void) { extern int x; (void)x; }' 'int a[];|void f(void) { extern int a[3]; (void)a; }'; do n=$((n + 1)); printf '%s\n%s\nint main(void) { return 0; }\n' "${pair%%|*}" "${pair#*|}" > bex$n.c; o=$("$CICILI" -std=c17 -fsyntax-only bex$n.c  2>&1 | grep -m1 'error:' | sed 's/^\(bex[0-9]*\.c:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "bex$n.c: builds"; done)" "bex1.c:2: error: redeclaration of 'x' with a different type: 'int' vs 'long'
+bex2.c:2: error: redefinition of 'x' with a different type: 'int' vs 'long'
+bex3.c: builds
+bex4.c:2: error: redeclaration of 'x' with a different type: 'long' vs 'int'
+bex5.c:2: error: redeclaration of 'x' with a different type: 'long' vs 'int'
+bex6.c:2: error: redeclaration of 'x' with a different type: 'long' vs 'int'
+bex7.c: builds
+bex8.c: builds"
+# C: THE LANGUAGE'S OWN `defer' KEEPS THE DEFER RULE'S WORDS (1.6.25): clang knows no such form, and its words are the rule's,
+# a goto's and a case label's
+check "C: a jump over the language's own defer keeps the defer rule's words, a goto's and a case label's (1.6.25)" "$(n=0; for body in 'if (argc > 5) goto in; { char *s = malloc(4); defer(s) { free(s); } in: return 0; }' 'switch (argc) { case 1: { char *s = malloc(4); defer(s) { free(s); } case 2: return 0; } } return 1;'; do n=$((n + 1)); printf '#include <stdlib.h>\nint main(int argc, char **argv) {\n  (void)argv;\n  %s\n}\n' "$body" > jdf$n.c; o=$("$CICILI" -std=c17 -fsyntax-only jdf$n.c 2>&1 | grep -m1 'error:'); [ -n "$o" ] && echo "$o" || echo "jdf$n.c: builds"; done)" "jdf1.c:4: error: goto over a defer (or a local with a destructor) to label 'in' in goto(in) (function main)
+jdf2.c:4: error: goto over a defer (or a local with a destructor) to label 'case 2' in case(int(2),return(4,int(0))) (function main)"
+# C: A K&R DEFINITION (1.6.25; ccl_knr_check/3): at C23, which removed it, clang's `unknown type name 'a''; before C23
+# a name of its list that no declaration follows, clang's implicit int words; a list whose names each are declared builds
+check "C: a K&R definition is refused at C23 and a parameter of no declaration since C99, in clang's words (1.6.25)" "$(n=0; for std in c23 c17; do for body in 'int f(a) int a; { return a; }' 'int f(a, b) int a; char *b; { return a + (b != 0); }' 'int f(a) { return a; }' 'int f(a, b) int b; { return a + b; }'; do n=$((n + 1)); printf '%s\nint main(void) { return 0; }\n' "$body" > knr$n.c; o=$("$CICILI" -std=$std -fsyntax-only knr$n.c  2>&1 | grep -m1 'error:' | sed 's/^\(knr[0-9]*\.c:[0-9]*\):[0-9]*:/\1:/; s/ \[-W[a-z-]*\]$//'); [ -n "$o" ] && echo "$o" || echo "knr$n.c: builds"; done; done)" "knr1.c:1: error: unknown type name 'a'
+knr2.c:1: error: unknown type name 'a'
+knr3.c:1: error: unknown type name 'a'
+knr4.c:1: error: unknown type name 'a'
+knr5.c: builds
+knr6.c: builds
+knr7.c:1: error: parameter 'a' was not declared, defaults to 'int'; ISO C99 and later do not support implicit int
+knr8.c:1: error: parameter 'a' was not declared, defaults to 'int'; ISO C99 and later do not support implicit int"
+# C: A CALL OF A FUNCTION MARKED UNAVAILABLE (1.6.25; ccl_unavailable_note/2, ir_unavailable_call/1): clang's words, its
+# message, and the note of the declaration, a use of its name too, C23's bracketed spelling of clang's too; GCC's warning attribute and an unavailable function never
+# used build
+check "C: a call of a function marked unavailable is refused in clang's words with its note, and what clang takes builds (1.6.25)" "$(n=0; for body in 'void g(void) __attribute__((unavailable));\nint main(void) {\n  g();\n  return 0;\n}' 'void h(void) __attribute__((unavailable("gone")));\nint main(void) {\n  h();\n  return 0;\n}' '__attribute__((unavailable("old"))) int q(int);\nint main(void) {\n  return q(1);\n}' 'void k(void) __attribute__((warning("careful")));\nvoid k(void) {}\nint main(void) {\n  k();\n  return 0;\n}' 'void m(void) __attribute__((noreturn, unavailable("x")));\nint main(void) { return 0; }' 'void g(void) __attribute__((unavailable));\nint main(void) {\n  void (*p)(void) = g;\n  return p != 0;\n}' 'void g(void) __attribute__((unavailable));\nvoid g(void) {}\nint main(void) { return 0; }' '[[clang::unavailable]] void g(void);\nint main(void) {\n  g();\n  return 0;\n}'; do n=$((n + 1)); printf "$body\n" > unav$n.c; o=$("$CICILI" -std=c23 -fsyntax-only unav$n.c 2>&1 | grep -E ': (error|note):' | sed 's/^\(unav[0-9]*\.c:[0-9]*\):[0-9]*:/\1:/'); [ -n "$o" ] && echo "$o" || echo "unav$n.c: builds"; done)" "unav1.c:3: error: 'g' is unavailable
+unav1.c:1: note: 'g' has been explicitly marked unavailable here
+unav2.c:3: error: 'h' is unavailable: gone
+unav2.c:1: note: 'h' has been explicitly marked unavailable here
+unav3.c:3: error: 'q' is unavailable: old
+unav3.c:1: note: 'q' has been explicitly marked unavailable here
+unav4.c: builds
+unav5.c: builds
+unav6.c:3: error: 'g' is unavailable
+unav6.c:1: note: 'g' has been explicitly marked unavailable here
+unav7.c: builds
+unav8.c:3: error: 'g' is unavailable
+unav8.c:1: note: 'g' has been explicitly marked unavailable here"
+# C++: A FREE FUNCTION MARKED UNAVAILABLE (1.6.25; ir_unavailable_call/1 over a name that no overload keys): a call and a use
+# of its name, in clang++'s words with the note; one never used builds
+check "C++: a free function marked unavailable is refused in clang++'s words where it is called or named (1.6.25)" "$(n=0; for body in 'void g() __attribute__((unavailable("old")));\nint main() {\n  g();\n  return 0;\n}' '[[clang::unavailable]] int q(int);\nint main() {\n  int (*p)(int) = q;\n  return p != nullptr;\n}' 'void g() __attribute__((unavailable));\nvoid g() {}\nint main() { return 0; }'; do n=$((n + 1)); printf "$body\n" > unavp$n.cpp; o=$("$ROOT/bin/cicilang++" -std=c++17 -c unavp$n.cpp -o x$n.o 2>&1 | grep -E ': (error|note):' | sed 's/^\(unavp[0-9]*\.cpp:[0-9]*\):[0-9]*:/\1:/'); [ -n "$o" ] && echo "$o" || echo "unavp$n.cpp: builds"; done)" "unavp1.cpp:3: error: 'g' is unavailable: old
+unavp1.cpp:1: note: 'g' has been explicitly marked unavailable here
+unavp2.cpp:3: error: 'q' is unavailable
+unavp2.cpp:1: note: 'q' has been explicitly marked unavailable here
+unavp3.cpp: builds"
+# C: A FLEXIBLE ARRAY MEMBER GIVEN A LITERAL (1.6.25; ir_flex_count/2): its bytes and its terminator, `[4 x i8] c"abc\00"',
+# as clang lays it; the run of test/c/run/flexinit.c cannot tell the terminator from the zero after it
+check "C: a flexible array member given a literal holds its bytes and its terminator in the IR, as clang lays it (1.6.25)" "$(printf 'struct T { short k; char s[]; };\nstruct T w = {2, "abc"};\nint main(void) { return w.s[3]; }\n' > flx.c; "$CICILI" -emit-llvm -c flx.c && grep '^@w = ' flx.ll | grep -c '\[4 x i8\] c"abc\\00"')" "1"
 # A VOID VALUE IS NO VALUE (1.6.14; C17 6.3.2.2/1): an initializer, an assignment, an argument, a return, an operand, a
 # condition, a cast, an argument through an ellipsis, a member's item, a step, an indirection, an address, a subscript and
 # a switch over one are refused in clang's words at the line, and so are the operands beside them that C refuses: a switch

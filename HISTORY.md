@@ -341,6 +341,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.22 | Twelve records of Not done closed, three narrowed, each against clang; cocolog 3.78.21 | at the user's words: GNU's `x ?: y`, a block's function declarations hiding outer overloads, a call's prvalue no place in C++, a local class defined in its object's declaration, a store through a reference to a pointer, an operator's value no lvalue in C, a call's result's address, a parenthesized callee and the argument's namespace's overloads joined, a member's initializer and a template's body in clang++'s words, a missing and a malformed `#include` refused; C's const places, a constexpr variable over a call or a trap and a C++ condition over a plain struct refused; the folds' arguments converted, an older silent wrong answer; cocolog 3.78.18 to 3.78.21 (reader 211, lowering 191) | committed while its nets ran, at the user's word: flow 522 s and reader 173 GREEN over LLVM 23, the other nine gates running; the copy's driver 117, reader 173 and compile 419, the constant pool 56; 27 broken copies caught, two clauses that none could break taken out, six more running; 1.6.21's ccllib gate over 23 GREEN, 625 |
 | 1.6.23 | C's pointers of incompatible types, C++'s const places, saturating conversions, each against clang | pointers of incompatible types refused in C in clang's words, at the four sites, what clang only warns of taken; C++'s const places refused, the desugaring's own initializations passed over; a constexpr variable over `__builtin_unreachable()` refused; a floating constant out of its integer type's range saturates; an older false refusal of a value through a reference mended; integer types spelled as clang spells them; the library read names a header that the box has not (lowering 192) | committed while its nets ran, at the user's word: the copy's compile 420 and driver 120 GREEN; 1.6.22's nets carried -- eight gates GREEN, the library read RED on the warm of a Mac header, mended; 5 broken copies caught, 8 running |
 | 1.6.24 | Clang's (aka ...), redeclarations in C and C++, const member functions, C++'s integers and pointers | a typedef's type with clang's (aka ...) where the words are clang's; an object declared again with another type refused in C, a second definition and another kind of symbol in C++; a const member function's writes refused, `mutable` marked; a constexpr pointer a const pointer; C++'s integers and pointers refused at an assignment and an initializer; a NaN converted to an integer 0; `-E` stops at its own missing include; a library function's words and header note; the three words that 1.6.23's net found changed mended; cocolog's master taken (reader 212, lowering 193) |
+| 1.6.25 | Jumps past cleanups, destructors and initializations, unavailable functions, K&R at C23, flexible members | a jump into a cleanup's or a destructor's scope or past a C++ initialization in clang's words, a nested block's case label seen; a function marked unavailable refused at its use; a block's extern of another type refused; a K&R definition at C23 and an implicit int refused; a flexible array member's items laid as clang lays them; C++'s return of an integer for a pointer refused; the old check that 1.6.24's net found RED mended; two dead guards taken out (reader 213, lowering 194) |
 
 ## M5 — the C++ mode
 
@@ -25418,3 +25419,78 @@ check strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI jo
   versions, the fixtures).
 
 The module 1.6.24, the reader 212 and the lowering 193.
+
+## 1.6.25 — Jumps past cleanups, destructors and initializations, unavailable functions, K&R at C23, flexible members
+
+**1.6.25: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": six forms of Not done, in four of its records, each now held to clang's or clang++'s answer
+at its line, 1.6.24's nets and broken copies carried, and the old check that 1.6.24's net found RED mended. The step was
+committed while its nets ran: it claims nothing GREEN of them, and the next step's commit carries them.**
+
+1. A JUMP INTO A CLEANUP'S OR A C++ DESTRUCTOR'S SCOPE, OR PAST A C++ INITIALIZATION ([stmt.dcl]/3; `ck_jump_bypass/3`,
+   `ck_jumpless_defer/1`, `ck_initialized_local/2`): such a defer is marked where its frame keeps it, and so is a C++
+   local declared with an initializer, with nothing to run; a forward goto past one is clang's `cannot jump from this
+   goto statement to its label` at the goto's line, a case label after one `cannot jump from switch statement to this
+   case label`. They were the defer rule's words, and a C++ jump past a plain initialization built. A CASE LABEL IN A
+   NESTED BLOCK after the block's defer was not seen at all: `case 1: { D d; case 2: ... }` built, a jump past d's
+   construction (`ck_switch_defers/2` walks the blocks now). The language's own `defer` keeps the rule's words, and the
+   desugaring's own locals, `$...`, are no program's: the copy that marks them refused `jumptemps.cpp`, a switch over
+   temporaries that clang++ builds. `test/cpp/run/jumptemps.cpp`, which clang++ 23 and g++ print alike.
+2. A FUNCTION MARKED UNAVAILABLE (clang's and GCC's `unavailable`; `ccl_unavailable_note/2`, `ir_unavailable_call/1`):
+   the attribute was dropped and a call built; the function's result takes the mark beside noreturn's, and a call or any
+   use of its name is clang's `'g' is unavailable: gone` and its note of the declaration -- GCC's spelling before and
+   after the declarator, and C23's `[[clang::unavailable]]`; in C++ a free function that no overload keys.
+3. C: A BLOCK'S `extern` DECLARATION of an object of another type than the file's (C17 6.2.2/4;
+   `ccl_redef_block_externs/4`): `long x;` and then `extern int x;` in a block built; it is clang's `redeclaration of
+   'x' with a different type`, and a later file-scope declaration is held to the block's type.
+4. C: A K&R DEFINITION AT C23, which removed it, is clang's `unknown type name 'a'`, and since C99 a name of its list
+   that no declaration follows is clang's implicit int words (`ccl_knr_check/3`); both were read, the name an `int`.
+5. A FLEXIBLE ARRAY MEMBER GIVEN ITEMS, GNU's extension that clang and clang++ take (`ir_flex_count/2`): an array of
+   their count, or of a literal's bytes and its terminator, its struct's constant the literal struct of its constants'
+   types, as clang lays it; it was refused, `global_init(arr(none, ...))`. `test/c/run/flexinit.c`, which clang 23 and
+   gcc print alike, and a check of the literal's terminator in the IR, which the run cannot tell.
+6. C++: A RETURN OF A POINTER FOR AN INTEGER RESULT, OR OF AN INTEGER FOR A POINTER (`cpp_return_int_ptr/1`), clang++'s
+   `cannot initialize return object of type 'long' with an lvalue of type 'int *'`; it built.
+7. 1.6.24'S NET RED AT ONE OLD CHECK, MENDED: the driver gate's check of 1.1.2 wanted the old words for `printf` with no
+   `<stdio.h>`, which 1.6.24 made clang's library words; 1.6.24's copy had run its new checks alone. The want is clang's
+   words now.
+8. TWO DEAD GUARDS TAKEN OUT, which 1.6.24's broken copies found caught by nothing: `ir_aka_typedef/2`'s guards of a
+   struct with no tag and of a C++ class's name -- a struct with no tag has no spelling of its own, and a C++ class is
+   no typedef, so the words are the same without them.
+9. A COMMENT MOVED to its clause: `cpp_stmt_/3`'s return of a parenthesized value had its comment at the end of the next
+   clause's line, an older placement that the boundary commit hides.
+
+1.6.24'S NETS, CARRIED. Over LLVM 23 and its work tree, the toolchain check strict: the flow gate 559 s with no finding
+(61 ok), reader 4 s (173 ok) and compile 34 s (421 ok) GREEN; the driver gate RED in 214 s, 130 ok and one failure, item
+7's old check -- the chain stops at a RED gate, so the gates after it ran by hand over the same tree and HOME: objects 5
+s (29 ok), the proof, the cross gate 316 s (277 ok) and the library read 242 s (24 ok) GREEN; the C++ gate's run was
+killed with the container, which restarted, and the ccllib gate did not run -- 1.6.25's net runs both over both steps'
+code. 1.6.24'S BROKEN COPIES: forty-one, thirty-nine caught, each by its own check (the copies over the whole driver
+gate were read by the names of their failures, beside item 7's); the two that nothing caught are item 8's dead guards.
+
+THE BROKEN COPIES, AT THE COMMIT: twenty-one over the copy, each rule of the step broken on purpose -- the return, the
+jumps (the marks of a cleanup's, a destructor's and an initialization's, the `$` locals, the nested blocks, the goto's
+and the case label's), the block externs, the K&R checks, the flexible member's count and its terminator, the
+unavailable attribute's readers and its refusal, and the old check's want: each caught -- the `$` locals' copy first by
+none, then by `jumptemps.cpp`, which was written for it; the terminator's by none of the runs, then by the IR's check;
+the GNU attribute before the declarator's reader by none, then by C23's spelling, which reaches it. Twenty-one of
+twenty-one.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the driver gate's ten new checks, their bodies each against
+clang 23 or clang++ 23 -- nine of the returns, five of the cleanups, eight of the C++ jumps, two of the language's own
+`defer`, eight of the block externs, eight of K&R at two levels, eight of the unavailable attribute in C and three in
+C++, and the IR's terminator --, the two fixtures by cicilang and cicilang++ beside clang, clang++ and gcc or g++, and
+the C fixtures with jumps built as C++ (ten) and the C++ fixtures with jumps (eight), each printing its answer. Over the
+work tree after the port: the toolchain check strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI
+job ran, by the owner's rule of 0.271.
+
+- `library/ccl_check.pl` (`ck_jump_bypass/3`, `ck_bypassed_jumpless/2`, `ck_jumpless_defer/1`, `ck_initialized_local/2`,
+  `ck_switch_defers/2`); `library/ccl_syntax.pl` (`ccl_knr_check/3`, `ccl_redef_block_externs/4`,
+  `ccl_unavailable_note/2`, `ccl_add_inits/3`; the reader 213); `library/ccl_ir.pl` (`ir_flex_count/2`, `ir_gconst_t/5`,
+  `ir_unavailable_call/1`, `ir_aka_typedef/2`; the lowering 194); `library/ccl_cpp_stmt.pl` (`cpp_return_int_ptr/1`);
+  `library/ccl_cpp_expr.pl` (`cpp_int_ptr_term/7`); `library/ccl_driver.pl` (the new words); `test/driver.sh` (ten
+  checks, and the old check's want); `test/c/run/flexinit.c`; `test/cpp/run/jumptemps.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: four records narrowed), HISTORY.md, CLAUDE.md (the
+  versions, the fixtures).
+
+The module 1.6.25, the reader 213 and the lowering 194.

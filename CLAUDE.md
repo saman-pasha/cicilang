@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.24 the versions are: the module 1.6.24 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 212 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 193 (`ccl_lowering_version/1`,
+At 1.6.25 the versions are: the module 1.6.25 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 213 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 194 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -632,7 +632,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             builtinabs.c, clang's integer absolute values, LLVM's llvm.abs (1.6.21); gnucond.c,
                             GNU's conditional with no middle operand, and a statement expression's value (1.6.22);
                             floatsat.c, floating constants that their integer types do not hold, saturated (1.6.23);
-                            nanconst.c, a NaN converted to an integer type in a constant (1.6.24)
+                            nanconst.c, a NaN converted to an integer type in a constant (1.6.24); flexinit.c, flexible
+                            array members given their items at file scope and in a static local (1.6.25)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -746,7 +747,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             constexpr variables and the folds' conversions (1.6.22); refvalues.cpp, values read through
                             local references and returned, and unreachcpp.cpp, the program's __builtin_unreachable()
                             (1.6.23); constmembers.cpp, what a const member function writes, and constexprptrs.cpp,
-                            constexpr pointers, const pointers (1.6.24)
+                            constexpr pointers, const pointers (1.6.24); jumptemps.cpp, jumps past what the desugaring
+                            declares (1.6.25)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

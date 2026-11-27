@@ -388,6 +388,8 @@ dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Tex
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
 dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
+dr_diag(F, not_lowered(jump_bypass(goto)), where(_, line(L))) :- !, dr_error(F, L, ['cannot jump from this goto statement to its label']).   % a jump over a cleanup's or a destructor's scope (1.6.25)
+dr_diag(F, not_lowered(jump_bypass(switch)), where(_, line(L))) :- !, dr_error(F, L, ['cannot jump from switch statement to this case label']).
 dr_diag(F, not_lowered(redefinition(N)), where(_, line(L))) :- !, dr_error(F, L, ['redefinition of ''', N, '''']).   % C++: a second definition at file scope (1.6.24)
 dr_diag(F, not_lowered(redef_type(K, N, A, B)), where(_, line(L))) :- !, dr_error(F, L, [K, ' of ''', N, ''' with a different type: ''', A, ''' vs ''', B, '''']).
 dr_diag(F, not_lowered(kind_redefinition(N)), where(_, line(L))) :- !, dr_error(F, L, ['redefinition of ''', N, ''' as different kind of symbol']).   % C++: a name of the file scope declared again as another kind (1.6.24, cpp_kind_clashes/1)
@@ -422,12 +424,16 @@ dr_diag(F, not_lowered(instance_refused(I, W0)), Where) :- atom(I), dr_inner_wor
 dr_diag(F, not_lowered(undeclared_call(N)), where(_, line(L))) :- atom(N), dr_lib_fn(N, Ty, H), !,   % A LIBRARY FUNCTION THAT NOTHING DECLARES, in clang's words and its note of the header (1.6.24, dr_lib_fn/3)
     dr_error(F, L, ['call to undeclared library function ''', N, ''' with type ', Ty, '; ISO C99 and later do not support implicit function declarations']),
     write(F), write(':'), write(L), write(': note: include the header <'), write(H), write('> or explicitly provide a declaration for '''), write(N), write(''''), nl.
+dr_diag(F, not_lowered(unavailable(N, M, DL)), where(_, line(L))) :- !,   % a call of a function marked unavailable, in clang's words (1.6.25)
+    ( M == none -> Ps = ['''', N, ''' is unavailable'] ; Ps = ['''', N, ''' is unavailable: ', M] ), dr_error(F, L, Ps),
+    ( integer(DL), DL > 0 -> write(F), write(':'), write(DL), write(': note: '''), write(N), write(''' has been explicitly marked unavailable here'), nl ; true ).
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_error(F, L, Ps).
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_error(F, L, Ps).   % A VOID VALUE AND THE OPERANDS BESIDE IT (1.6.14, dr_value_text/2)
 dr_diag(F, not_lowered(ptr_conversion(K, Site, A, B)), where(_, line(L))) :- !, dr_int_conv_site(Site, A, B, Ps), ( K == function -> W = 'incompatible function pointer types ' ; W = 'incompatible pointer types ' ), dr_error(F, L, [W|Ps]).   % C: pointers of incompatible types, in clang's words (1.6.23, ir_ptr_clash/4)
 dr_diag(F, not_lowered(no_viable_assign(Op)), where(_, line(L))) :- !, dr_error(F, L, ['no viable overloaded ''', Op, '''']).   % C++: an assignment over a class that no operator= takes (1.6.24)
 dr_diag(F, not_lowered(incompatible_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['assigning to ''', A, ''' from incompatible type ''', B, '''']).   % C++: an array or a function for an integer (1.6.24)
 dr_diag(F, not_lowered(init_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize a variable of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
+dr_diag(F, not_lowered(return_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize return object of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
 dr_diag(F, not_lowered(int_conversion_amp(Dir, Site, A, B)), where(_, line(L))) :- !,   % C++: an lvalue whose address is the place's type, named (1.6.24)
     ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),
     dr_int_conv_site(Site, A, B, Ps), append([K|Ps], ['; take the address with &'], Ps1), dr_error(F, L, Ps1).

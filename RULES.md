@@ -2447,6 +2447,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   default: 0)` is 1 and `__builtin_types_compatible_p` of a `_Noreturn` function's type and `void (int)` is 1, as clang
   has them -- a constructor's function was 0 so since 1.6.8. `test/c/run/noreturn.c`, `noreturn23.c`,
   `test/cpp/run/noreturncpp.cpp`. (1.6.15)
+- A FUNCTION MARKED UNAVAILABLE (1.6.25, reader 213; clang's and GCC's `unavailable`, with a message or none;
+  `ccl_unavailable_note/2`, `ir_unavailable_call/1`): the attribute is a note beside noreturn's, and the result takes the
+  qualifier `unavailable(L, M)`; a call of the function, or any use of its name, is clang's `'g' is unavailable: gone`
+  and its note, `'g' has been explicitly marked unavailable here`, at the line of the declaration that holds the
+  attribute -- clang names the latest declaration's, a definition after it. The attribute was dropped and the call built.
+  In C++ a free function that no overload keys (`ir_plain_cpp_name/1`); a member function's and an overload's build
+  (Not done). The driver gate's eight C bodies and three C++ ones. (1.6.25)
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -2522,8 +2529,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A K&R definition (C 6.9.1/13) is read as its prototype (`ccl_knr_ids`, `ccl_knr_decls`, `ccl_knr_params`,
   `ccl_knr_adjust`): an undeclared parameter is `int`, an array a pointer, a `float` a `double`, and its type is marked
   as no prototype (0.302, below): a call of another count is undefined behaviour (C17 6.5.2.2/6), not a constraint's
-  breach, and is refused in clang's words for it, `too few arguments in call to 'add'`. `test/c/run/cforms.c`. (0.108,
-  0.302)
+  breach, and is refused in clang's words for it, `too few arguments in call to 'add'`. `test/c/run/cforms.c`. AT C23,
+  WHICH REMOVED IT, a K&R definition is clang's `unknown type name 'a'` at its line, its list's first name, and since C99
+  a name of the list that no declaration follows is clang's `parameter 'a' was not declared, defaults to 'int'; ISO C99
+  and later do not support implicit int` (1.6.25; C23 6.9.1, C99 6.7.2/2; `ccl_knr_check/3`), where both were read, the
+  name an `int`. The driver gate's eight bodies. (0.108, 0.302, 1.6.25)
 - **AN EMPTY LIST IS NO PROTOTYPE IN C BEFORE C23** (0.302; C17 6.7.6.3/14, 6.9.1/7; `ccl_empty_params/1`): `int f();`
   says nothing of f's parameters, so a call of it, or through a pointer of its type, may take any arguments, where `int
   f(void);` declares none and a call of one argument is refused (the lowering's topic of a call's count). The two were
@@ -2714,8 +2724,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`ccl_type_canon/2`, where it was a type of no specifier). An enumeration for an integer type is taken, since its
   integer type is clang's choice (`enum e x; unsigned x;` is clang's, `int x;` beside it is not), and a type that does
   not resolve is not compared. The words name a qualifier as clang spells one, `'volatile int'`, `'int *const
-  volatile'`, `'int *const[2]'` (`ck_c_ptr_quals/3`: `volatile` and `restrict` were left out). A block's `extern int x;`
-  against the file's `long x;` is the block's, not walked (Not done). The driver gate's twenty-one bodies. (1.6.24)
+  volatile'`, `'int *const[2]'` (`ck_c_ptr_quals/3`: `volatile` and `restrict` were left out). A BLOCK'S `extern`
+  DECLARATION of an object names the file scope's (C17 6.2.2/4; `ccl_redef_block_externs/4`, which searches each
+  function's body): `extern int x;` in a block against the file's `long x;`, or another block's, is `redeclaration of 'x'
+  with a different type` at the block's line, a hidden outer name or not, and a later declaration at file scope is held
+  to its type (1.6.25: it was the block's, not walked). The driver gate's twenty-one and eight bodies. (1.6.24, 1.6.25)
 - A BLOCK'S STRUCT OR UNION IS ITS BLOCK'S OWN TYPE (C17 6.2.1/4, 6.7.2.3/5, [basic.scope.block]; 0.201): in C, one that
   a block defines under a tag the unit defines otherwise too -- another block's, the file's -- is renamed `N.local_K` for
   the rest of its block (`ir_block_tags/2`, before the check, the table noted again from the renamed units): its own
@@ -12114,6 +12127,16 @@ in the first topic (The ccllib gate).
   shares with the label declared since the label (the label keeps the keys and defers of each frame, `lab(LP, KDs)`).
   Until 0.138 a goto into a block or over an owner's declaration was `goto_with_owners` where an owner lived.
   `test/c/run/gotoin.c`; refused, `test/c/safe/gotoskip.c` and `gotoskipdefer.c`, `test/cpp/gotopastdtor.cpp`. (0.138)
+- A JUMP INTO A CLEANUP'S OR A C++ DESTRUCTOR'S SCOPE, OR PAST A C++ INITIALIZATION, IS CLANG'S WORDS (1.6.25; GCC's
+  cleanup, [stmt.dcl]/3; `ck_jump_bypass/3` beside `ck_defers_agree/2`, `ck_switch_defers/2`): such a defer is marked
+  where its frame keeps it, `'$jumpless'(Body)` (`ck_jumpless_defer/1`), and so is a C++ local declared with an
+  initializer, with nothing to run (`ck_initialized_local/2`); a forward goto whose edge lacks one that the fall-through
+  holds is `cannot jump from this goto statement to its label` at the goto's line, and a case label after one `cannot
+  jump from switch statement to this case label` at the label's, a nested block's label too -- `case 1: { D d; case 2:
+  ...}` was built, a jump past d's construction. The rule's words were `goto over a defer (or a local with a destructor)
+  to label`, a C++ initialization's jump was built, and the language's own `defer` and an object's drop keep the rule's
+  words; a local that the desugaring names, `$...`, is its own, and C takes a jump past a plain initialization. Lowering
+  194. The driver gate's five C bodies, eight C++ ones and two of the language's own `defer`. (1.6.25)
 - `ck_consume/6` consumes by its `How`. `free` needs the own fields consumed first (`owner_leaked` names the field).
   `move` needs them live or null (`owner_unset`, `use_after_move`) and moves them along. Then the owner's borrows
   dangle (`ck_dangle/3`). (M3)
@@ -12697,7 +12720,8 @@ in the first topic (The ccllib gate).
   leaves out copy-initialized from `{}`): a list that reaches the check is an aggregate's with no default member
   initializer, since the desugaring writes one that has them member by member, so an instance's `@N v = {0};` read by
   cicilang++ is the empty object there as well. (0.262, 0.267)
-- A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK (0.262; `ck_switch_defers/2`) -- a `defer`, an object's drop, a
+- A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK, OR OF A BLOCK IN IT (0.262, 1.6.25; `ck_switch_defers/2`) --
+  a `defer`, an object's drop, a
   C++ local's destructor, a C23 declaration after a label among them -- is refused, `goto_over_defer`, `'case 2'`: the
   jump from the switch passes the defer, which runs at the block's end all the same, over an object never set (C++'s
   [stmt.dcl]/3, "jump bypasses variable initialization"). A plain `defer` before a later label was accepted until
@@ -13505,7 +13529,8 @@ in the first topic (The ccllib gate).
   "y"` built; now it is `cannot assign to variable 'm' with const-qualified type 'const char *const'`, in C23 too. Reader
   212. `test/cpp/run/constexprptrs.cpp`, the driver gate's five bodies. (1.6.24)
 - C++: AN INTEGER AND A POINTER DO NOT CONVERT IMPLICITLY (1.6.24; [conv.ptr]/1; `cpp_int_ptr_check/3`, in the
-  desugaring of an assignment and of a scalar's initializer, `cpp_init_int_ptr/3`), in the program's own code, in
+  desugaring of an assignment, of a scalar's initializer, `cpp_init_int_ptr/3`, and of a return, `cpp_return_int_ptr/1`,
+  1.6.25: `cannot initialize return object of type 'long' with an lvalue of type 'int *'`), in the program's own code, in
   clang++'s words: `incompatible pointer to integer conversion assigning to 'long' from 'int *'`, `assigning to 'long'
   from incompatible type 'char[2]'` for an array or a function, `cannot initialize a variable of type 'long' with an
   lvalue of type 'int *'` (a string literal's type its array's, `'const char[4]'`), an integer, a bool or an enumerator
@@ -13667,8 +13692,12 @@ in the first topic (The ccllib gate).
   struct of its constants' types, the padding before each explicit at the offset its named type has (`ir_gstruct_t/5`,
   `ir_gnat_padded/5`); else the named type. `static struct S g = { 1, { .i = 5 }, 2 };` over a union of a char, an int
   and a long long was `{ i64 } { i32 5, ... }`, which LLVM refused, so a static table of tagged unions did not build (a
-  defect of 0.202 and before). A packed struct's constant is LLVM's packed one. `test/c/run/gunion.c`, `packunion.c`.
-  (0.203)
+  defect of 0.202 and before). A packed struct's constant is LLVM's packed one. `test/c/run/gunion.c`, `packunion.c`. A
+  FLEXIBLE ARRAY MEMBER GIVEN ITEMS (1.6.25; GNU's extension, which clang and clang++ take; `ir_flex_count/2`) is an
+  array of their count, or of a literal's bytes and its terminator, so its struct's constant is the literal struct of
+  its constants' types, `{ i32 3, [3 x i32] [...] }` as clang lays it, at file scope and in a static local; the object's
+  type and size stay the struct's. It was refused, `global_init(arr(none, ...))`; a designated item leaves it so.
+  `test/c/run/flexinit.c`, which clang 23 and gcc print alike. (0.203, 1.6.25)
 - A wide literal, or a pointer into one, is a pointer's global constant (`ir_wide_lit`: `wstr` and `u32str` i32,
   `u16str` i16, through `ir_wstring`) (0.115). AN ARRAY OF WIDE CHARACTERS MADE OF ONE, AT FILE SCOPE OR STATIC, IS A
   CONSTANT OF ITS UNITS (0.298; C17 6.7.9/14-15; `ir_gconst/3`): the literal's code points, UTF-16 units for `u"..."`,
@@ -16716,8 +16745,7 @@ Declarations topic of the C++ reader).
   later definition's named one in the words, `expected single argument 'a'` for clang's `expected 1, have 2`. WHERE THE
   SAFE PART REFUSES FIRST its words come first: `char *q = 5; return q == 0;` is `plain pointer not consumed: 'q'`. A
   QUALIFIED C++ call of one C function, `std::printf()`, is `no matching function for call to 'printf'`, where clang++
-  says C's words. A flexible array member's initializer at file scope, GNU's form that clang takes, is refused,
-  `global_init`.
+  says C's words.
 
 - AN `#include` INSIDE AN ITEM, AND A TABLE'S BOUND (0.310; the Preprocessor's topic of the user's file, the C reader's
   of initializers): what is left. A REFUSAL OF A LIST LONGER THAN ITS OBJECT NAMES THE DECLARATION'S LINE, where clang
@@ -16779,22 +16807,20 @@ Declarations topic of the C++ reader).
   `elemborrow.c`, over `tvector.pl`, sorts before `hdrinst.c`, over `<vector.pl>`, and a run fixture over `<vector.pl>`
   that sorts before `elemborrow.c` breaks the six over `tvector.pl` (1.1.2's `declorder.c` takes `<deque.pl>` so).
 
-- GCC'S ATTRIBUTES, WHAT 1.6.8 LEAVES (the C reader's topic): A JUMP INTO A CLEANUP'S SCOPE is refused in the defer
-  rule's words, `goto over a defer (or a local with a destructor) to label 'in'`, where clang says `cannot jump from
-  this goto statement to its label`, and of a case label `cannot jump from switch statement to this case label`: the
-  check keeps a defer's body alone, and a cleanup's is a call like a defer's by hand. A CLEANUP THAT FREES THROUGH ITS
-  PARAMETER, `void free_str(char **p) { free(*p); }`, is refused by the safe part, `a borrow consumed`, as the same
-  defer written by hand is. THE OTHER ATTRIBUTES that the probes took (`p113/forms`, s02 to s08) are read and dropped as
-  before: `section`, `weak` and `alias` fail at the link, `transparent_union` in LLVM's parser, `error` and
-  `unavailable` build a call that clang refuses, and C++'s `init_priority` orders nothing. A `mode` IN AN OWN HEADER
-  READ PREPROCESSED is dropped as before, and so is glibc's `register_t`, an `int` of four bytes where clang's is a
-  `long`.
+- GCC'S ATTRIBUTES, WHAT 1.6.8 LEAVES (the C reader's topic; a jump into a cleanup's scope is clang's words since
+  1.6.25, the safe part's topic): A CLEANUP THAT FREES THROUGH ITS PARAMETER, `void free_str(char **p) { free(*p); }`,
+  is refused by the safe part, `a borrow consumed`, as the same defer written by hand is. THE OTHER ATTRIBUTES that the
+  probes took (`p113/forms`, s02 to s08) are read and dropped as before: `section`, `weak` and `alias` fail at the link,
+  `transparent_union` in LLVM's parser, `error` builds a call that clang refuses as it makes the code (`call to 'f'
+  declared with 'error' attribute`), a C++ member function's or overload's `unavailable` builds a call that clang++
+  refuses (C's and a free C++ function's are clang's words since 1.6.25), and C++'s `init_priority` orders nothing. A
+  `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's `register_t`, an `int` of four bytes
+  where clang's is a `long`.
 - A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.7 LEAVES (the C reader's topic): GNU'S `extern inline` WITH
   `__attribute__((gnu_inline))`, then the function's external definition, is refused `redefinition of 'k'`, where clang
   builds it and calls the second: the reader keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, and drops
   `inline` and the attribute, so neither the walk nor the lowering tells it from an external definition -- 1.6.6 refused
-  it too, in LLVM's words. A K&R DEFINITION AT C23, which C23 removed, is read, and one beside a prototype definition is
-  refused `redefinition of 'f'`, where clang says `unknown type name 'a'`. A HEADER OF THE LIBRARY AND A MACRO FILE'S C
+  it too, in LLVM's words. A HEADER OF THE LIBRARY AND A MACRO FILE'S C
   HEADER are not walked: a function of the program's under the name of a function that such a header defines builds with
   one body, and two of the program's own macro files' C headers that define one helper with no shared guard build with
   the first one's -- ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two
@@ -16802,8 +16828,7 @@ Declarations topic of the C++ reader).
   IN C++ the walk is the desugaring's since 1.6.24, over the file's own items: a namespace's two definitions, and a
   header's, are LLVM's to meet; a variadic overload, `int f(int, ...)` beside `int f(int)`, is LLVM's `invalid
   redefinition of function 'f'`, where clang++ takes both -- the two are mangled as one (an older fault, found at
-  1.6.24). A BLOCK'S `extern int x;` against the file's `long x;` is the block's, not walked, where clang says
-  `redeclaration of 'x' with a different type`.
+  1.6.24).
 ### C++ language
 
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only
@@ -17287,12 +17312,11 @@ Declarations topic of the C++ reader).
   an object of another kind (the owner's question of 0.307); a unique_ptr of an object with a pointer in it (decision
   2); `if (p)` and `p == nullptr`; `get_deleter`; `std::hash` (1b) and `operator<<` (1d); `shared_ptr`, `weak_ptr` and
   `make_shared`, phase 1b's next.
-- AN INTEGER AND A POINTER IN C++, WHAT 1.6.24 LEAVES (found at 0.288, narrowed at 1.6.22 and 1.6.24, which refuses an
-  assignment and a scalar's initializer): a return, `return q;` in a function whose result is `long`, builds, where
-  clang++ says `cannot initialize return object of type 'long' with an lvalue of type 'int *'`; an enumeration's object
-  given a pointer, and a member's initializer, which the desugaring writes as an assignment and so names as one. A call's
-  count and a pointer and an integer in each other's place in a call are the overloads' `no matching function for call
-  to 'f'` in C++ (seen at 1.6.22).
+- AN INTEGER AND A POINTER IN C++, WHAT 1.6.25 LEAVES (found at 0.288, narrowed at 1.6.22, 1.6.24 and 1.6.25, which
+  refuse an assignment, a scalar's initializer and a return): an enumeration's object given a pointer, and a member's
+  initializer, which the desugaring writes as an assignment and so names as one. A call's count and a pointer and an
+  integer in each other's place in a call are the overloads' `no matching function for call to 'f'` in C++ (seen at
+  1.6.22).
 - C++: A WRITE THROUGH A SPAN OF CONST ELEMENTS (found by 0.295; 1.6.24 refuses a const member function's writes and
   makes a constexpr pointer const): `c[0] = 7` over a `span<const int>` is the C rule's `read-only variable is not
   assignable`, where clang++ names the operator's const result. A `mutable` member of a base that is not the primary one

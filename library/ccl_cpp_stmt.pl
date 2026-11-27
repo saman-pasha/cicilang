@@ -294,9 +294,9 @@ cpp_stmt_(Ctx, return(L, init(Items)), return(L, E2)) :- nb_getval('$cpp_ret', R
     cpp_temp_elide(E0, E2).
 cpp_stmt_(Ctx, return(L, cond(C, A, B)), Out) :- nb_getval('$cpp_ret', Ret), Ret \== none, cpp_class_of_type(Ret, _), !,   % A RETURN OF A CONDITIONAL OVER CLASS ARMS returns each arm on its own ([expr.cond], [class.copy.elision]: the chosen arm's prvalue IS the result object): optional's `value_or' is `return has_value() ? __get() : static_cast<value_type>(...)', and as one value the lvalue arm was copied BITWISE and the temporary arm destroyed under the caller
     cpp_stmt_(Ctx, if(L, C, return(L, A), return(L, B)), Out).
-cpp_stmt_(Ctx, return(L, paren(E)), Out) :- !, cpp_stmt_(Ctx, return(L, E), Out).
-cpp_stmt_(_, return(L, nrvo(N)), block([expr(L, assign('=', id(F), int(1))), return(L, id(N))])) :- !, cpp_nrvo_flag(N, F).   % THE NAMED RETURN VALUE (0.199, cpp_nrvo/3): it is the result already   % `return (x);': the parentheses spoke to the deduction of a decltype(auto) result alone (0.197)
-cpp_stmt_(Ctx, return(L, E), return(L, E2)) :- !, cpp_expr(Ctx, E, E0), cpp_temp_elide(E0, E1),
+cpp_stmt_(Ctx, return(L, paren(E)), Out) :- !, cpp_stmt_(Ctx, return(L, E), Out).   % `return (x);': the parentheses spoke to the deduction of a decltype(auto) result alone (0.197)
+cpp_stmt_(_, return(L, nrvo(N)), block([expr(L, assign('=', id(F), int(1))), return(L, id(N))])) :- !, cpp_nrvo_flag(N, F).   % THE NAMED RETURN VALUE (0.199, cpp_nrvo/3): it is the result already
+cpp_stmt_(Ctx, return(L, E), return(L, E2)) :- !, cpp_expr(Ctx, E, E0), cpp_return_int_ptr(E0), cpp_temp_elide(E0, E1),
     (   nb_getval('$cpp_ret', Ret), Ret \== none, cpp_class_of_type(Ret, C), ccl_type_of(E1, AT), AT \== unknown, \+ cpp_class_of_type_of(E1, C), cpp_converting_ctor(C, E1),
         ( cpp_implicitly_movable(E), cpp_class_of_type_of(E1, _) -> E1a = move(E1) ; E1a = E1 )   % ... an implicitly movable name as an rvalue (C++20's P1825: `return m;' into `Box(M x)' moves m into x)   % A VALUE OF ANOTHER TYPE RETURNED converts through the result class's converting constructor, as a call's argument does (0.66): libc++'s `map::find' returns `__tree_.find(__k)', a __tree_iterator where its iterator is a __map_iterator holding one
     ->  cpp_temporary(base([], [typedef(C)]), C, [E1a], E2a), cpp_temp_elide(E2a, E2)
@@ -1018,6 +1018,8 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
             ;   Pieces = [declaration(L, Sto, B, [var(N, T, I2)])|P1] ) ) ),
     ( Sto \== static, Sto \== extern, cpp_class_of_type(T, C2), cpp_dtor(C2, DName) -> cpp_check_access(Ctx, C2, '$dtor'), cpp_scope_end(L, N, LE), P1 = [defer(L, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|P2] ; P1 = P2 ),   % THE DESTRUCTOR'S ACCESS where a local of the class ends (0.127; [class.dtor]/15)
     cpp_decl_pieces(Ctx, L, Sto, B, Vs, P2).
+%% ... and a return's value for a scalar result (1.6.25): `return q;' in a function whose result is `long'
+cpp_return_int_ptr(E) :- ( nb_current('$cpp_ret', Ret), Ret \== none, \+ Ret = ref(_, _), \+ Ret = rref(_, _), \+ cpp_class_of_type(Ret, _) -> cpp_int_ptr_check(returning, Ret, E) ; true ).
 %% ... a scalar's initializer of a pointer for an integer, or of an integer for a pointer (1.6.24, cpp_int_ptr_check/3)
 cpp_init_int_ptr(N, T, E) :- ( atom(N), \+ T = ref(_, _), \+ T = rref(_, _), \+ cpp_class_of_type(T, _) -> cpp_int_ptr_check(initializing, T, E) ; true ).
 %% a declaration's written type that names `std::initializer_list' (0.206): its template-id, or an instance's name, the `auto' road's

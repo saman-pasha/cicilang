@@ -311,7 +311,7 @@ cpp_int_ptr_words(Site, TA0, B, W) :- ccl_unref(TA0, TA), B \== nullptr,
 cpp_int_ptr_term(assigning, ptr, Dir, TA, B, TB, W) :- !, ir_type_aka(TA, SA), ir_type_aka(TB, SB),
     ( Dir == int_ptr, cpp_lvalue(B), catch(ccl_type_canon(ptr([], TB), K1), _, fail), catch(ccl_type_canon(TA, K2), _, fail), K1 == K2 -> W = int_conversion_amp(Dir, assigning, SB, SA) ; W = int_conversion(Dir, assigning, SB, SA) ).
 cpp_int_ptr_term(assigning, other, _, TA, _, TB, incompatible_assign(SA, SB)) :- !, ir_type_aka(TA, SA), ir_type_aka(TB, SB).
-cpp_int_ptr_term(initializing, _, _, TA, B, TB, init_mismatch(SA, Cat, SB)) :- ir_type_aka(TA, SA), ir_type_aka(TB, SB), ( ( cpp_lvalue(B) ; B = str(_) ) -> Cat = lvalue ; Cat = rvalue ).
+cpp_int_ptr_term(Site, _, _, TA, B, TB, W) :- memberchk(Site-W, [initializing-init_mismatch(SA, Cat, SB), returning-return_mismatch(SA, Cat, SB)]), !, ir_type_aka(TA, SA), ir_type_aka(TB, SB), ( ( cpp_lvalue(B) ; B = str(_) ) -> Cat = lvalue ; Cat = rvalue ).   % a return's object, clang++'s `cannot initialize return object of type' (1.6.25)
 %% ... a string literal's type is its array's, `const char[4]', where the inference answers the pointer it becomes
 cpp_int_ptr_source_type(str(Cs), arr(int(N), base([const], [char]))) :- is_list(Cs), !, length(Cs, K), N is K + 1.
 cpp_int_ptr_source_type(B, T) :- catch(ccl_type_of(B, T), _, fail).

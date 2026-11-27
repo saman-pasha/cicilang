@@ -1593,7 +1593,8 @@ ck_merge_state(_, _, partial).
 ck_stmt(S, dead, dead) :- S \= label(_, _, _), !.   % dead code is not walked -- but a LABEL is, the gotos to it may bring a state (0.133)
 ck_stmt(block(Is), St0, St) :- !, ck_sj_mark(M), ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop, ck_sj_dead_block(St, Is, M).
 ck_stmt('$splice'(Is), St0, St) :- !, ck_stmts(Is, St0, St).
-ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( memberchk(Sto, [static, extern]) -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St), ccl_note_block_constants(Base, Vs).   % a C23 `constexpr' local is a constant of its block (0.195)
+ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( memberchk(Sto, [static, extern]) -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St1), ccl_note_block_constants(Base, Vs),
+    ( ck_initialized_local(Sto, Vs) -> ck_defer(St1, '$jumpless'(block([])), St) ; St = St1 ).   % C++: a local's initialization, which no jump bypasses (1.6.25)   % a C23 `constexpr' local is a constant of its block (0.195)
 ck_stmt(typedef(_, Vs), St, St) :- !, ( ccl_lang(c) -> ccl_block_typedefs(Vs) ; true ).   % a C block's typedef is its block's (1.6.2)
 ck_stmt(declare(_, _), St, St) :- !.
 ck_stmt(directive(_, _), St, St) :- !.
@@ -1607,7 +1608,8 @@ ck_stmt(expr(L, E), St0, dead) :- ck_noreturn_call(E), !, ck_line(L), ck_anchor_
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, ['$autodrop'(V)], _), St0, St) :- !, ck_line(L), ck_defer(St0, '$autodrop'(L, V), St).   % an object's drop (0.262): its mark is the defer
 ck_stmt('$autodrop'(_, V), St0, St) :- !, ck_autodrop(V, St0, St).
-ck_stmt(defer(L, _, Body), St0, St) :- !, ck_line(L), ck_defer(St0, Body, St).
+ck_stmt(defer(L, Tag, Body), St0, St) :- !, ck_line(L), ( ck_jumpless_defer(Tag) -> B = '$jumpless'(Body) ; B = Body ), ck_defer(St0, B, St).   % a cleanup's and a C++ destructor's marked (1.6.25)
+ck_stmt('$jumpless'(B), St0, St) :- !, ck_stmt(B, St0, St).
 ck_stmt(eh_cleanup(_, _), St, St) :- !.   % a constructor's cleanup of what it built, run only while an exception unwinds (0.201): the check follows no unwinding path
 ck_stmt(eh_drop(_, _), St, St) :- !.   % ... and a statement's temporary's, dropped at its end (0.207)
 ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                                % `if consteval': the run-time branch (0.108)
@@ -1669,6 +1671,17 @@ ck_stmt(gnu_asm(L, basic(_)), St, St) :- !, ck_line(L).
 ck_stmt(gnu_asm(L, ext(_, _, Os, Is, _, Ls)), St0, St) :- !, ck_line(L), ck_asm_ops(Is, St0, St1), ck_asm_outs(Os), ck_asm_ops(Os, St1, St),
     ck_asm_gotos(Ls, L, St).   % `asm goto' (0.231): an edge to each of its labels, as a `goto' makes, and the state falls through too
 ck_stmt(S, _, _) :- functor(S, F, _), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(F), where(Fn, line(L)))).   % a form of C++'s later steps
+%% A JUMP OVER A CLEANUP'S OR A C++ DESTRUCTOR'S DEFER IS CLANG'S WORDS (1.6.25; C17 6.8.6.1 and GCC's cleanup, [stmt.dcl]/3):
+%% such a defer is marked where the frame keeps it, `'$jumpless'(Body)', and a forward goto past one, or a case label
+%% after one, is `cannot jump from this goto statement to its label' at the goto's line and `cannot jump from switch
+%% statement to this case label' at the label's, where both were the defer rule's `goto over a defer (or a local with a
+%% destructor) to label'; the language's own `defer' and an object's drop keep that rule's words
+ck_jumpless_defer(['$cleanup'(_)]) :- !.
+ck_jumpless_defer([]) :- ccl_lang(cpp).
+%% ... AND IN C++ A LOCAL DECLARED WITH AN INITIALIZER ([stmt.dcl]/3: a jump shall not bypass a declaration with
+%% initialization of a variable of automatic storage): it marks its frame as a destructor does, with nothing to run; one
+%% that the desugaring names, `$...', is its own, and C takes such a jump
+ck_initialized_local(Sto, Vs) :- ccl_lang(cpp), \+ memberchk(Sto, [static, extern, typedef]), member(var(N, _, I), Vs), atom(N), I \== none, \+ sub_atom(N, 0, 1, _, '$'), !.
 %% A CALL THAT DOES NOT RETURN ENDS ITS PATH (1.6.15; C17 6.7.4/8, 7.22.4.1, 7.22.4.4, 7.13.2.1/4): a statement that calls a
 %% function declared not to return -- `_Noreturn', `[[noreturn]]', GCC's `noreturn' (library(ccl_infer)'s ccl_noreturn_type/1):
 %% glibc's `exit', `abort', `_Exit', `quick_exit', `longjmp' and `pthread_exit', libc++'s `std::terminate' --, a trap that does
@@ -1832,14 +1845,16 @@ ck_switch_items([default(_, S)|Is], Entry, St0, St) :- !, ck_merge(St0, Entry, S
 ck_switch_items([S|Is], Entry, St0, St) :- ck_stmt(S, St0, St1), ck_switch_items(Is, Entry, St1, St).
 ck_has_default(Is) :- member(default(_, _), Is), !.
 ck_has_default(Is) :- member(case(_, _, S), Is), ck_has_default([S]), !.
-%% A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK (0.262) -- a `defer', an object's drop, a C++ local's destructor
+%% A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK (0.262), or of a block in it (1.6.25) -- a `defer', an object's drop, a C++ local's destructor
 %% -- is refused, `goto_over_defer': the jump from the switch passes the defer, which runs at the block's end all the
 %% same, over an object never set (C++'s [stmt.dcl]/3, "jump bypasses variable initialization")
 ck_switch_defers([], _).
 ck_switch_defers([I|Is], Seen) :- ( I = case(L, E, S) ; I = default(L, S), E = default ), !,
-    ( Seen == yes -> ck_line(L), ck_case_label(E, N), ck_fail(goto_over_defer, N, I) ; true ), ck_switch_defers([S|Is], Seen).
-ck_switch_defers([defer(_, _, _)|Is], _) :- !, ck_switch_defers(Is, yes).
+    ( Seen == yes -> ck_line(L), ck_case_label(E, N), ck_fail(goto_over_defer, N, I) ; Seen == clang -> ck_jump_bypass_fail(switch, L) ; true ), ck_switch_defers([S|Is], Seen).
+ck_switch_defers([defer(_, Tag, _)|Is], Seen0) :- !, ( ck_jumpless_defer(Tag), Seen0 \== yes -> Seen = clang ; Seen = yes ), ck_switch_defers(Is, Seen).   % a cleanup's or a destructor's, clang's words (1.6.25)
+ck_switch_defers([declaration(_, Sto, _, Vs)|Is], Seen0) :- ck_initialized_local(Sto, Vs), !, ( Seen0 == yes -> Seen = yes ; Seen = clang ), ck_switch_defers(Is, Seen).   % C++: an initialization (1.6.25)
 ck_switch_defers(['$splice'(Ss)|Is], Seen) :- !, append(Ss, Is, Is1), ck_switch_defers(Is1, Seen).   % C23's declaration after a label, and its object's drop
+ck_switch_defers([block(Bs)|Is], Seen) :- is_list(Bs), !, ck_switch_defers(Bs, Seen), ck_switch_defers(Is, Seen).   % A NESTED BLOCK'S CASE LABEL after its block's defer (1.6.25): `case 1: { D d; case 2: ...}' was built, a jump past d's construction; the block's defers end with it
 ck_switch_defers([_|Is], Seen) :- ck_switch_defers(Is, Seen).
 ck_case_label(default, default) :- !.
 ck_case_label(E, N) :- ( E = int(V) -> true ; E = chr(V) -> true ; V = '...' ), atomic_list_concat([case, ' ', V], N).
@@ -2230,6 +2245,7 @@ ck_label_in(L, _, St0, StL) :- ck_bpath_root(LP),
     nb_getval('$ck_fwd', F0), findall(G, ( member(G, F0), G = g(L, _, _, _) ), Mine), findall(G, ( member(G, F0), \+ G = g(L, _, _, _) ), Rest), nb_setval('$ck_fwd', Rest),
     ck_label_edges(Mine, LP, L, Es),
     nb_getval('$ck_seed', Seed), ( memberchk(L-SS, Seed) -> Es1 = [SS|Es] ; Es1 = Es ),
+    ck_jump_bypass(Mine, Es, St0),
     ck_defers_agree([St0|Es1], L),
     ck_skipped_all(Es1, St0, L, Es2),
     ck_merge_all([St0|Es2], StL),
@@ -2237,6 +2253,13 @@ ck_label_in(L, _, St0, StL) :- ck_bpath_root(LP),
     nb_getval('$ck_labels', Ls), nb_setval('$ck_labels', [L-lab(LP, KDs)|Ls]).
 ck_label_edges([], _, _, []).
 ck_label_edges([g(_, St, GP, GLn)|Gs], LP, L, [StC|Es]) :- nb_getval('$ck_line', L0), ck_line(GLn), ck_edge_state(GP, LP, St, none, StC), nb_setval('$ck_line', L0), ck_label_edges(Gs, LP, L, Es).
+%% ... a forward goto whose edge lacks a cleanup's or a destructor's defer that the fall-through holds, at the goto's line
+ck_jump_bypass([], [], _) :- !.
+ck_jump_bypass([g(_, _, _, GLn)|Gs], [StC|Es], St0) :- !, ( ck_bypassed_jumpless(St0, StC) -> ck_jump_bypass_fail(goto, GLn) ; true ), ck_jump_bypass(Gs, Es, St0).
+ck_jump_bypass(_, _, _).
+ck_bypassed_jumpless(st(Fs0), st(Fs1)) :- length(Fs0, N), length(Fs1, N), ck_bypassed_frames(Fs0, Fs1).
+ck_bypassed_frames([fr(_, D0)|F0], [fr(_, D1)|F1]) :- ( length(D0, N0), length(D1, N1), N0 > N1, K is N0 - N1, length(New, K), append(New, _, D0), memberchk('$jumpless'(_), New) -> true ; ck_bypassed_frames(F0, F1) ).
+ck_jump_bypass_fail(K, L) :- nb_getval('$ck_fn', Fn), throw(error(not_lowered(jump_bypass(K)), where(Fn, line(L)))).
 %% every path to a label has run the same defers of each frame it shares with the label: one that jumped over a defer
 %% would have it run at the scope's end with its operands never set (`goto_over_defer')
 ck_defers_agree(Sts, L) :- findall(Ns, ( member(st(Frs), Sts), findall(N, ( member(fr(_, Ds), Frs), length(Ds, N) ), Ns) ), All),
