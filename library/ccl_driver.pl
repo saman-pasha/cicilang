@@ -104,7 +104,7 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
     dr_say(['read ', F]), nb_setval('$dr_expansions', []), dr_macro_trace(F, Options),
     nb_setval('$ccl_scope_ends', []), ( ( memberchk(debug, Options) ; memberchk(debug(lines), Options) ) -> nb_setval('$ccl_scope_ends_for', F) ; nb_setval('$ccl_scope_ends_for', none) ),   % -g: the read records where each scope closes (0.139)
     (   dr_catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
-    ->  dr_pp_warnings, dr_remember_expansions(AST),
+    ->  dr_pp_warnings, dr_remember_expansions(AST), dr_note_includes(F, AST),
         (   dr_missing_include(F, AST) -> Objs = Objs1      % an #include of the program's file that finds no file stops the build (1.6.22)
         ;   dr_own_header_stop(AST) -> Objs = Objs1        % a header of the program's own that no read takes whole stops it (1.6.36)
         ;   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
@@ -752,9 +752,18 @@ dr_error(F, L, Parts) :- dr_error_as(F, L, error, Parts).
 dr_fatal(F, L, Parts) :- dr_error_as(F, L, 'fatal error', Parts).
 dr_error_as(F, L, K, Parts) :-
     nb_getval('$dr_errors', N), N1 is N + 1, nb_setval('$dr_errors', N1),
-    write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': '), write(K), write(': '), dr_parts_text(Parts, M), write(M), nl,
+    dr_included_from(F), write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': '), write(K), write(': '), dr_parts_text(Parts, M), write(M), nl,
     ( L > 0 -> dr_note_expansion(F, L) ; true ),
     dr_why_stop(F, L, Parts).
+%% AN ERROR IN A HEADER IS LED BY THE INCLUDES THAT BROUGHT IT, AS CLANG LEADS IT (1.6.37): `In file included from
+%% main.c:1:', the outermost first, a line for each header between -- the chain of each header of the unit, noted after
+%% the read (dr_note_includes/2) from the AST's include nodes, each at the line of its #include in the file that holds it
+dr_note_includes(F, unit(Is)) :- !, findall(P-Ch, dr_include_chain(Is, F, [], P, Ch), Cs), nb_setval('$dr_inc_chains', Cs).
+dr_note_includes(_, _) :- nb_setval('$dr_inc_chains', []).
+dr_include_chain(Is, Cur, Up, P, Ch) :- member(include(L, _, file(Q, _, U)), Is), atom(Q),
+    Up1 = [Cur-L|Up], ( P = Q, reverse(Up1, Ch) ; ( U = unit(Js) ; U = partial(unit(Js), _, _) ), dr_include_chain(Js, Q, Up1, P, Ch) ).
+dr_included_from(F) :- nb_current('$dr_inc_chains', Cs), memberchk(F-Ch, Cs), !, forall(member(X-L, Ch), ( write('In file included from '), write(X), write(':'), write(L), write(':'), nl )).
+dr_included_from(_).
 %% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the
 %% last inferences before a run's end, so the end must be where the compiler gave up. An error the compiler RAISES
 %% passes the driver's report sites untaken (dr_catch/3, 0.146), and the run ends with the compiler's own exception,

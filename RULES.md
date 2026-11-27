@@ -1270,10 +1270,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (1.6.22, 1.6.24)
 - **AN ERROR IN A FUNCTION OF THE PROGRAM'S OWN HEADER NAMES THE HEADER** (1.6.36; `dr_where_file/3` in `dr_report/2`):
   the check's and the lowering's words name the function and the line, and the line is the header's; the lowering keeps
-  the file of each definition that a header gives (`'$ir_hfile'/2`, for the debug information), and a library header's
-  are no part of this (`'$ir_hlib'/1`). It was the user's file with the header's line, `main.c:5: error: plain pointer
-  not consumed` for line 5 of `leak.h`, where clang names `./leak.h:5`; the name is the one that the `#include` found,
-  as clang's is, and clang adds the column. A HEADER OF THE PROGRAM'S OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS
+  the file of each definition that a header gives (`'$ir_hfile'/2`, for the debug information), a library header's too,
+  as clang names it. It was the user's file with the header's line, `main.c:5: error: plain pointer not consumed` for
+  line 5 of `leak.h`, where clang names `./leak.h:5`; the name is the one that the `#include` found, as clang's is, and
+  clang adds the column. AN ERROR IN A HEADER IS LED BY THE INCLUDES THAT BROUGHT IT (1.6.37; `dr_note_includes/2` after
+  the read, `dr_included_from/1` in `dr_error_as/4`; `bin/cicilang` passes the lines), as clang leads its own: `In file
+  included from main.c:1:`, the outermost first, a line for each header between, each at the line of its `#include` in
+  the file that holds it -- an error of the check or of the lowering, a stopped header's, an unknown type name's; the
+  error stood alone. A HEADER OF THE PROGRAM'S OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS
   THE BUILD AT THE HEADER'S LINE (1.6.36; `dr_own_header_stop/1`, `dr_own_stop_in/4`), in the file's own words, `syntax
   error: could not read this item (gave up near line N)`, the read of a header that the program includes or that such a
   header includes: the build went on, and `return 1 +;` in a function of `syn.h` was `call to undeclared function
@@ -2677,35 +2681,37 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   and a global, a parameter and a local were `not lowered yet: typedef(foo)`, the first two at no line. Not asked where
   a header's read stopped or was not made, whose part not read may declare the name; a block's typedef names are its
   function's here, and every typedef of the file is known. Clang names a member at its own line, which the reader does
-  not keep (Not done), and a block's `foo x;` is `use of undeclared identifier 'foo'` to clang, which parses it as an
-  expression. The driver gate's six bodies against clang 23. (1.6.36)
+  not keep (Not done). The driver gate's six bodies against clang 23. A BLOCK'S DECLARATION IS AN EXPRESSION TO CLANG
+  (1.6.37; `ir_ut_types/6`, `ir_ut_outer/2`): its type name is `use of undeclared identifier 'foo'` -- a local's, a
+  pointer's and a `for`'s own, which was `not lowered yet: typedef(foo)` --, and a block's tag's member keeps `unknown
+  type name`. The driver gate's four bodies against clang 23. (1.6.36, 1.6.37)
 - A tag or an enum declared in a block joins the unit's one table (`ccl_collect_item(function)` through
-  `ccl_stmt_typedefs`, by statement shape) -- in C its tag alone, and a block's enumerators no part of the passes' table
-  (1.6.30, 1.6.36, `ccl_collect_block_type/5`): 1.6.30 put them after the file's, and no pass asked them there, since
-  the reader gives each use its value; 1.6.30's broken copy that left them out was caught by nothing, and a block's
-  enumerator in an array's bound, a static's initializer, a bit-field's width, a `case`, a `_Static_assert` and a
-  block's typedef read the same without them (1.6.36). A BLOCK'S ENUMERATOR IS ITS BLOCK'S IN C (1.6.30; C17 6.2.1/4;
-  reader 216; `ccl_block_enum_value/2`, `ccl_drop_block_enums/1`): a use of it in its block is its value, read so,
-  `int(V)` or its enum's where the enum has a type of its own; the block's end takes it out of the reader's table, so
-  that a use after the block is clang's `use of undeclared identifier 'B'` at the file's end (the uses' notes of 1.1.2,
-  `ccl_use_later/2`); and in the passes' table a file's enumerator of the name comes first. Through 1.6.29 the one table
-  held them all: `return B;` after the block built with its value, and a block's enumerator shadowed the file's or
-  another block's in every later function -- `test/c/run/blockenums.c` printed `6 -1 30 40 5 9 9 4`, four values wrong,
-  where clang prints `3 5 30 40 4 9 11 4`. The driver gate's five bodies. A block's TYPEDEF IS ITS BLOCK'S IN C (1.6.2;
-  C17 6.2.1/4, 6.7.8/3): the reader, the check and the lowering each note it as they walk its block, its type taken
-  there, as the newest of its name and in the block's frame, which takes it away at the block's end
-  (`ccl_block_typedefs/1`, `ccl_frame_leave/1`), and the bulk noter takes only its type's tags and enumerators, as in
-  C++. Through 1.6.1 one table held every block's typedef, the first block's first: `{ typedef int T; } { typedef double
-  T; T b = 2.5; }` read b's double as an int's bits (3.37669e-319), a file-scope `typedef int T` after a function whose
-  block gave T another type lost to it (main's `T z = 3` a double), and the check met the first block's `int` where a
-  block's `typedef char *P` holds new memory. `test/c/run/typedef_block.c`, `scopedtypes.c`,
-  `test/c/safe/blocktypedef_leak.c`. (1.6.2) In C++ a block's TYPEDEF does not join the table either (0.127): the bulk
-  noter takes only the tags and enumerators of its type (`ccl_collect_typedef_types/5`), and the desugaring notes it for
-  the statements of its own block and takes it out at the block's end, on success, failure and throw
-  (`cpp_scoped_typedefs/2` over `ccl_tab_del/2`, which removes the NEWEST entry of the name, so the one it shadowed
-  answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every block's `using _Tp = ...;` made `_Tp` a
-  KNOWN name to every rule that tells a template's own parameter by the tables not knowing it; 0.126 had worked round it
-  twice (`cpp_callee_param_type/2`, `cpp_lambda_params/3`). (0.108, 0.127)
+  `ccl_stmt_typedefs`, by statement shape) -- in C a block's enumerators after the file's (1.6.30,
+  `ccl_collect_block_type/5`): the reader gives a use in its block its value, but not in the initializer of the
+  declaration that defines its enum, `enum e { A, B } v = B;`, which the passes look up in the table. 1.6.30's broken
+  copy that left them out was caught by nothing in its run of `blockenums.c` and one check, and the compile gate's
+  `voidvalues.c` catches it (1.6.36; this text since 1.6.37, which took back 1.6.36's words of a removal that 1.6.36
+  took back). A BLOCK'S ENUMERATOR IS ITS BLOCK'S IN C (1.6.30; C17 6.2.1/4; reader 216; `ccl_block_enum_value/2`,
+  `ccl_drop_block_enums/1`): a use of it in its block is its value, read so, `int(V)` or its enum's where the enum has a
+  type of its own; the block's end takes it out of the reader's table, so that a use after the block is clang's `use of
+  undeclared identifier 'B'` at the file's end (the uses' notes of 1.1.2, `ccl_use_later/2`); and in the passes' table a
+  file's enumerator of the name comes first. Through 1.6.29 the one table held them all: `return B;` after the block
+  built with its value, and a block's enumerator shadowed the file's or another block's in every later function --
+  `test/c/run/blockenums.c` printed `6 -1 30 40 5 9 9 4`, four values wrong, where clang prints `3 5 30 40 4 9 11 4`.
+  The driver gate's five bodies. A block's TYPEDEF IS ITS BLOCK'S IN C (1.6.2; C17 6.2.1/4, 6.7.8/3): the reader, the
+  check and the lowering each note it as they walk its block, its type taken there, as the newest of its name and in the
+  block's frame, which takes it away at the block's end (`ccl_block_typedefs/1`, `ccl_frame_leave/1`), and the bulk
+  noter takes only its type's tags and enumerators, as in C++. Through 1.6.1 one table held every block's typedef, the
+  first block's first: `{ typedef int T; } { typedef double T; T b = 2.5; }` read b's double as an int's bits
+  (3.37669e-319), a file-scope `typedef int T` after a function whose block gave T another type lost to it (main's `T z
+  = 3` a double), and the check met the first block's `int` where a block's `typedef char *P` holds new memory.
+  `test/c/run/typedef_block.c`, `scopedtypes.c`, `test/c/safe/blocktypedef_leak.c`. (1.6.2) In C++ a block's TYPEDEF
+  does not join the table either (0.127): the bulk noter takes only the tags and enumerators of its type
+  (`ccl_collect_typedef_types/5`), and the desugaring notes it for the statements of its own block and takes it out at
+  the block's end, on success, failure and throw (`cpp_scoped_typedefs/2` over `ccl_tab_del/2`, which removes the NEWEST
+  entry of the name, so the one it shadowed answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every
+  block's `using _Tp = ...;` made `_Tp` a KNOWN name to every rule that tells a template's own parameter by the tables
+  not knowing it; 0.126 had worked round it twice (`cpp_callee_param_type/2`, `cpp_lambda_params/3`). (0.108, 0.127)
 - A NAME THAT C'S FILE SCOPE DECLARES AGAIN AS ANOTHER KIND OF SYMBOL IS REFUSED (0.298; C17 6.7/3-4; `ccl_kind_clash/2`
   in `ccl_external_rest//6`'s definitions and over a declaration's declarators, `ccl_kind_clashes/1`;
   `ccl_typedef_clashes/1` over a typedef's): an object and a function of one name in either order, a prototype, an
@@ -12486,16 +12492,22 @@ in the first topic (The ccllib gate).
   and `int *o = &(int){ 7 }; free(o);` were built and each run aborted in `free`, `return &(struct p){ 1 };` was built
   and its caller read a dead frame, and `struct p *q = &(struct p){ 3, 4 };` was `plain pointer not consumed`. C23's
   STATIC compound literal is static storage (`ck_static_complit/1` over the reader's form, below). The lowering's IR is
-  the same. `test/c/run/complits.c`; `test/c/safe/complit_free.c`, `complit_ptr_free.c`, `complit_own.c`,
-  `complit_return.c`, `complit_global.c` and `complit_static_free.c`. A STATEMENT EXPRESSION WHOSE VALUE IS A PLACE OF A
-  STATIC LOCAL OF ITS OWN BLOCK IS STATIC STORAGE TOO (1.6.36; GNU's statement expression; `ck_block_static_place/1`,
-  `ck_block_static_name/2` in `ck_static_root/2`): its address, an element of its array, a member, or the array itself,
-  which decays -- an element through a pointer is no place of it. `char *s = ({ static char x[4] = "ab"; &x[0]; });
-  free(s);` and `free(({ static int v = 3; &v; }))` were built and aborted in `free`, `invalid size`: the block's static
-  local is no name of the function's scope when the value is asked, and the reader's `$cl` local of a compound literal
-  was the one form read so; the words name the local, `a borrow consumed: 'v'`, and a compound literal's are `a compound
-  literal` (`test/c/run/stmtstatics.c`, in C and as C++; `test/c/safe/stmt_static_free.c`, `stmt_static_copy_free.c`).
-  (1.6.31, 1.6.36)
+  the same. A COMPOUND LITERAL THAT A POINTER BORROWS IS A KEY OF THE BLOCK IT STANDS IN (1.6.37; its storage is the
+  enclosing block's; `ck_complit_key/4` in a declaration and an assignment), `$clitN` in the walk's innermost frame,
+  which the frame's end ends as a local's, so that its borrows dangle; the words name it `a compound literal`
+  (`ck_unmark/2`): `int *p; { p = &(int){ 1 }; } return *p;`, a loop's pass's literal used after the loop and a block's
+  pointer to one copied out of the block were built, each a read of a dead object (`test/c/run/complitblocks.c`, C
+  alone, since C++ takes no compound literal's address; `test/c/safe/complit_block_dead.c`, `complit_pass_dead.c`,
+  `complit_copy_dead.c`; the driver gate's words). `test/c/run/complits.c`; `test/c/safe/complit_free.c`,
+  `complit_ptr_free.c`, `complit_own.c`, `complit_return.c`, `complit_global.c` and `complit_static_free.c`. A STATEMENT
+  EXPRESSION WHOSE VALUE IS A PLACE OF A STATIC LOCAL OF ITS OWN BLOCK IS STATIC STORAGE TOO (1.6.36; GNU's statement
+  expression; `ck_block_static_place/1`, `ck_block_static_name/2` in `ck_static_root/2`): its address, an element of its
+  array, a member, or the array itself, which decays -- an element through a pointer is no place of it. `char *s = ({
+  static char x[4] = "ab"; &x[0]; }); free(s);` and `free(({ static int v = 3; &v; }))` were built and aborted in
+  `free`, `invalid size`: the block's static local is no name of the function's scope when the value is asked, and the
+  reader's `$cl` local of a compound literal was the one form read so; the words name the local, `a borrow consumed:
+  'v'`, and a compound literal's are `a compound literal` (`test/c/run/stmtstatics.c`, in C and as C++;
+  `test/c/safe/stmt_static_free.c`, `stmt_static_copy_free.c`). (1.6.31, 1.6.36)
 - A POINTER READ OUT OF A PLAIN SLOT OF THE PROGRAM'S OWN GLOBAL OBJECT IS STATIC STORAGE (1.6.31; `ck_global_slot/1` in
   `ck_static_value/1`, `ck_program_globals/1`): `names[1]` over `static char *names[]`, `gp` over `static char *gp`,
   `cfg.name` over a global struct -- the slot itself in static storage, reached through no pointer, of a global that a
@@ -17350,10 +17362,9 @@ Declarations topic of the C++ reader).
 - C++: A LAMBDA THAT CAPTURED NO `this`, WHAT 1.6.29 LEAVES (the lambdas' topic): a generic lambda's refusal is `not
   lowered yet: auto_result(...)`, the deduction's; and a lambda made in another lambda is not asked, its member's use
   the words of before.
-- A COMPOUND LITERAL'S BLOCK IS NOT FOLLOWED (found at 1.6.31; the safe part's topic): its borrow, `a compound literal`,
-  has no state of its own, so a pointer to one made in an inner block or in a loop's pass, used after it -- `int *p; { p
-  = &(int){ 1 }; } return *p;` -- is not refused as a dead object's, which clang leaves undefined. In C++ `(static int){
-  7 }` is read as an automatic literal, as clang++ reads no storage class there.
+- C++: A STATIC COMPOUND LITERAL IS READ AS AN AUTOMATIC ONE (found at 1.6.31, narrowed at 1.6.37, whose compound
+  literals that a pointer borrows are keys of their blocks): `(static int){ 7 }` in C++, as clang++ reads no storage
+  class there.
 - C++: A VOID POINTER FOR ANOTHER AND A POINTER THAT DROPS A QUALIFIER BUILD (found at 1.6.28): `int *p = malloc(4);`,
   `f(&cx)` of `int f(int *)` over a `const int`, where clang++ says `cannot initialize a variable of type 'int *' with an
   rvalue of type 'void *'` and `no matching function for call to 'f'`. They are C's, and ccllib's programs, C, are built
@@ -17716,7 +17727,7 @@ Declarations topic of the C++ reader).
 - THE PROGRAM'S OWN HEADERS, WHAT 1.6.36 LEAVES (0.298's probes, the Ambitious session's finding 26; narrowed at
   1.6.36, whose errors in a header's function name the header and whose unknown type names are refused): an unknown type
   name of a struct's member is refused at the struct's line, where clang names the member's, which the reader does not
-  keep; and a header's error has no `In file included from main.c:1:` line before it, which clang prints.
+  keep. (A header's error is led by its `In file included from` lines since 1.6.37.)
 - A LIBRARY HEADER'S TEXT AGAINST THE FILE'S OWN MACROS (0.298's probes; the topic of the user's file and the headers'
   macros): a library header is a table, what it defines at its end read apart, and a name that the file itself defines
   or undefines stays the file's. So `#define EOF 7` before the first `#include <stdio.h>` stays 7, where clang takes

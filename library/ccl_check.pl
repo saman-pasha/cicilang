@@ -835,6 +835,7 @@ ck_line(L) :- ( integer(L), L > 0 -> nb_setval('$ck_line', L) ; true ).
 ck_fail(Kind, Name0, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short1), ck_unmark(Name0, Name), ck_unmark(Short1, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
 %% the words name an object by its own name: an outer object's mark while a block hides its name is taken off (1.6.33, ck_sh_borrows/4)
 ck_unmark('$sh'(X), Y) :- !, ck_unmark(X, Y).
+ck_unmark(T, 'a compound literal') :- atom(T), sub_atom(T, 0, _, _, '$clit'), !.   % a compound literal's key of its block (1.6.37)
 ck_unmark(T, T) :- \+ compound(T), !.
 ck_unmark(T0, T) :- T0 =.. [F|As0], maplist(ck_unmark, As0, As), T =.. [F|As].
 %% a form without a macro's whole expansion in it
@@ -869,6 +870,14 @@ ck_declare_all(St, [], St).
 ck_declare_all(St0, [K-S|Ps], St) :- ck_declare(St0, K, S, St1), ck_declare_all(St1, Ps, St).
 ck_push(st(Frs), st([fr([], [])|Frs])).
 ck_declare_borrow(st([fr(Os0, Ds)|Frs]), N, P, st([fr([N-borrow(P)|Os], Ds)|Frs])) :- ck_unmask(Os0, N, Os).
+%% A COMPOUND LITERAL THAT A POINTER BORROWS IS A KEY OF THE BLOCK IT STANDS IN (1.6.37; C17 6.5.2.5/5: its storage is
+%% automatic, associated with the enclosing block): `int *p; { p = &(int){ 1 }; } return *p;' read a dead object and was
+%% built, and so was a loop's pass's literal used after the loop. Each such literal gets a key of its own in the walk's
+%% innermost frame, `$clitN', which the frame's end ends as a local's, so that its borrows dangle; the words name it `a
+%% compound literal' (ck_unmark/2). A dead frame has no key
+ck_complit_key(St0, 'a compound literal', St, K) :- St0 = st([_|_]), !, ( nb_current('$ck_clit_n', C0) -> true ; C0 = 0 ), C is C0 + 1, nb_setval('$ck_clit_n', C),
+    atom_concat('$clit', C, K), ck_declare(St0, K, array, St).
+ck_complit_key(St, P, St, P).
 ck_unmask(Os0, N, Os) :- ( select(N-shadow, Os0, Os1) -> Os = Os1 ; Os = Os0 ).
 %% A NAME THAT A BLOCK DECLARES AGAIN HIDES THE OUTER ONE'S STATES (0.297): the states are keyed by names, and a
 %% plain local -- an `int', a `double', a pointer with no initializer -- declares no state of its own, so that the
@@ -2039,7 +2048,7 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
         ;   Init = init(Items) -> ck_init_slots(Items, T, N, St5, St6)
         ;   ck_expr(Init, St5, St5a),
             (   ck_view_type(T), ck_view_copy_source(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % A VIEW COPIED borrows what its view sees (0.295)
-            ;   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
+            ;   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P0) -> ck_complit_key(St5a, P0, St5b, P), ck_bind_var(N, P, var(N, Init), St5b, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
             ;   ck_is_pointer_type(T), ck_plain_value(St5a, Init, _) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'; and its sum with an integer, and of an anchored pointer (0.299, ck_plain_value/3)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6), ck_note_realloc(N, Init)
@@ -2674,7 +2683,7 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ;   St2 = St1 ),
     ( ck_local_type(N, T) -> true ; T = unknown ),
     ( ck_state(St2, N, S0), ( S0 == loose ; S0 == maybe_freed ) -> ck_fail(unconsumed, N, assign('=', id(N), R)) ; true ),      % overwritten, its memory still nobody's -- on one path where it is maybe freed (1.6.34)
-    (   T \== unknown, ck_borrowing_type(T), ck_borrows_from(R, St1, P) -> ck_rebind(St2, N, borrow(P), St)   % read before the parameter was unbound; a library object a trivial assignment copies (`sv = s', 0.216) as a pointer
+    (   T \== unknown, ck_borrowing_type(T), ck_borrows_from(R, St1, P0) -> ck_complit_key(St2, P0, St2c, P), ck_rebind(St2c, N, borrow(P), St)   % read before the parameter was unbound; a library object a trivial assignment copies (`sv = s', 0.216) as a pointer
     ;   T \== unknown, ck_is_pointer_type(T), ck_static_value(R) -> ck_static_name(R, SN), ck_rebind(St2, N, borrow(static(SN)), St)   % static storage (0.294)
     ;   T \== unknown, ck_is_pointer_type(T), ck_plain_value(St1, R, _) -> ( ck_state(St2, N, anchor) -> St = St2 ; ck_rebind(St2, N, null, St) )   % a pointer that holds no memory the check follows (0.299, ck_plain_value/3); an anchored local stays one
     ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St), ck_note_realloc(N, R)

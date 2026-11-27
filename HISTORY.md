@@ -353,6 +353,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.34 | a qualified call beside a callable local, a free on one path, realloc's old block, a loop's condition | `::k(6)` beside a local pointer named k calls the file's function, and a local pointer beside the file's overloads of its name is called through; a join of freed and new memory is maybe freed, realloc's old block freed or live by its result's null test, the null test of an assignment refines its left operand, and a loop's condition is evaluated again after each pass (reader 218, lowering 203) |
 | 1.6.35 | new memory handed out of a block, a library's out-writers, records from static storage, a returned array | one copy of an outer scope takes new memory at its pointer's end; a freed pointer's address to asprintf, vasprintf or posix_memalign is anchored and a held one's a leak, and a condition anchors its addresses; a record from static storage or filled with static values is a static result, and a local copied from static storage holds static pointers, so their free is refused; a local's array returned is a borrow that leaves; 1.6.30's chain carried; one chain over the newest tree (reader 218, lowering 204) |
 | 1.6.36 | the program's own headers in the words, unknown type names, a statement expression's statics | an error in a function of the program's own header names the header, and a header that no read takes stops the build at its line; a type name that nothing declares is clang's `unknown type name` at its declaration's line; a statement expression's static local is static storage, so its free is refused; 1.6.30's and 1.6.31's broken copies carried (reader 218, lowering 205) |
+| 1.6.37 | include chains before a header's error, a block's unknown type names, a compound literal's block | an error in a header is led by clang's `In file included from` lines; a block's unknown type name is clang's use of an undeclared identifier, a for's own among them; a compound literal that a pointer borrows ends with its block; two stale texts of RULES.md corrected (reader 218, lowering 206) |
 
 ## M5 — the C++ mode
 
@@ -26393,3 +26394,57 @@ No CI job ran, by the owner's rule of 0.271.
   the fixtures).
 
 The module 1.6.36, the reader 218 and the lowering 205.
+
+## 1.6.37 — include chains before a header's error, a block's unknown type names, a compound literal's block
+
+**1.6.37: at the user's word "Next", after "try to run less chain and do more tasks before every chain" and "To prevent
+code lost, first commit and push": two records of Not done narrowed -- one to C++'s static compound literal, one to a
+member's line --, a block's words for an unknown type name made clang's, and two texts of RULES.md that 1.6.36 left
+stale corrected. The step was committed while its broken copies and the queue ran: it claims nothing GREEN of them, and
+the next step's commit carries them.**
+
+1. C: AN ERROR IN A HEADER IS LED BY THE INCLUDES THAT BROUGHT IT, AS CLANG LEADS ITS OWN (`dr_note_includes/2` after
+   the read, `dr_include_chain/5`, `dr_included_from/1` in `dr_error_as/4`; `bin/cicilang`'s filter passes the lines):
+   `In file included from main.c:1:`, the outermost first, a line for each header between, each at the line of its
+   `#include` in the file that holds it. The driver noted the chain from the AST's include nodes; the command's filter
+   dropped every line that held no `error:`, `warning:` or `note:`, so the first form printed nothing. Not done's record
+   of the program's own headers narrows to a member's line.
+2. C: A BLOCK'S DECLARATION OF A TYPE NAME THAT NOTHING DECLARES IS CLANG'S `use of undeclared identifier 'foo'`
+   (`ir_ut_types/6`, `ir_ut_outer/2`): clang parses `foo x;` in a block as an expression, and 1.6.36 gave `unknown type
+   name`; a `for`'s own declaration was not walked, `not lowered yet: typedef(foo)`; a block's tag's member keeps
+   `unknown type name`, as clang's.
+3. C: A COMPOUND LITERAL THAT A POINTER BORROWS IS A KEY OF THE BLOCK IT STANDS IN (`ck_complit_key/4` in a declaration
+   and an assignment, `ck_unmark/2`; C17 6.5.2.5/5): `$clitN` in the walk's innermost frame, which the frame's end ends
+   as a local's, so that its borrows dangle -- `int *p; { p = &(int){ 1 }; } return *p;`, a loop's pass's literal used
+   after the loop and a block's pointer to one copied out of it were built, each a read of a dead object; each is `use
+   of a borrow after its owner was consumed: 'p' in borrowed_from('a compound literal')` now. Not done's record of a
+   compound literal's block narrows to C++'s `(static int){ 7 }`.
+4. RULES.MD, TWO TEXTS THAT 1.6.36 LEFT STALE: the bullet of a header's error said that a library header's function is
+   no part of the rule, where 1.6.36 named it too, as clang does; and the bullet of a block's enumerators said 1.6.36's
+   removal of them from the passes' table, which 1.6.36 took back when `voidvalues.c` failed -- its entry's item 5 said
+   so, its rules' script still held the first text. Each holds what the code does now.
+
+`test/c/run/complitblocks.c`, C alone, holds what item 3 takes, and clang 23 and this step print it alike;
+`test/c/safe/complit_block_dead.c`, `complit_pass_dead.c` and `complit_copy_dead.c` what it refuses; the driver gate's
+checks items 1 to 3, the chain's lines and the block's words each clang 23's.
+
+1.6.36'S NETS, CARRIED. Over its copy: the ccllib gate GREEN in 1455 s (thirty-six programs in three runs, 189 refused,
+21 alone). 1.6.31'S LAST BROKEN COPY, LU6, caught -- its build of `lambdauneval.cpp` was killed by the cap --, so that
+twenty-two of twenty-nine were caught. 1.6.32'S BROKEN COPIES: twelve, eight caught; FR4, FR6, FR10 and FR11, of the
+freed state, were caught by nothing, and the next step reads them.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the compile gate GREEN in 35 s (478 ok) -- the three refusals
+and `complitblocks.c` among them --, the flow gate GREEN in 935 s, the driver gate GREEN in 236 s (179 ok), the reader
+gate GREEN in 4 s; every probe of the step built by clang 23 and by this step. Its ccllib gate ran at the commit, with
+its broken copies queued: the next step's commit carries them. Over the work tree after the port: the toolchain check
+strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_driver.pl` (`dr_note_includes/2`, `dr_include_chain/5`, `dr_included_from/1`, `dr_error_as/4`, `dr_c/5`);
+  `bin/cicilang` (the filter); `library/ccl_ir.pl` (`ir_ut_types/6`, `ir_ut_outer/2`, `ir_ut_known/5`, `ir_ut_item/2`;
+  the lowering 206); `library/ccl_check.pl` (`ck_complit_key/4`, `ck_unmark/2`, a declaration's and an assignment's
+  borrow); `test/driver.sh` (three checks, and 1.6.36's header checks read past the chain's lines); the step's fixtures;
+  the module's version.
+- RULES.md (the rules in their topics, two stale texts corrected; Not done: two records narrowed), HISTORY.md, CLAUDE.md
+  (the versions and the fixtures).
+
+The module 1.6.37, the reader 218 and the lowering 206.
