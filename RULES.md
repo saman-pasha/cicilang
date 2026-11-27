@@ -10795,17 +10795,26 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `std::bit_cast` is `return __builtin_bit_cast(_ToType, __from);`; the builtin was `trait_unknown`. `stdbitcast.cpp`.
 - The memory builtins are libc's: `memcpy`, `memmove`, `memset`, `memcmp`, `memchr`, `strlen`, and
   `__builtin_char_memchr` as `memchr`. `ir_cpp_prelude` declares `free`, `memcpy`, `memmove` and `memset` where the
-  file did not, and the replaceable allocation functions (0.202, `malloc` and `calloc` before). `__builtin_wmemchr`, `wmemcmp` and `wcslen` are libc's, declared where no header did
+  file did not, and the replaceable allocation functions (0.202, `malloc` and `calloc` before). Since 1.6.47 every
+  library builtin of the Builtins topic's table that no clause here maps is its function, declared where no header did
+  (`cpp_lib_declared/2`): `__builtin_strcpy`, `__builtin_printf` (an ellipsis) and `__builtin_abort` were `use of
+  undeclared identifier`, and `__builtin_strlen`, `__builtin_memcmp` and `__builtin_memchr` were calls of their names
+  that no declaration named, `use of undeclared identifier 'strlen'` in a file that included no `<string.h>`. A call of
+  a library builtin gives its prototype's count of arguments, in clang++'s words (`cpp_lib_arg_count/2`):
+  `__builtin_floor()` and `__builtin_memcpy(a, b, 2, 3)` were built from 0.117 on, and ran over what the registers
+  held. `__builtin_wmemchr`, `wmemcmp` and `wcslen` are libc's, declared where no header did
   (`cpp_wide_fn`): `std::find` of an int goes that road. (0.60, 0.76, 0.92)
 - The math builtins are libm's (`cpp_math_fn`, `cpp_math_stem`, `cpp_math_shape`): `f` float, `l` libm's own long double
   function, each declared once where no header did (`cpp_math_declared`): the rehash's `__builtin_ceilf`. `scalbn` and
   `ldexp` take (T, int), `frexp` (T, int *), `modf` (T, T *), and `ilogb` answers an int (`cpp_math_odd/4`):
-  `<complex>`'s division calls `std::scalbn` and `std::logb`. `__builtin_abs`, `labs` and `llabs` are LLVM's `llvm.abs`
-  over the parameter's type, in C and in C++ (`ccl_abs_builtin/2`, an `ir_call/4` clause; 1.6.21): they were the C
-  library's abs, labs and llabs, and libc++ 23 writes `template <class = int> int abs(int __x) { return
-  __builtin_abs(__x); }` beside an abs template over `_BitInt(_Np)`, so the call of the C library's name met the
-  templates and was refused, `template_argument_free('_Rep')` (`stdabs.cpp` over libc++ 23). `test/c/run/builtinabs.c`.
-  (0.81, 0.108, 0.117, 1.6.21)
+  `<complex>`'s division calls `std::scalbn` and `std::logb`; since 1.6.47 `remquo` takes (T, T, int *), `nexttoward`
+  (T, long double) and `scalbln` (T, long), and `roundeven` is among the functions of one argument, clang's.
+  `__builtin_abs`, `labs` and `llabs` are LLVM's `llvm.abs` over the parameter's type, in C and in C++
+  (`ccl_abs_builtin/2`, an `ir_call/4` clause; 1.6.21): they were the C library's abs, labs and llabs, and libc++ 23
+  writes `template <class = int> int abs(int __x) { return __builtin_abs(__x); }` beside an abs template over
+  `_BitInt(_Np)`, so the call of the C library's name met the templates and was refused,
+  `template_argument_free('_Rep')` (`stdabs.cpp` over libc++ 23). `test/c/run/builtinabs.c`. (0.81, 0.108, 0.117,
+  1.6.21)
 - `__builtin_popcount` and its forms fold where their argument folds, over the type's width (`cpp_popcount`): libc++'s
   `digits`. `__builtin_offsetof` comes from the layout (`cpp_trait`, `cpp_offsetof`). (0.45, 0.60, 0.94)
 
@@ -13368,6 +13377,14 @@ in the first topic (The ccllib gate).
   and the allocator). Why: the block was a borrow of the allocator (0.91, 0.117), so one never given back, or given back
   twice, was accepted, and an own pointer could not hold one (`borrow_stored`). `test/cpp/run/allocown.cpp`; refused,
   `test/cpp/allocleak.cpp` and `allocdouble.cpp`. (0.238)
+- A LIBRARY BUILTIN IS ITS FUNCTION TO THE CHECK (1.6.47; `ck_lib_calls/2`, the Builtins topic's table): in C a
+  function's body is read with each `__builtin_F(...)` as `F(...)`, so that `__builtin_free(p)`, `__builtin_realloc`
+  and `__builtin_strdup` are free, realloc and strdup, whose rules the check knows by their names -- `m =
+  __builtin_realloc(m, n)` was `plain pointer not consumed`, and a block given to `__builtin_free` was not consumed --
+  and `__builtin_abort()` ends its path (`ck_noreturn_call/1`). C++'s desugaring names the functions so already, and
+  declares one that no header did as the library's; the C library's allocators stay fresh memory there, where a library
+  function's result borrows what its arguments borrow (`ck_borrows_from/3`): `__builtin_strdup(a)` was a borrow of a,
+  and its free `a borrow consumed`. (1.6.47)
 - An address under a reference that the check does not follow is no fresh value (`ck_ref_rooted/1`):
   `const auto &[k, v] = *it` binds a plain value. (0.79)
 - A closure is a compound literal of its captures, and it borrows what they borrow (`ck_borrows_from/3` on
@@ -14569,6 +14586,26 @@ in the first topic (The ccllib gate).
   (`ir_bit_width/2`): an `unsigned __int128` is `i128` and an `unsigned _BitInt(N)` its own `iN` -- libc++ 21's
   `__countl_zero` calls `__builtin_clzg` on an `unsigned __int128` (libc++ 18 splits it into two 64-bit calls), and the
   gate over libc++ 21 found the widths 8 to 64 only, eight fixtures RED. `bitwide.c`, `bit128.cpp`. (0.73, 0.129)
+- CLANG'S LIBRARY BUILTINS ARE THE C LIBRARY'S FUNCTIONS, WITH NO DECLARATION (1.6.47, lowering 214;
+  `ccl_lib_builtin/3`, one table, which the inference, the lowering's `ir_call/4`, the check and the desugaring read;
+  clang 23's Builtins.td): `__builtin_F` calls the library's F by the prototype that clang gives it -- `abort`,
+  `malloc`, `calloc`, `realloc`, `free`; `memcpy`, `memmove`, `memset`, `memcmp`, `memchr`, `bcmp`, `bzero`, `strlen`,
+  `strcpy`, `strncpy`, `stpcpy`, `stpncpy`, `strcat`, `strncat`, `strcmp`, `strncmp`, `strchr`, `strrchr`, `index`,
+  `rindex`, `strstr`, `strpbrk`, `strspn`, `strcspn`, `strdup`, `strndup`; `printf`, `sprintf`, `snprintf`, `scanf`,
+  `sscanf` and their `v` forms over a `va_list` (`ccl_lib_proto/4`, its types as codes, `ccl_lib_code/2`); the math
+  functions of the desugaring's table, each in its `f`, plain and `l` forms (`cpp_math_fn/4`). In C each was `call to
+  undeclared function`, where clang builds it; a call's type is the prototype's result, a call of another count is
+  clang's `too few arguments to function call, expected 1, have 0` and its kin (`ir_arg_count/4`), one taken as a value
+  `builtin functions must be directly called` (`ir_undeclared/1`), and a program's own declaration of the name keeps it
+  the builtin, as clang has it. The math functions that clang 23 lowers to LLVM's intrinsics whatever errno is are those
+  intrinsics -- fabs, copysign, floor, ceil, trunc, rint, nearbyint, round, roundeven, fmin, fmax and fma,
+  `llvm.floor.f64`, `llvm.minnum.f32`, `llvm.fabs.f80`, `llvm.fma.f128` (`ir_lib_intrinsic/3`) --, and
+  `__builtin_abort()` ends its block in `unreachable`. The C++ topic's builtins take the table too (cpp_builtin_call/3),
+  and the safe part reads each as its function (`ck_lib_calls/2`). `test/c/run/libbuiltins.c`, built as C and as C++
+  (the C++ gate), and for aarch64 Linux under qemu (the cross gate); the driver gate's three checks hold the refusals in
+  clang's and clang++'s words, a builtin beside its header's declaration and a declared one, `__builtin_abort()`'s path,
+  and the intrinsics of each floating type on x86_64 and aarch64 Linux and on Apple's arm64 as clang 23's IR names them.
+  (1.6.47)
 - THE BYTE SWAPS `__builtin_bswap16`, `32`, `64` and `128` ARE `llvm.bswap.iN` (0.206; `ccl_bswap_builtin/3`, one table,
   which the inference, the lowering's `ir_call/4` and the desugaring's evaluator read): each answers the unsigned integer
   of its width, its argument converted to that width first, and a constant 16- or 32-bit swap folds in a constant
@@ -17589,6 +17626,14 @@ Declarations topic of the C++ reader).
   safe part's topic): one copy takes it at the inner pointer's end since 1.6.35, but with two, `char *p, *r; { char *q =
   malloc(4); p = q; r = q; } free(p);`, it is `plain pointer not consumed: 'q'` at the block's end, where clang builds
   it: which copy gives it back is the program's, and a state that the two share would tell it.
+- CLANG'S LIBRARY BUILTINS, WHAT 1.6.47 LEAVES (the Builtins topic): `__builtin_alloca`, which clang makes an `alloca`
+  of the frame, and the complex functions (`__builtin_cexp`, `creal`, `cabs`, `carg`, `conj` and kin) are no part of the
+  table, still `call to undeclared function`; on Apple's machines clang lowers the math functions that errno would set,
+  `sqrt`, `pow`, `exp` and kin, to LLVM's intrinsics too, where they are the library's calls here, the same values. A
+  plain pointer that a library builtin taken as a value, or a name that nothing declares, initializes is the check's
+  `plain pointer not consumed` (`void *p = (void *) __builtin_memcpy;`), which runs before the lowering's clang words.
+  In C++ a C library function that the program declares with no `extern "C"`, `int printf(const char *, ...);`, is
+  linked by its C name, where clang++ mangles it and the link fails.
 - THREE TESTS OF 1.6.31 THAT NO PROGRAM REACHES (found at 1.6.36 by 1.6.31's broken copies CA3, CK3 and GS4): C++'s
   refusal of a compound literal's address leaves a library's body out, and no library body that a fixture reads holds
   one; a compound literal's address is no new memory to `ck_fresh_value/1`, and each place that asks it takes the

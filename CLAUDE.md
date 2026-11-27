@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.46 the versions are: the module 1.6.46 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 213 (`ccl_lowering_version/1`,
+At 1.6.47 the versions are: the module 1.6.47 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 214 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -648,7 +648,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             local, each built as C and as C++ (1.6.36); complitblocks.c, compound literals used while
                             their blocks run, C alone (1.6.37); gnuinline.c, GNU's extern inline with gnu_inline, and
                             deadbranch.c, branches that clang's code generation drops, and bracedstr.c, string literals in
-                            braces for arrays of no bound (1.6.39); gnuattrs.c, GCC's weak, alias and section (1.6.40)
+                            braces for arrays of no bound (1.6.39); gnuattrs.c, GCC's weak, alias and section (1.6.40);
+                            libbuiltins.c, clang's library builtins, each the C library's function with no declaration,
+                            built as C and as C++ (1.6.47)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;

@@ -823,6 +823,37 @@ ccl_sat_builtin('__builtin_elementwise_add_sat', add).  ccl_sat_builtin('__built
 ccl_trap_builtin('__builtin_trap', [], 'llvm.trap', ends).
 ccl_trap_builtin('__builtin_verbose_trap', [P, P], 'llvm.trap', ends) :- P = param(ptr([], base([const], [char])), anon).
 ccl_trap_builtin('__builtin_debugtrap', [], 'llvm.debugtrap', goes_on).
+%% CLANG'S LIBRARY BUILTINS (1.6.47; clang 23's Builtins.td, the `__builtin_' forms of the C library's functions): `__builtin_F'
+%% is the library's F, called with no declaration by the prototype that clang gives it -- `abort', the allocation functions, the
+%% memory and string functions, the printf and scanf families that name no FILE, and the math functions of the desugaring's
+%% table (cpp_math_fn/4). C refused each as `call to undeclared function'; C's lowering calls them (ir_call/4), a call's type is
+%% the prototype's result, and C++'s desugaring takes the ones that its own clauses do not map (cpp_builtin_call/3). A type is a
+%% code: v void, n a void that does not return, i int, z size_t, p `void *', q `const void *', s `char *', c `const char *', l
+%% a va_list
+ccl_lib_builtin(B, F, T) :- atom(B), atom_concat('__builtin_', F, B), ccl_lib_builtin_fn(F, T), !.
+ccl_lib_builtin_fn(F, fn(Ret, Ps, false)) :- cpp_math_fn(F, F, Ret, Ps), !.
+ccl_lib_builtin_fn(F, fn(Ret, Ps, Var)) :- ccl_lib_proto(F, R, Ss, Var), ccl_lib_code(R, Ret), findall(param(T, anon), ( member(S, Ss), ccl_lib_code(S, T) ), Ps).
+ccl_lib_proto(abort, n, [], false).
+ccl_lib_proto(malloc, p, [z], false).           ccl_lib_proto(calloc, p, [z, z], false).        ccl_lib_proto(realloc, p, [p, z], false).
+ccl_lib_proto(free, v, [p], false).
+ccl_lib_proto(memcpy, p, [p, q, z], false).     ccl_lib_proto(memmove, p, [p, q, z], false).    ccl_lib_proto(memset, p, [p, i, z], false).
+ccl_lib_proto(memcmp, i, [q, q, z], false).     ccl_lib_proto(memchr, p, [q, i, z], false).     ccl_lib_proto(bcmp, i, [q, q, z], false).
+ccl_lib_proto(bzero, v, [p, z], false).
+ccl_lib_proto(strlen, z, [c], false).           ccl_lib_proto(strcpy, s, [s, c], false).        ccl_lib_proto(strncpy, s, [s, c, z], false).
+ccl_lib_proto(stpcpy, s, [s, c], false).        ccl_lib_proto(stpncpy, s, [s, c, z], false).    ccl_lib_proto(strcat, s, [s, c], false).
+ccl_lib_proto(strncat, s, [s, c, z], false).    ccl_lib_proto(strcmp, i, [c, c], false).        ccl_lib_proto(strncmp, i, [c, c, z], false).
+ccl_lib_proto(strchr, s, [c, i], false).        ccl_lib_proto(strrchr, s, [c, i], false).       ccl_lib_proto(index, s, [c, i], false).
+ccl_lib_proto(rindex, s, [c, i], false).        ccl_lib_proto(strstr, s, [c, c], false).        ccl_lib_proto(strpbrk, s, [c, c], false).
+ccl_lib_proto(strspn, z, [c, c], false).        ccl_lib_proto(strcspn, z, [c, c], false).       ccl_lib_proto(strdup, s, [c], false).
+ccl_lib_proto(strndup, s, [c, z], false).
+ccl_lib_proto(printf, i, [c], true).            ccl_lib_proto(sprintf, i, [s, c], true).        ccl_lib_proto(snprintf, i, [s, z, c], true).
+ccl_lib_proto(scanf, i, [c], true).             ccl_lib_proto(sscanf, i, [c, c], true).
+ccl_lib_proto(vprintf, i, [c, l], false).       ccl_lib_proto(vsprintf, i, [s, c, l], false).   ccl_lib_proto(vsnprintf, i, [s, z, c, l], false).
+ccl_lib_proto(vscanf, i, [c, l], false).        ccl_lib_proto(vsscanf, i, [c, c, l], false).
+ccl_lib_code(v, base([], [void])).  ccl_lib_code(n, base([noreturn], [void])).  ccl_lib_code(i, base([], [int])).  ccl_lib_code(z, base([], [unsigned, long])).
+ccl_lib_code(p, ptr([], base([], [void]))).  ccl_lib_code(q, ptr([], base([const], [void]))).
+ccl_lib_code(s, ptr([], base([], [char]))).  ccl_lib_code(c, ptr([], base([const], [char]))).
+ccl_lib_code(l, T) :- ccl_va_list_type([], T).   % an array type, which a parameter's lowering makes a pointer
 ccl_size_type(T) :- ( ccl_typedef_of(size_t, _) -> T = base([], [typedef(size_t)]) ; T = base([], [unsigned, long]) ).
 ccl_sizeof_expr(sizeof(_)).
 ccl_sizeof_expr(sizeof_type(_)).
@@ -882,6 +913,7 @@ ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_bswap_builtin(B, _, T), !.   % a byte swap answers the unsigned integer of its width (0.206)
 ccl_type_of(call(id(B), _), T) :- ccl_abs_builtin(B, T), !.   % an integer absolute value answers its parameter's type (1.6.21)
+ccl_type_of(call(id(B), _), T) :- ccl_lib_builtin(B, _, fn(T, _, _)), !.   % a library builtin answers its prototype's result (1.6.47)
 ccl_type_of(call(id('__builtin_bswapg'), [X]), T) :- !, ccl_type_of(X, T0), ccl_unref(T0, T).   % clang 23's generic byte swap answers its argument's own type (1.6.21; libc++ 23's std::byteswap)
 ccl_type_of(call(id(B), [X, _]), T) :- ccl_sat_builtin(B, _), !, ccl_type_of(X, T0), ccl_unref(T0, T).   % a saturating sum or difference answers its first operand's type (0.227)
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.

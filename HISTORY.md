@@ -363,6 +363,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.44 | GCC's error in C++, a null pointer constant for an array parameter | a C++ call of a function that GCC's error marks is clang++'s words, the callee by its demangled name, a plain call alone; 0 for an array parameter (reader 221, lowering 212) |
 | 1.6.45 | a constexpr object of a class builds again | a C++ constexpr object of a class with no initializer is its constexpr default constructor's, which 1.6.43 refused; the chain over 1.6.44 (reader 221, lowering 213) |
 | 1.6.46 | the object's CPU is clang's default | an object's CPU is clang's default for its triple, the host's on -march=native, and -march= and -mcpu= name it as clang takes them (reader 221, lowering 213) |
+| 1.6.47 | clang's library builtins in C, and their counts in C++ | `__builtin_memcpy`, `__builtin_floor` and kin are the C library's functions with no declaration, the math ones that clang lowers so LLVM's intrinsics; C++ declares them and counts their arguments (reader 221, lowering 214) |
 
 ## M5 — the C++ mode
 
@@ -27013,3 +27014,75 @@ port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.
   CLAUDE.md (the versions).
 
 The module 1.6.46, the reader 221 and the lowering 213.
+
+## 1.6.47 — clang's library builtins in C, and their counts in C++
+
+**1.6.47: at the user's word "then next", after 1.6.46, whose probes found it: clang's library builtins,
+`__builtin_memcpy`, `__builtin_floor` and their kin, which C refused as undeclared, are the C library's functions with
+no declaration, in C and in C++, each against clang 23 and clang++ 23. The step was committed with its nets and its
+broken copies; no chain ran, by the user's word "try to run less chain and do more tasks before every chain", and it
+claims nothing GREEN of the chain.**
+
+1. C: A LIBRARY BUILTIN IS THE C LIBRARY'S FUNCTION, WITH NO DECLARATION (lowering 214; `ccl_lib_builtin/3`, one table
+   over clang 23's Builtins.td, `ccl_lib_proto/4` and `ccl_lib_code/2`, with the math functions of the desugaring's
+   table, `cpp_math_fn/4`; `ir_call/4`'s clause, `ir_lib_intrinsic/3`): `abort`, the allocation functions, the memory
+   and string functions, `printf`, `sprintf`, `snprintf`, `scanf`, `sscanf` and their `v` forms, and the math functions
+   in their `f`, plain and `l` forms -- 41 names and the math table's, the ones that clang 23 knows so, `fprintf` and
+   `puts` not among them. Each was `call to undeclared function '__builtin_memcpy'`, where clang builds it. A call's
+   type is the prototype's result (`ccl_type_of/2`), a call of another count is refused in clang's words, one taken as a
+   value is `builtin functions must be directly called`, and a program's own declaration of the name keeps it the
+   builtin, as clang has it. The math functions that clang 23 lowers to LLVM's intrinsics whatever errno is are those
+   intrinsics -- fabs, copysign, floor, ceil, trunc, rint, nearbyint, round, roundeven, fmin, fmax and fma, by the
+   floating type, `llvm.fabs.f80` and `llvm.fma.f128` among them --, and `__builtin_abort()` ends its block in
+   `unreachable`.
+2. C: THE SAFE PART READS A LIBRARY BUILTIN AS ITS FUNCTION (`ck_lib_calls/2`, `ck_noreturn_call/1`): `m =
+   __builtin_realloc(m, n)` was `plain pointer not consumed`, a block given to `__builtin_free` was not consumed, and
+   `__builtin_abort()` ends its path.
+3. C++: THE TABLE'S OTHER BUILTINS ARE THEIR FUNCTIONS, DECLARED WHERE NO HEADER DID (`cpp_builtin_call/3`,
+   `cpp_lib_declared/2`, the math functions' `cpp_math_declared/3` over it): `__builtin_strcpy`, `__builtin_printf`,
+   `__builtin_malloc` and `__builtin_abort` were `use of undeclared identifier`, and `__builtin_strlen`,
+   `__builtin_memcmp` and `__builtin_memchr` were calls of their names that no declaration named, `use of undeclared
+   identifier 'strlen'` in a file with no `<string.h>`. The C library's allocators stay fresh memory where a library
+   builtin declares them as the library's (`ck_borrows_from/3`): `__builtin_strdup(a)` was a borrow of a.
+4. C++: A LIBRARY BUILTIN'S CALL GIVES ITS PROTOTYPE'S COUNT OF ARGUMENTS, in clang++'s words (`cpp_lib_arg_count/2`):
+   `__builtin_floor()` and `__builtin_memcpy(a, b, 2, 3)` were built from 0.117 on, and the first stopped with SIGSEGV.
+5. C AND C++: `remquo`, `nexttoward`, `scalbln` and `roundeven` join the math table (`cpp_math_shape/3`,
+   `cpp_math_odd/4`), clang's shapes.
+6. FOUND: `__builtin_alloca` and the complex functions are no part of the table; on Apple's machines clang lowers the
+   math functions that errno would set to LLVM's intrinsics too; a plain pointer that a builtin taken as a value
+   initializes is the check's `plain pointer not consumed` before the lowering's clang words, as for any name that
+   nothing declares; and in C++ a C library function declared with no `extern "C"` links by its C name, where clang++
+   mangles it. Not done records them.
+
+`test/c/run/libbuiltins.c` holds items 1 to 5, its `.expect` clang's: the compile gate builds it, the C++ gate builds it
+as C++ (its list of C fixtures), and the cross gate for aarch64 Linux under qemu, beside clang's build there. The driver
+gate's three checks hold the refusals as C and as C++ in clang's and clang++'s words, seven bodies; a builtin beside its
+header's declaration, `__builtin_abort()`'s path and a declared builtin, each run as C and as C++ against clang's and
+clang++'s builds; and the intrinsics of each floating type and the abort's `unreachable` on x86_64 and aarch64 Linux and
+on Apple's arm64, as clang 23's `-O0` IR names them.
+
+THE NETS. Over the copy: the flow gate GREEN in 458 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+37 s (483 ok), the driver gate GREEN in 261 s (200 ok), the cross gate GREEN in 309 s (295 ok), and the pool of 107 C++
+run fixtures -- 1.6.46's 105, `strlencast.cpp`, whose `__builtin_strlen` takes the table's road now, and `stdstring.cpp`
+--, each built as the C++ gate builds it over a HOME of its own, 107 the same, in 138 s. THE BROKEN COPIES: twenty-nine
+at first, each run from a copy of the copy over a fresh HOME, against the three checks and the fixture as C and as C++.
+Twenty-six were caught. LB6, which gave a `va_list` its array type as a parameter, was caught by nothing: the lowering
+makes an array parameter a pointer itself, so the table's own adjustment held nothing, and it is out. LB7, which took
+the call's type away, and LB18, which took `__builtin_abort()`'s end of a path away in the check, were caught by nothing
+at first: the fixture asked no type of a call, and the check's program freed its block after the abort too; LB28, which
+gave `nexttoward` a double for its long double, was caught by nothing, since any direction above 1 gives the same next
+value. The fixture asks a call's type through `__typeof__`, `sizeof` and a conditional now, and a `nexttoward` toward
+its own value, and the check's program frees on the other path alone; the three copies were caught then. Over the work
+tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_infer.pl` (`ccl_lib_builtin/3`, `ccl_lib_builtin_fn/2`, `ccl_lib_proto/4`, `ccl_lib_code/2`,
+  `ccl_type_of/2`); `library/ccl_ir.pl` (`ir_undeclared/1`, `ir_call/4`, `ir_lib_intrinsic/3`,
+  `ir_lib_intrinsic_stem/2`, `ir_lib_intrinsic_type/2`; the lowering 214); `library/ccl_check.pl` (`ck_function/5`,
+  `ck_lib_calls/2`, `ck_lib_call/2`, `ck_lib_call_args/2`, `ck_noreturn_call/1`, `ck_borrows_from/3`);
+  `library/ccl_cpp_expr.pl` (`cpp_builtin_call/3`, `cpp_lib_arg_count/2`, `cpp_math_odd/4`, `cpp_math_shape/3`,
+  `cpp_math_declared/3`, `cpp_lib_declared/2`); `test/c/run/libbuiltins.c` and `.expect`; `test/driver.sh` (three
+  checks); `test/cpp.sh` (the list of C fixtures built as C++); the module's version.
+- RULES.md (the rules in the Builtins, the C++ desugaring's and the safe part's topics; Not done: one record new),
+  HISTORY.md, CLAUDE.md (the versions, the fixture).
+
+The module 1.6.47, the reader 221 and the lowering 214.

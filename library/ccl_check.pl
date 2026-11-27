@@ -170,7 +170,8 @@ ck_program_globals(Units) :- findall(N, ( ck_unit_item(Units, declaration(_, Sto
 ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$ir_hlib'(Name), _, fail) ).
 
 %% ---- state: frames of Key-State, innermost first; with each frame its defers ----------
-ck_function(L, Ret, Name, Params0, Body) :-
+ck_function(L, Ret, Name, Params0, Body0) :-
+    ck_lib_calls(Body0, Body),                                           % C: a library builtin is its function (1.6.47), below
     ck_ref_params(Params0, Params),                                      % C++: a reference parameter is a borrow, as a pointer is
     nb_setval('$ck_fn', Name), nb_setval('$ck_reallocs', []), nb_setval('$ck_static_copies', []), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
     nb_setval('$ck_arrlocals', []), nb_setval('$ck_ref_binds', []), nb_setval('$ck_holders', []), ck_note_arrparams(Params),
@@ -196,6 +197,17 @@ ck_function(L, Ret, Name, Params0, Body) :-
     ;   NR == yes -> ck_body_end_line(L, Body1, EL), nb_setval('$ck_line', EL), ck_display_name(Name, DN), ck_fail(noreturn_returns, DN, function_end)
     ;   St1 = st([fr(Os, _)]), ck_complete_owners(Os, function_end), ck_leaks_all(St1, function_end) ),
     ccl_scope_pop.
+%% A LIBRARY BUILTIN IS ITS FUNCTION TO THE CHECK (1.6.47; ccl_lib_builtin/3): C's `__builtin_free(p)', `__builtin_realloc'
+%% and `__builtin_strdup' are free, realloc and strdup, whose rules the check knows by their names -- `m =
+%% __builtin_realloc(m, n)' was `plain pointer not consumed', and a block given to `__builtin_free' was not consumed. C++'s
+%% desugaring has given them their functions' names already (cpp_builtin_call/3)
+ck_lib_calls(B0, B) :- ccl_lang(c), !, ck_lib_call(B0, B).
+ck_lib_calls(B, B).
+ck_lib_call(T, T) :- \+ compound(T), !.
+ck_lib_call(call(id(N), As0), call(id(F), As)) :- atom(N), ccl_lib_builtin(N, F, _), !, ck_lib_call_args(As0, As).
+ck_lib_call(T0, T) :- T0 =.. [Fn|As0], ck_lib_call_args(As0, As), T =.. [Fn|As].
+ck_lib_call_args([], []).
+ck_lib_call_args([A0|As0], [A|As]) :- ck_lib_call(A0, A), ck_lib_call_args(As0, As).
 %% A FUNCTION DECLARED NOT TO RETURN THAT RETURNS (1.6.17; C17 6.7.4/8, [dcl.attr.noreturn]/2: it shall not return to its
 %% caller): its first `return' is refused at its line, a dead one too, as clang warns at each -- `function 'f' declared
 %% 'noreturn' should not return' --, and its end, where the walk reaches it, at the line of the body's last statement --
@@ -1228,7 +1240,7 @@ ck_borrows_from(compound_lit(T, init(Items)), _, static(N)) :- ck_view_type(T), 
 %% rule refused it at the scope's end (`plain pointer not consumed'). The library's discipline is its own
 %% (0.45's decision), and what its member hands back points INTO the object -- which is what a borrow says,
 %% so the lifetime rules still hold rather than the pointer being merely exempted.
-ck_borrows_from(call(id(F), _), _, _) :- ccl_lang(cpp), ck_lib_allocate(F), !, fail.   % ... BUT AN ALLOCATOR'S BLOCK, fresh memory (0.238, ck_lib_allocate/1)
+ck_borrows_from(call(id(F), _), _, _) :- ccl_lang(cpp), ( ck_lib_allocate(F) ; ck_allocator(F) ), !, fail.   % ... BUT AN ALLOCATOR'S BLOCK, fresh memory (0.238, ck_lib_allocate/1), the C library's among them, which a library builtin declares as the library's (1.6.47: `__builtin_strdup(a)' was a borrow of a)
 ck_borrows_from(call(id(F), [addr(E)|_]), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), ck_path_root(E, R), !, ck_borrow_of(R, St, P).
 %% ... AND SO IS WHAT A LIBRARY STATIC FUNCTION ANSWERS OVER AN OBJECT IT TAKES BY REFERENCE (0.117): a static member takes a null
 %% `this' first, and the object is the first argument whose parameter is a reference -- `std::allocator_traits<A>::allocate(a, n)'
@@ -1844,7 +1856,7 @@ ck_initialized_local(Sto, Vs) :- ccl_lang(cpp), \+ memberchk(Sto, [static, exter
 %% not go on (`__builtin_trap()', `__builtin_verbose_trap'), or `__builtin_unreachable()'. Its arguments are walked as any call's;
 %% then no owner is asked, as the program ends there -- or goes on where `longjmp' leads, a jump the check follows no more than
 %% before. The path went on to the block's end, where new memory still live was refused, `plain pointer not consumed'
-ck_noreturn_call(call(id(F), _)) :- atom(F), ( F == '__builtin_unreachable' ; ccl_trap_builtin(F, _, _, ends) ), !.
+ck_noreturn_call(call(id(F), _)) :- atom(F), ( F == '__builtin_unreachable' ; ccl_trap_builtin(F, _, _, ends) ; atom_concat('__builtin_', F, B), ccl_lib_builtin(B, _, T), ccl_noreturn_type(T) ), !.   % `__builtin_abort()' too, which ck_lib_calls/2 names abort (1.6.47)
 ck_noreturn_call(call(id(F), _)) :- atom(F), catch(ccl_type_of(id(F), T), _, fail), T \== unknown, ccl_resolve_type(T, R), ccl_noreturn_type(R), !.
 ck_noreturn_call(cast(T, E)) :- ccl_void_typed(T), !, ck_noreturn_call(E).                 % `(void)exit(1);'
 ck_noreturn_call(comma(A, B)) :- ( ck_noreturn_call(A) -> true ; ck_noreturn_call(B) ), !.   % `(free(p), exit(1));': a comma evaluates both

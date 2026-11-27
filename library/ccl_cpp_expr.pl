@@ -1632,21 +1632,19 @@ cpp_builtin_call('__builtin_operator_new', As, E) :- cpp_operator_new(new, As, E
 cpp_builtin_call('__builtin_operator_delete', As, E) :- cpp_operator_new(delete, As, E).
 %% the memory builtins are the C library's functions, which the lowering declares when the file did not
 %% (ir_cpp_prelude): libc++ relocates a vector's elements with __builtin_memcpy
-cpp_builtin_call('__builtin_memcpy', As, call(id(memcpy), As)).
+cpp_builtin_call('__builtin_memcpy', As, call(id(memcpy), As)) :- cpp_lib_arg_count('__builtin_memcpy', As).
 %% THE MATH BUILTINS ARE LIBM'S FUNCTIONS, declared here when no header did: libc++'s <cmath> wrappers are
 %% `inline float ceil(float __x) { return __builtin_ceilf(__x); }', which the hash table's rehash calls, and
 %% <unordered_map>'s closure declares no `ceilf'. The long double form is libm's (`sqrtl'), a long double being x87's
 %% 80 bits on x86-64 since 0.108; the prototype is emitted once, as a mangled declaration is (cpp_use_mangled).
-cpp_builtin_call(B, As, call(id(F), As)) :- atom(B), atom_concat('__builtin_', F0, B), cpp_math_fn(F0, F, Ret, Ps), !, cpp_math_declared(F, Ret, Ps).
+cpp_builtin_call(B, As, call(id(F), As)) :- atom(B), atom_concat('__builtin_', F0, B), cpp_math_fn(F0, F, Ret, Ps), !, cpp_lib_arg_count(B, As), cpp_math_declared(F, Ret, Ps).
 %% THE INTEGER ABSOLUTE VALUES (0.117, 1.6.21) are the lowering's builtins, `llvm.abs' (ccl_abs_builtin/2): libc++'s <stdlib.h>
 %% writes `abs(long)' as `__builtin_labs(__x)', which `std::abs(-4L)' met as an undeclared name, and from 0.117 to 1.6.20
 %% they were the C library's abs, labs and llabs by name -- a name that libc++ 23's `template <class = int> int abs(int)'
 %% resolved to the C++ overloads of its own scope, chrono's template among them
 cpp_builtin_call(B, As, call(id(B), As)) :- ccl_abs_builtin(B, _), !.
-cpp_builtin_call('__builtin_memmove', As, call(id(memmove), As)).
-cpp_builtin_call('__builtin_memset', As, call(id(memset), As)).
-cpp_builtin_call('__builtin_memcmp', As, call(id(memcmp), As)).
-cpp_builtin_call('__builtin_memchr', As, call(id(memchr), As)).
+cpp_builtin_call('__builtin_memmove', As, call(id(memmove), As)) :- cpp_lib_arg_count('__builtin_memmove', As).
+cpp_builtin_call('__builtin_memset', As, call(id(memset), As)) :- cpp_lib_arg_count('__builtin_memset', As).
 cpp_builtin_call('__builtin_char_memchr', As, call(id(memchr), As)).   % clang's memchr over char: libc++'s char_traits<char>::find, which getline scans a buffer with
 %% THE WIDE ONES are the C library's too, and are DECLARED here when no header did (as the math builtins are):
 %% libc++ calls them through `__constexpr_wmemchr' and kin precisely so its <string> and <algorithm> need no
@@ -1654,7 +1652,6 @@ cpp_builtin_call('__builtin_char_memchr', As, call(id(memchr), As)).   % clang's
 cpp_builtin_call('__builtin_wmemchr', As, call(id(wmemchr), As)) :- cpp_wide_fn(wmemchr, Ret, Ps), cpp_math_declared(wmemchr, Ret, Ps).
 cpp_builtin_call('__builtin_wmemcmp', As, call(id(wmemcmp), As)) :- cpp_wide_fn(wmemcmp, Ret, Ps), cpp_math_declared(wmemcmp, Ret, Ps).
 cpp_builtin_call('__builtin_wcslen', As, call(id(wcslen), As)) :- cpp_wide_fn(wcslen, Ret, Ps), cpp_math_declared(wcslen, Ret, Ps).
-cpp_builtin_call('__builtin_strlen', As, call(id(strlen), As)).
 %% what this compiler can only answer at run time, or need not answer at all: a constant test is FALSE (nothing
 %% here is folded past ccl_const_eval), an assumption and a prefetch are nothing, and an unreachable point is nothing
 cpp_builtin_call('__builtin_constant_p', [_], int(0)).
@@ -1667,6 +1664,19 @@ cpp_builtin_call('__builtin_prefetch', [_|_], int(0)).
 %% from it -- a static const that does not fold is emitted `extern' and the link finds nothing. cocolog's integers
 %% are 61-bit, so `~0' is -1 and the count is taken from the type's WIDTH: 64 - popcount(\ -1) = 64 - 0.
 cpp_builtin_call(N, [X], int(P)) :- cpp_popcount_name(N), cpp_popcount(X, P).
+%% ... AND THE OTHER LIBRARY BUILTINS ARE THE C LIBRARY'S FUNCTIONS (1.6.47; ccl_lib_builtin/3), declared here when no header
+%% did: `__builtin_strcpy', `__builtin_printf', `__builtin_malloc' and `__builtin_abort' were `use of undeclared identifier',
+%% and `__builtin_strlen', `__builtin_memcmp' and `__builtin_memchr' were their functions' calls that no declaration named,
+%% `use of undeclared identifier 'strlen'' in a file that included no <string.h>
+cpp_builtin_call(B, As, call(id(F), As)) :- ccl_lib_builtin(B, F, T), !, cpp_lib_arg_count(B, As), cpp_lib_declared(F, T).
+%% A LIBRARY BUILTIN'S CALL GIVES ITS PROTOTYPE'S COUNT OF ARGUMENTS (1.6.47), in clang++'s words, as C's call does (ir_arg_count/4):
+%% `__builtin_floor()' and `__builtin_memcpy(a, b, 2, 3)' were built from 0.117 on, and ran over what the registers held
+cpp_lib_arg_count(B, As) :- ccl_lib_builtin(B, _, fn(_, Ps, Var)), !, length(Ps, N), length(As, M),
+    (   Var == true -> ( M >= N -> true ; cpp_refuse(0, too_few_args_at_least(N, M)) )
+    ;   M =:= N -> true
+    ;   M > N -> cpp_refuse(0, too_many_args(N, M))
+    ;   cpp_refuse(0, too_few_args(N, M)) ).
+cpp_lib_arg_count(_, _).
 %% a member pointer applied to an object: the object's address first, the pointer called as the function it is
 cpp_memptr_call(F, O, As, E) :-
     cpp_arg_type(F, FT), ccl_resolve_type(FT, memptr(C, _, fn(R, Ps, VQ))), cpp_memptr_object(O, C, P), cpp_fn_q(VQ, V, Qs), cpp_memptr_obj_ok(O, C, Qs),
@@ -1726,21 +1736,29 @@ cpp_math_odd(int_arg, T, T, [param(T, anon), param(base([], [int]), anon)]).
 cpp_math_odd(ptr_int, T, T, [param(T, anon), param(ptr([], base([], [int])), anon)]).
 cpp_math_odd(ptr_same, T, T, [param(T, anon), param(ptr([], T), anon)]).
 cpp_math_odd(int_ret, T, base([], [int]), [param(T, anon)]).
+cpp_math_odd(ptr_int3, T, T, [param(T, anon), param(T, anon), param(ptr([], base([], [int])), anon)]).   % remquo, nexttoward and scalbln (1.6.47)
+cpp_math_odd(ldouble_arg, T, T, [param(T, anon), param(base([], [long, double]), anon)]).
+cpp_math_odd(long_arg, T, T, [param(T, anon), param(base([], [long]), anon)]).
 cpp_math_params([], _).
 cpp_math_params([param(T, anon)|Ps], T) :- cpp_math_params(Ps, T).
-cpp_math_shape(S, 1, same) :- memberchk(S, [ceil, floor, trunc, round, rint, nearbyint, sqrt, fabs, exp, exp2, expm1, log, log2, log10, log1p, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh, cbrt, erf, erfc, lgamma, tgamma, logb]).
+cpp_math_shape(S, 1, same) :- memberchk(S, [ceil, floor, trunc, round, roundeven, rint, nearbyint, sqrt, fabs, exp, exp2, expm1, log, log2, log10, log1p, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh, cbrt, erf, erfc, lgamma, tgamma, logb]).
 cpp_math_shape(S, 2, same) :- memberchk(S, [pow, fmod, atan2, hypot, fmax, fmin, fdim, copysign, nextafter, remainder]).
 cpp_math_shape(fma, 3, same).
 cpp_math_shape(S, 2, int_arg) :- memberchk(S, [scalbn, ldexp]).
 cpp_math_shape(frexp, 2, ptr_int).
 cpp_math_shape(modf, 2, ptr_same).
 cpp_math_shape(ilogb, 1, int_ret).
+cpp_math_shape(remquo, 3, ptr_int3).
+cpp_math_shape(nexttoward, 2, ldouble_arg).
+cpp_math_shape(scalbln, 2, long_arg).
 cpp_math_shape(S, 1, long) :- memberchk(S, [lround, lrint]).
 cpp_math_shape(S, 1, longlong) :- memberchk(S, [llround, llrint]).
-cpp_math_declared(F, _, _) :- '$cpp_math_decl'(F), !.
-cpp_math_declared(F, _, _) :- ccl_declared(F, _), !, assertz('$cpp_math_decl'(F)).   % a header declared it (the C math.h through <cmath>)
-cpp_math_declared(F, Ret, Ps) :- assertz('$cpp_math_decl'(F)), cpp_isolated(ccl_declare(F, fn(Ret, Ps, false))),
-    cpp_as_lib(yes, cpp_add_instance_items([function(0, extern, Ret, F, Ps, false, none)])).
+cpp_math_declared(F, Ret, Ps) :- cpp_lib_declared(F, fn(Ret, Ps, false)).
+%% a library function that a builtin names, declared where no header declared it (0.117; its variadic ones, 1.6.47)
+cpp_lib_declared(F, _) :- '$cpp_math_decl'(F), !.
+cpp_lib_declared(F, _) :- ccl_declared(F, _), !, assertz('$cpp_math_decl'(F)).   % a header declared it (the C math.h through <cmath>)
+cpp_lib_declared(F, fn(Ret, Ps, Var)) :- assertz('$cpp_math_decl'(F)), cpp_isolated(ccl_declare(F, fn(Ret, Ps, Var))),
+    cpp_as_lib(yes, cpp_add_instance_items([function(0, extern, Ret, F, Ps, Var, none)])).
 cpp_wide_fn(wmemchr, ptr([], base([], [wchar_t])), [param(ptr([], base([const], [wchar_t])), s), param(base([], [wchar_t]), c), param(base([], [unsigned, long]), n)]).
 cpp_wide_fn(wmemcmp, base([], [int]), [param(ptr([], base([const], [wchar_t])), a), param(ptr([], base([const], [wchar_t])), b), param(base([], [unsigned, long]), n)]).
 cpp_wide_fn(wcslen, base([], [unsigned, long]), [param(ptr([], base([const], [wchar_t])), s)]).
