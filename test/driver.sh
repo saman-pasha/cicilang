@@ -1408,8 +1408,8 @@ check "a macro file's NAME.pl.h is found under a relative -I when the program is
 check "an output file whose directory is not there is refused by its path, before the build, and the errors are counted (0.290)" "$("$CICILI" -c "$R/run/forty2.c" -o no/such/dir/forty2.o 2>&1; echo "exit $?")" "no/such/dir/forty2.o: error: unable to open the output file: no such directory 'no/such/dir'
 cicilang: 1 error(s)
 exit 1"
-check "a header whose read stopped is named under the build's error, at its #include (0.290)" "$(printf 'int y_of_h;\nint x = ;\nint z_of_h;\n' > stop.h; printf '#include %s\nint main(void) { return z_of_h; }\n' '"stop.h"' > usestop.c; "$CICILI" -fsyntax-only usestop.c 2>&1 | head -2)" "usestop.c:2: error: use of undeclared identifier 'z_of_h'
-usestop.c:1: note: the read of the header ./stop.h stopped at its line 2: what it declares after that line is not known"
+check "a header of the program's own whose read stopped stops the build at its line, in the file's own words (0.290, 1.6.36) -- it was named in a note under the build's error, at its #include, as a library header's still is; clang says ./stop.h:2:9: error: expected expression" "$(printf 'int y_of_h;\nint x = ;\nint z_of_h;\n' > stop.h; printf '#include %s\nint main(void) { return z_of_h; }\n' '"stop.h"' > usestop.c; "$CICILI" -fsyntax-only usestop.c 2>&1 | grep -v '^In file included from' | head -2)" "./stop.h:2: error: syntax error: could not read this item (gave up near line 2)
+cicilang: 1 error(s)"
 # AN #include OF THE PROGRAM THAT FINDS NO FILE STOPS THE BUILD AT ITS LINE, AND ONE THAT NAMES NO FILE IS REFUSED (1.6.22;
 # dr_missing_include/2, pp_do_include/6), in clang's words; the first was passed over, named in a note under a later error
 # (0.290), and the second dropped with no word
@@ -1538,4 +1538,29 @@ for n in hello forty2 owners btree; do ( CICILANG_KB="$pk" "$CICILI" "$R/run/$n.
 par=$(for n in hello forty2 owners btree; do if [ -x "par_$n" ]; then echo "$n built"; else echo "$n failed"; fi; done | tr '\n' ' ')
 after=$(CICILANG_KB="$pk" "$CICILI" "$R/run/hello.c" -o parlast 2>&1 && ./parlast; ls -d "$pk.lock" 2>/dev/null)
 check "builds at once over one store take its lock in turn, the store sound after" "$par/$after" "hello built forty2 built owners built btree built /hello, cicilang"
+mkdir -p hdrnames/inc; printf 'static int leaky(void) {\n    char *p = (char *) 0;\n    p = (char *) __builtin_malloc(4);\n    return p != 0;\n}\n' > hdrnames/leak.h; printf 'static int setc(void) {\n    const int x = 1;\n    x = 2;\n    return x;\n}\n' > hdrnames/inc/cst.h
+printf '#include "leak.h"\nint main(void) { return leaky(); }\n' > hdrnames/a.c; printf '#include "inc/cst.h"\nint main(void) { return setc(); }\n' > hdrnames/b.c
+check "C: an error in a function of the program's own header names the header and its line, as clang does (1.6.36): the check's in ./leak.h and the lowering's in ./inc/cst.h -- each was the user's file with the header's line" "$(cd hdrnames && for f in a b; do "$CICILI" -c $f.c -o $f.o 2>&1 | head -1 | cut -d: -f1-3; done)" "./leak.h:4: error
+./inc/cst.h:3: error"
+printf 'static int bad2(void) { return 1 +; }\n' > hdrnames/syn.h; printf '#include "syn.h"\nstatic int f2(void) { return 2; }\n' > hdrnames/outer.h
+printf '#include "syn.h"\nint main(void) { return bad2(); }\n' > hdrnames/c.c; printf '#include "outer.h"\nint main(void) { return f2(); }\n' > hdrnames/d.c
+check "C: a header of the program's own that no read takes stops the build at its line (1.6.36), included by the file and by another such header -- each was an undeclared call at the user's line, where clang says ./syn.h:1:35: error: expected expression" "$(cd hdrnames && for f in c d; do "$CICILI" -c $f.c -o $f.o 2>&1 | head -1; done)" "./syn.h:1: error: syntax error: could not read this item (gave up near line 1)
+./syn.h:1: error: syntax error: could not read this item (gave up near line 1)"
+printf 'int x;\nstruct bag { foo items; int n; };\n' > hdrnames/unk.h; printf '#include "unk.h"\nint main(void) { struct bag b = { 0 }; (void) b; return x; }\n' > hdrnames/e.c
+check "C: a type name that nothing declares in a header of the program's own is refused at the header's line, under its name (1.6.36), as clang refuses it" "$(cd hdrnames && "$CICILI" -c e.c -o e.o 2>&1 | head -1)" "./unk.h:2: error: unknown type name 'foo'"
+check "C: a type name that nothing declares is refused at its declaration's line in clang's words (1.6.36): a global, a parameter, a pointer result, a typedef, a member of a struct on the struct's line and a local struct's pointer member -- the first two were not lowered yet: typedef(foo) at no line, the member no_member's words, and the other three were built" "$(n=0; for src in 'foo g;
+int main(void) { return 0; }' 'static int f(foo a) { (void) a; return 0; }
+int main(void) { return f(0); }' 'static foo *mk(void) { return 0; }
+int main(void) { return mk() != 0; }' 'typedef foo bar;
+int main(void) { return 0; }' 'struct bag { foo items; int n; };
+int main(void) { struct bag b = { 0 }; (void) b; return 0; }' 'int main(void) {
+    struct { foo *p; } s = { 0 };
+    (void) s;
+    return 0;
+}'; do n=$((n + 1)); printf "$src\n" > unktype$n.c; "$CICILI" -std=c23 -c unktype$n.c -o unktype$n.o 2>&1 | head -1; done)" "unktype1.c:1: error: unknown type name 'foo'
+unktype2.c:1: error: unknown type name 'foo'
+unktype3.c:1: error: unknown type name 'foo'
+unktype4.c:1: error: unknown type name 'foo'
+unktype5.c:1: error: unknown type name 'foo'
+unktype6.c:2: error: unknown type name 'foo'"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

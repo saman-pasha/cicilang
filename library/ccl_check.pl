@@ -164,7 +164,7 @@ ck_unit_item(Units, I) :- member(unit(Is), Units), ck_item_in(Is, I).
 ck_item_in(Is, I) :- member(I0, Is), ( ck_item_container(I0, Js) -> ck_item_in(Js, I) ; I = I0 ).
 %% THE PROGRAM'S OWN GLOBAL OBJECTS (1.6.31, for ck_global_slot/1): the names that a file-scope declaration of the units
 %% defines, with no `extern' -- a C library's `stdin' and `optarg' are no part of them
-ck_program_globals(Units) :- findall(N, ( ck_unit_item(Units, declaration(_, Sto, _, Vs)), Sto \== extern, Sto \== typedef, member(var(N, _, _), Vs), atom(N) ), Ns0), sort(Ns0, Ns), nb_setval('$ck_own_globals', Ns).
+ck_program_globals(Units) :- findall(N, ( ck_unit_item(Units, declaration(_, Sto, _, Vs)), Sto \== extern, member(var(N, _, _), Vs), atom(N) ), Ns0), sort(Ns0, Ns), nb_setval('$ck_own_globals', Ns).
 %% a library's function, its code not the program's: C++'s (cpp_library_function/1), and in C one that a library's header
 %% defines and the unit uses, lowered with it (ir_header_defs/2, '$ir_hlib'/1; 0.212)
 ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$ir_hlib'(Name), _, fail) ).
@@ -684,6 +684,7 @@ ck_static_value(call(id(F), _)) :- atom(F), nb_current('$ck_static_fns', Fs), Fs
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
+ck_static_value(stmt_expr(block(Is))) :- ck_block_static_place(Is), !.   % A STATEMENT EXPRESSION WHOSE VALUE IS A PLACE OF ITS OWN STATIC LOCAL (1.6.36, below)
 ck_static_value(stmt_expr(block(Is))) :- ck_static_complit(Is), !.   % A STATIC COMPOUND LITERAL, the reader's static local of an unnamed object (1.6.31, ck_static_complit/1)
 ck_static_value(stmt_expr(B)) :- ck_block_value(B, E), !, ck_static_value(E).   % a block of declarations alone, then its value (1.6.22, ck_block_value/2)
 ck_pointer_arg(addr(_)) :- !.
@@ -807,7 +808,26 @@ ck_static_root(member(E, _), N) :- !, ck_static_root(E, N).
 ck_static_root(deref(E), N) :- !, ck_static_root(E, N).
 ck_static_root(id(N), N) :- atom(N), !.
 ck_static_root(call(id(F), _), F) :- atom(F).
-ck_static_root(stmt_expr(block(Is)), 'a compound literal') :- ck_static_complit(Is).
+ck_static_root(stmt_expr(block(Is)), 'a compound literal') :- ck_static_complit(Is), !.
+ck_static_root(stmt_expr(block(Is)), N) :- append(_, [expr(_, E)], Is), ck_strip_casts(E, E1), ck_block_static_name(E1, N), !.   % the block's static local (1.6.36)
+%% A STATEMENT EXPRESSION WHOSE VALUE IS A PLACE OF A STATIC LOCAL OF ITS OWN BLOCK IS STATIC STORAGE (1.6.36; GNU's
+%% statement expression, its value the last expression's): `char *s = ({ static char x[4] = "ab"; &x[0]; }); free(s);'
+%% was built and aborted in free, `invalid size' -- the block's static local is no name of the function's scope when its
+%% value is asked, and C23's compound literal, the reader's `$cl' static local, was the one form read so (1.6.31's broken
+%% copy ST6 found the name's test reached by nothing). The place's base is the static local -- its address, an element of
+%% its array, a member, or the array itself, which decays; an element through a pointer is no place of it
+ck_block_static_place(Is) :- append(_, [expr(_, E)], Is), ck_strip_casts(E, E1), ck_block_static_of(E1, Is), !.
+ck_block_static_of(addr(P), Is) :- ck_block_static_base(P, Is).
+ck_block_static_of(id(N), Is) :- atom(N), ck_block_static_var(N, Is, T), catch(ccl_resolve_type(T, arr(_, _)), _, fail).
+ck_block_static_base(id(N), Is) :- atom(N), ck_block_static_var(N, Is, _).
+ck_block_static_base(member(P, _), Is) :- ck_block_static_base(P, Is).
+ck_block_static_base(index(id(N), _), Is) :- atom(N), ck_block_static_var(N, Is, T), catch(ccl_resolve_type(T, arr(_, _)), _, fail).
+ck_block_static_base(index(P, _), Is) :- P \= id(_), ck_block_static_base(P, Is).
+ck_block_static_var(N, Is, T) :- member(declaration(_, static, _, Vs), Is), member(var(N, T, _), Vs), !.
+ck_block_static_name(addr(P), N) :- !, ck_block_static_name(P, N).
+ck_block_static_name(member(P, _), N) :- !, ck_block_static_name(P, N).
+ck_block_static_name(index(P, _), N) :- !, ck_block_static_name(P, N).
+ck_block_static_name(id(N), N) :- atom(N).
 %% C23's static compound literal as the reader gives it (1.6.31, ccl_complit_stored/5): `*({ static T $clN = I; &$clN; })'
 ck_static_complit([declaration(_, static, _, [var(N, _, _)]), expr(_, addr(id(N)))]) :- atom(N), atom_concat('$cl', _, N).
 

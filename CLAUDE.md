@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.35 the versions are: the module 1.6.35 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 204 (`ccl_lowering_version/1`,
+At 1.6.36 the versions are: the module 1.6.36 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 205 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -643,7 +643,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             whose condition assigns, built as C and as C++ (1.6.34); handout.c, new memory handed out
                             of a block and the library's out-writers, staticrecords.c, records from static storage,
                             and arrayreturns.c, arrays that a return may hand out, each built as C and as C++
-                            (1.6.35)
+                            (1.6.35); globalnames.c, a local named as a global and the program's own extern of stdin,
+                            and stmtstatics.c, statement expressions whose value is a place of their own static
+                            local, each built as C and as C++ (1.6.36)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -696,7 +698,9 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             next pass's condition replaces (1.6.34); handout_leak.c, outwriter_leak.c,
                             outwriter_maybe.c, static_record_free.c, static_filled_free.c, static_copy_free.c,
                             static_copy_assign_free.c, static_copy_copy_free.c, static_copy_array_out.c,
-                            local_array_out.c and local_member_array_out.c, what 1.6.35's rules refuse (1.6.35)
+                            local_array_out.c and local_member_array_out.c, what 1.6.35's rules refuse (1.6.35);
+                            stmt_static_free.c and stmt_static_copy_free.c, a statement expression's static local
+                            freed (1.6.36)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

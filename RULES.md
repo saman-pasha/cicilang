@@ -1268,23 +1268,38 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the same words, exit 1, as clang -E does, where it gave the rest of the file; a header's is passed over still, since a
   branch that this preprocessor takes and clang's does not may include a file that no build asks. The driver gate.
   (1.6.22, 1.6.24)
+- **AN ERROR IN A FUNCTION OF THE PROGRAM'S OWN HEADER NAMES THE HEADER** (1.6.36; `dr_where_file/3` in `dr_report/2`):
+  the check's and the lowering's words name the function and the line, and the line is the header's; the lowering keeps
+  the file of each definition that a header gives (`'$ir_hfile'/2`, for the debug information), and a library header's
+  are no part of this (`'$ir_hlib'/1`). It was the user's file with the header's line, `main.c:5: error: plain pointer
+  not consumed` for line 5 of `leak.h`, where clang names `./leak.h:5`; the name is the one that the `#include` found,
+  as clang's is, and clang adds the column. A HEADER OF THE PROGRAM'S OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS
+  THE BUILD AT THE HEADER'S LINE (1.6.36; `dr_own_header_stop/1`, `dr_own_stop_in/4`), in the file's own words, `syntax
+  error: could not read this item (gave up near line N)`, the read of a header that the program includes or that such a
+  header includes: the build went on, and `return 1 +;` in a function of `syn.h` was `call to undeclared function
+  'bad2'` at the user's line with a note of the stopped read, where clang says `./syn.h:1:35: error: expected
+  expression`. The raw read stops at what it does not read and the preprocessed read takes the header then (the topic of
+  includes): where that one stops too, the text is no C that the reader reads. A library header's stop is the note's,
+  below, and C++ reads its headers otherwise. The driver gate's two checks. (1.6.36)
 - **A HEADER THAT WAS NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290; `dr_unread_notes/2`,
-  `dr_unread_in/3`): the include layer goes on over a file that it does not find
-  (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
-  message (the topic of includes), and the program then fails at the first name that the header would have declared --
-  `undeclared(getaddrinfo)` (in C since 1.1.2 `call to undeclared function 'getaddrinfo'`, the lowering's topic of a
-  name that nothing declares), `typedef(foo_t)`, `struct(nope)` -- with no word of why. Where the check or the lowering
-  failed, the driver prints a note for each such include of the unit after the errors, at the line of the `#include` in
-  the program's file (until 1.6.22 `m.c:2: note: 'nope.h' file not found: nothing that it declares is known` too),
-  `note: the header P could not be read: nothing that it declares is known`, `note: the read of the header
-  ./stop.h stopped at its line 2: what it declares after that line is not known`. A header's own includes are walked for
-  the last two. A FILE THAT WAS NOT FOUND IS NAMED FOR AN `#include` OF THE PROGRAM'S FILE ALONE: that file is read
-  preprocessed, so the directive is one that the program meets -- one in a group that `#if 0` skips is not named --,
-  where a header read raw keeps the directives of each branch of its conditionals, and a file that one of them does not
-  find may be one that no build asks. A build with no error prints no note. THE NOTE IS TRUE OF ITS HEADER, NOT OF THE ERROR: it names a header of the unit whose read was cut, whatever
-  the error is. Its first runs named `<sys/cdefs.h>` under an error of a program over `<limits.h>`, and two headers of
-  `<getopt.h>` -- two defects of the reads, corrected with it (the topic of includes). Three checks of the driver gate,
-  one of them that no header of the C library is named under an error that is not its own. (0.290, 1.1.2)
+  `dr_unread_in/3`): the include layer goes on over a file that it does not find (`missing`), over a header that no read
+  takes (`unreadable`) and over one whose read stopped (`partial`), with no message (the topic of includes), and the
+  program then fails at the first name that the header would have declared -- `undeclared(getaddrinfo)` (in C since
+  1.1.2 `call to undeclared function 'getaddrinfo'`, the lowering's topic of a name that nothing declares),
+  `typedef(foo_t)`, `struct(nope)` -- with no word of why. Where the check or the lowering failed, the driver prints a
+  note for each such include of the unit after the errors, at the line of the `#include` in the program's file (until
+  1.6.22 `m.c:2: note: 'nope.h' file not found: nothing that it declares is known` too), `note: the header P could not
+  be read: nothing that it declares is known`, `note: the read of the header ./stop.h stopped at its line 2: what it
+  declares after that line is not known` -- a header of the program's own whose preprocessed read stopped stops the
+  build at its line since 1.6.36 (above), so that the note is a library header's, and an unreadable header's. A header's
+  own includes are walked for the last two. A FILE THAT WAS NOT FOUND IS NAMED FOR AN `#include` OF THE PROGRAM'S FILE
+  ALONE: that file is read preprocessed, so the directive is one that the program meets -- one in a group that `#if 0`
+  skips is not named --, where a header read raw keeps the directives of each branch of its conditionals, and a file
+  that one of them does not find may be one that no build asks. A build with no error prints no note. THE NOTE IS TRUE
+  OF ITS HEADER, NOT OF THE ERROR: it names a header of the unit whose read was cut, whatever the error is. Its first
+  runs named `<sys/cdefs.h>` under an error of a program over `<limits.h>`, and two headers of `<getopt.h>` -- two
+  defects of the reads, corrected with it (the topic of includes). Three checks of the driver gate, one of them that no
+  header of the C library is named under an error that is not its own. (0.290, 1.1.2)
 - **THE OUTPUT FILE'S DIRECTORY IS ASKED BEFORE THE BUILD** (0.290; `dr_out_dir_missing/3`, in `dr_drive/2`): `-c ok.c
   -o no/such/dir/ok.o` built the whole unit and then printed the embedded LLVM's words, `LLVM: emit_failed: No such file
   or directory`, which name no path; the run ended there, and the command printed that line a second time in place of
@@ -2546,7 +2561,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `ccl_knr_adjust`): an undeclared parameter is `int`, an array a pointer, a `float` a `double`, and its type is marked
   as no prototype (0.302, below): a call of another count is undefined behaviour (C17 6.5.2.2/6), not a constraint's
   breach, and is refused in clang's words for it, `too few arguments in call to 'add'`. `test/c/run/cforms.c`. AT C23,
-  WHICH REMOVED IT, a K&R definition is clang's `unknown type name 'a'` at its line, its list's first name, and since C99
+  WHICH REMOVED IT, a K&R definition is clang's `unknown type name 'a'` at its line, its list's first name (A TYPE NAME
+  THAT NOTHING DECLARES, below), and since C99
   a name of the list that no declaration follows is clang's `parameter 'a' was not declared, defaults to 'int'; ISO C99
   and later do not support implicit int` (1.6.25; C23 6.9.1, C99 6.7.2/2; `ccl_knr_check/3`), where both were read, the
   name an `int`. The driver gate's eight bodies. (0.108, 0.302, 1.6.25)
@@ -2653,12 +2669,25 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   before it put in as their values, and kept as the literal -- a block's `constexpr` is no name the passes know. C++'s
   unfolded ones are the desugaring's (`cpp_fold_enumerators/5`). `enumcross.c`, `enumcross.cpp`. (0.195)
 - `ccl_type_of/2` of a statement expression puts its declarations in scope for its last expression. (M1b)
+- A TYPE NAME THAT NOTHING DECLARES IS REFUSED AT ITS DECLARATION'S LINE, IN CLANG'S WORDS (1.6.36; C17 6.7.2/2,
+  6.7.8/3; `ir_unknown_types/1` before the check, `dr_diag/3`'s `unknown type name 'foo'`): in a declaration of the file
+  or of a header of the program's own -- a struct's member at the struct's declaration's line, a parameter and a result
+  at the function's, a typedef's target -- and in a function's own declarations. The reader reads `foo items;` as a type
+  that it has not seen; a pointer to such a type was built, and so was a struct with such a member that nothing reads,
+  and a global, a parameter and a local were `not lowered yet: typedef(foo)`, the first two at no line. Not asked where
+  a header's read stopped or was not made, whose part not read may declare the name; a block's typedef names are its
+  function's here, and every typedef of the file is known. Clang names a member at its own line, which the reader does
+  not keep (Not done), and a block's `foo x;` is `use of undeclared identifier 'foo'` to clang, which parses it as an
+  expression. The driver gate's six bodies against clang 23. (1.6.36)
 - A tag or an enum declared in a block joins the unit's one table (`ccl_collect_item(function)` through
-  `ccl_stmt_typedefs`, by statement shape) -- in C a block's enumerators after the file's (1.6.30,
-  `ccl_collect_block_type/5`). A BLOCK'S ENUMERATOR IS ITS BLOCK'S IN C (1.6.30; C17 6.2.1/4; reader 216;
-  `ccl_block_enum_value/2`, `ccl_drop_block_enums/1`): a use of it in its block is its value, read so, `int(V)` or its
-  enum's where the enum has a type of its own; the block's end takes it out of the reader's table, so that a use after
-  the block is clang's `use of undeclared identifier 'B'` at the file's end (the uses' notes of 1.1.2,
+  `ccl_stmt_typedefs`, by statement shape) -- in C its tag alone, and a block's enumerators no part of the passes' table
+  (1.6.30, 1.6.36, `ccl_collect_block_type/5`): 1.6.30 put them after the file's, and no pass asked them there, since
+  the reader gives each use its value; 1.6.30's broken copy that left them out was caught by nothing, and a block's
+  enumerator in an array's bound, a static's initializer, a bit-field's width, a `case`, a `_Static_assert` and a
+  block's typedef read the same without them (1.6.36). A BLOCK'S ENUMERATOR IS ITS BLOCK'S IN C (1.6.30; C17 6.2.1/4;
+  reader 216; `ccl_block_enum_value/2`, `ccl_drop_block_enums/1`): a use of it in its block is its value, read so,
+  `int(V)` or its enum's where the enum has a type of its own; the block's end takes it out of the reader's table, so
+  that a use after the block is clang's `use of undeclared identifier 'B'` at the file's end (the uses' notes of 1.1.2,
   `ccl_use_later/2`); and in the passes' table a file's enumerator of the name comes first. Through 1.6.29 the one table
   held them all: `return B;` after the block built with its value, and a block's enumerator shadowed the file's or
   another block's in every later function -- `test/c/run/blockenums.c` printed `6 -1 30 40 5 9 9 4`, four values wrong,
@@ -12458,7 +12487,15 @@ in the first topic (The ccllib gate).
   and its caller read a dead frame, and `struct p *q = &(struct p){ 3, 4 };` was `plain pointer not consumed`. C23's
   STATIC compound literal is static storage (`ck_static_complit/1` over the reader's form, below). The lowering's IR is
   the same. `test/c/run/complits.c`; `test/c/safe/complit_free.c`, `complit_ptr_free.c`, `complit_own.c`,
-  `complit_return.c`, `complit_global.c` and `complit_static_free.c`. (1.6.31)
+  `complit_return.c`, `complit_global.c` and `complit_static_free.c`. A STATEMENT EXPRESSION WHOSE VALUE IS A PLACE OF A
+  STATIC LOCAL OF ITS OWN BLOCK IS STATIC STORAGE TOO (1.6.36; GNU's statement expression; `ck_block_static_place/1`,
+  `ck_block_static_name/2` in `ck_static_root/2`): its address, an element of its array, a member, or the array itself,
+  which decays -- an element through a pointer is no place of it. `char *s = ({ static char x[4] = "ab"; &x[0]; });
+  free(s);` and `free(({ static int v = 3; &v; }))` were built and aborted in `free`, `invalid size`: the block's static
+  local is no name of the function's scope when the value is asked, and the reader's `$cl` local of a compound literal
+  was the one form read so; the words name the local, `a borrow consumed: 'v'`, and a compound literal's are `a compound
+  literal` (`test/c/run/stmtstatics.c`, in C and as C++; `test/c/safe/stmt_static_free.c`, `stmt_static_copy_free.c`).
+  (1.6.31, 1.6.36)
 - A POINTER READ OUT OF A PLAIN SLOT OF THE PROGRAM'S OWN GLOBAL OBJECT IS STATIC STORAGE (1.6.31; `ck_global_slot/1` in
   `ck_static_value/1`, `ck_program_globals/1`): `names[1]` over `static char *names[]`, `gp` over `static char *gp`,
   `cfg.name` over a global struct -- the slot itself in static storage, reached through no pointer, of a global that a
@@ -12468,7 +12505,13 @@ in the first topic (The ccllib gate).
   cfg.name; free(p);` and `own char *o = names[0];` were each built, and each run aborted in `free`. An own slot is its
   owner's; a slot reached through a pointer -- scandir's `namelist[i]`, `r->name` -- and a C library's `extern` object
   -- `stdin`, `optarg` -- are 0.290's reads still (`ck_loaded_value/1`). `test/c/safe/slot_free.c`,
-  `slot_free_direct.c`, `slot_free_global.c`, `slot_free_member.c` and `slot_own.c`, in C and as C++. (1.6.31)
+  `slot_free_direct.c`, `slot_free_global.c`, `slot_free_member.c` and `slot_own.c`, in C and as C++. A LOCAL NAMED AS A
+  GLOBAL IS THE LOCAL'S, AND A DECLARATION THAT THE PROGRAM WRITES AGAIN WITH `extern` NAMES NONE OF ITS OBJECTS
+  (1.6.31's tests, held since 1.6.36 by `test/c/run/globalnames.c`, in C and as C++): `char *buf = NULL; free(buf);`
+  beside a global `buf`, and `extern FILE *stdin;` with `fclose` of a copy of stdin -- 1.6.31's broken copies that took
+  each test away were caught by no fixture, and each turned the form into `a borrow consumed`. A test that a
+  declaration's storage is no `typedef` is out: a typedef is an item of its own, and no declaration holds that storage.
+  (1.6.31, 1.6.36)
 - A ROW OF A STATIC ARRAY, AND AN ARRAY MEMBER OF A STATIC OBJECT, ARE STATIC STORAGE (0.297; `ck_static_array_place/1`
   in `ck_static_value/1`): an lvalue of an array type, used as a pointer, is the address of its first element (C17
   6.3.2.1/3) in the storage of the object it is part of -- `table[i]` of `static unsigned char table[2][3]`,
@@ -17352,6 +17395,13 @@ Declarations topic of the C++ reader).
   safe part's topic): one copy takes it at the inner pointer's end since 1.6.35, but with two, `char *p, *r; { char *q =
   malloc(4); p = q; r = q; } free(p);`, it is `plain pointer not consumed: 'q'` at the block's end, where clang builds
   it: which copy gives it back is the program's, and a state that the two share would tell it.
+- THREE TESTS OF 1.6.31 THAT NO PROGRAM REACHES (found at 1.6.36 by 1.6.31's broken copies CA3, CK3 and GS4): C++'s
+  refusal of a compound literal's address leaves a library's body out, and no library body that a fixture reads holds
+  one; a compound literal's address is no new memory to `ck_fresh_value/1`, and each place that asks it takes the
+  address first as `a compound literal`'s borrow; and a slot of a global's object is reached through an index of an
+  array alone, where through a pointer, `gp[i]`, it is the pointer's pointee -- and no program that the safe part takes
+  frees or owns such a pointee, since a global plain pointer takes no new memory. Each guards the rule against a road
+  that a later rule may open.
 - FOUR TESTS OF 1.6.28'S MISFITS AND ONE OF ITS KINDS THAT NO PROGRAM REACHES (found at 1.6.32 by 1.6.28's broken
   copies): an argument of a class or of an enumeration takes its namespace's road first, a qualified call's too, where
   `cpp_type_misfit_pair/2` is not asked -- the tests of the same enumeration, of a class's parameter, of a pointer to a
@@ -17663,11 +17713,10 @@ Declarations topic of the C++ reader).
   stops, and where they do not lex it is an empty read that stopped (0.290); the preprocessed read, which has the rule,
   then takes the header (the topic of includes). No read depends on the raw lexer's rule; a header whose raw read would
   have been whole is read twice.
-- THE PROGRAM'S OWN HEADERS, WHAT 0.298 LEAVES (its probes): an error of the check or of the lowering in a function of a
-  header names the header's line under the user's file's name (the Ambitious session's finding 26 noted it; a refusal of
-  the reader names the header since 0.298); and an unknown type name in such a header, `foo items;`, is read as a type
-  that the reader has not seen (the C reader's topic of typedef names), so the build fails at the member's use,
-  `no_member(items, ...)`, where clang names the header's line, `unknown type name 'foo'`.
+- THE PROGRAM'S OWN HEADERS, WHAT 1.6.36 LEAVES (0.298's probes, the Ambitious session's finding 26; narrowed at
+  1.6.36, whose errors in a header's function name the header and whose unknown type names are refused): an unknown type
+  name of a struct's member is refused at the struct's line, where clang names the member's, which the reader does not
+  keep; and a header's error has no `In file included from main.c:1:` line before it, which clang prints.
 - A LIBRARY HEADER'S TEXT AGAINST THE FILE'S OWN MACROS (0.298's probes; the topic of the user's file and the headers'
   macros): a library header is a table, what it defines at its end read apart, and a name that the file itself defines
   or undefines stays the file's. So `#define EOF 7` before the first `#include <stdio.h>` stays 7, where clang takes

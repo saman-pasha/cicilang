@@ -352,6 +352,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.33 | an outer object's borrows under a hiding name, attributes in their scope, a holder's base statics | a borrow of an object whose name a block declares again is its own, where the block's end refused it; a bracketed error and unavailable read in their own scope alone, where clang ignores the others; a base's static member called from a lambda; 1.6.29's nets and broken copies carried (reader 218, lowering 202) |
 | 1.6.34 | a qualified call beside a callable local, a free on one path, realloc's old block, a loop's condition | `::k(6)` beside a local pointer named k calls the file's function, and a local pointer beside the file's overloads of its name is called through; a join of freed and new memory is maybe freed, realloc's old block freed or live by its result's null test, the null test of an assignment refines its left operand, and a loop's condition is evaluated again after each pass (reader 218, lowering 203) |
 | 1.6.35 | new memory handed out of a block, a library's out-writers, records from static storage, a returned array | one copy of an outer scope takes new memory at its pointer's end; a freed pointer's address to asprintf, vasprintf or posix_memalign is anchored and a held one's a leak, and a condition anchors its addresses; a record from static storage or filled with static values is a static result, and a local copied from static storage holds static pointers, so their free is refused; a local's array returned is a borrow that leaves; 1.6.30's chain carried; one chain over the newest tree (reader 218, lowering 204) |
+| 1.6.36 | the program's own headers in the words, unknown type names, a statement expression's statics | an error in a function of the program's own header names the header, and a header that no read takes stops the build at its line; a type name that nothing declares is clang's `unknown type name` at its declaration's line; a statement expression's static local is static storage, so its free is refused; 1.6.30's and 1.6.31's broken copies carried (reader 218, lowering 205) |
 
 ## M5 — the C++ mode
 
@@ -26320,3 +26321,75 @@ owner's rule of 0.271.
   fixtures).
 
 The module 1.6.35, the reader 218 and the lowering 204.
+
+## 1.6.36 — the program's own headers in the words, unknown type names, a statement expression's statics
+
+**1.6.36: at the user's word "Next", after "try to run less chain and do more tasks before every chain" and "To prevent
+code lost, first commit and push": one record of Not done narrowed and one new, three gaps of the driver and the
+lowering beside clang closed, a hole of the safe part closed, and 1.6.30's and 1.6.31's broken copies carried -- two of
+their uncaught copies held by a new fixture, one test that no declaration reaches out, and three recorded. The step was
+committed while its broken copies and the queue ran: it claims nothing GREEN of them, and the next step's commit carries
+them.**
+
+1. C: AN ERROR IN A FUNCTION OF THE PROGRAM'S OWN HEADER NAMES THE HEADER (`dr_where_file/3` in `dr_report/2`, over the
+   lowering's `'$ir_hfile'/2`): the check's and the lowering's words named the user's file with the header's line,
+   `main.c:5: error: plain pointer not consumed` for line 5 of `leak.h`, where clang names `./leak.h:5`; the name is the
+   one that the `#include` found, as clang's is, and a library header's function is named so too. Not done's record of
+   the program's own headers (0.298's probes, the Ambitious session's finding 26) narrows.
+2. C: A HEADER OF THE PROGRAM'S OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS THE BUILD AT THE HEADER'S LINE
+   (`dr_own_header_stop/1`, `dr_own_stop_in/4`): item 1's probes found that `return 1 +;` in a function of `syn.h` was
+   `call to undeclared function 'bad2'` at the user's line with a note of the stopped read, where clang says
+   `./syn.h:1:35: error: expected expression`; it is `./syn.h:1: error: syntax error: could not read this item`, the
+   file's own words, for a header that the file includes and for one that such a header includes. The driver gate's
+   check of 0.290, whose `stop.h` holds `int x = ;`, held the note and the undeclared name: it holds the header's line
+   now, and a library header's stop is the note's still.
+3. C: A TYPE NAME THAT NOTHING DECLARES IS REFUSED AT ITS DECLARATION'S LINE, IN CLANG'S WORDS (`ir_unknown_types/1`
+   before the check, `unknown type name 'foo'`): item 1's probes found that `struct bag { foo items; };` was built where
+   nothing read the member, and so was a pointer to such a type; a global, a parameter and a local were `not lowered
+   yet: typedef(foo)`, the first two at no line. A declaration of the file or of a header of the program's own, a
+   struct's member at its struct's line, a parameter and a result at the function's, a typedef's target, a function's
+   own declarations; a block's typedef names are its function's here. Not asked where a header's read stopped or was not
+   made. Clang names a member at its own line, which the reader does not keep: the narrowed record says so.
+4. C AND C++: A STATEMENT EXPRESSION WHOSE VALUE IS A PLACE OF A STATIC LOCAL OF ITS OWN BLOCK IS STATIC STORAGE
+   (`ck_block_static_place/1`, `ck_block_static_name/2`): 1.6.31's broken copy ST6, which took the name test of the
+   reader's `$cl` compound literal away and which nothing caught, led to the form beside it, a GNU statement expression
+   of the program's own -- `char *s = ({ static char x[4] = "ab"; &x[0]; }); free(s);` and `free(({ static int v = 3;
+   &v; }))` were built and aborted in `free`, `invalid size`. They are `a borrow consumed`, the second naming `v`, where
+   the first form of the rule named `a string literal`: the compound literal's name test decides the words, and so the
+   refusal holds it.
+5. 1.6.31'S OTHER UNCAUGHT COPIES: GS2, a local named as a global, and GS5, the program's own `extern` declaration of
+   `stdin`, are held by `test/c/run/globalnames.c` -- each copy turned its form into `a borrow consumed`; GS6, a test
+   that a declaration's storage is no `typedef`, reaches nothing, since a typedef is an item of its own, and is out;
+   CA3, CK3 and GS4 guard roads that no program reaches, and a record of Not done names them. 1.6.30'S BE7, a block's
+   enumerators left out of the passes' table, was caught by nothing in its run of `blockenums.c` and one check: this
+   step's probe of that removal broke `voidvalues.c` of the compile gate, `enum e { A, B } v = B;`, whose initializer
+   the reader gives no value, and the table keeps them.
+
+`test/c/run/globalnames.c` and `stmtstatics.c`, each in C and as C++, hold what items 4 and 5 take; clang 23, clang++ 23
+and this step print each alike. `test/c/safe/stmt_static_free.c` and `stmt_static_copy_free.c` hold item 4's refusals,
+and the driver gate's four checks items 1 to 3, each want clang 23's.
+
+1.6.35'S NETS, CARRIED. Over its copy: the ccllib gate GREEN in 1400 s (thirty-six programs in three runs, 189 refused,
+21 alone), and the pool of twenty-six C++ run fixtures the same, each as the C++ gate runs it. 1.6.30'S CHAIN, CARRIED
+WHOLE: its ccllib gate GREEN in 1545 s, so that the chain was GREEN but the C++ gate's two misfits that 1.6.31 mended.
+1.6.30'S BROKEN COPIES: ten, nine caught, and BE7 is item 5's. 1.6.31'S: twenty-nine, twenty-one caught, seven not --
+items 4 and 5 -- and LU6, the last, ran at this commit.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the compile gate GREEN in 34 s (474 ok), the flow gate GREEN in
+934 s, the reader gate GREEN in 4 s; THE DRIVER GATE WAS RED at first, in 229 s, at 0.290's check of a stopped header,
+which item 2 changes as its words say -- the check holds the header's line now, and the gate is GREEN in 238 s (176 ok).
+Every probe of the step built by clang 23 or clang++ 23 and by this step, and the two run fixtures as C++ as the C++
+gate builds them; five ccllib programs -- vector, map, string, variant, shared_ptr -- the same as their twins' over a
+copy of item 3. Its ccllib gate ran at the commit, with its broken copies queued: the next step's commit carries them.
+Over the work tree after the port: the toolchain check strict GREEN; the other ten gates over LLVM 23 ran at the commit.
+No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_driver.pl` (`dr_where_file/3`, `dr_report/2`, `dr_own_header_stop/1`, `dr_own_stop_in/4`, the words of
+  `unknown_type/1`); `library/ccl_ir.pl` (`ir_unknown_types/1` and its helpers, `ir_reset`; the lowering 205);
+  `library/ccl_check.pl` (`ck_block_static_place/1` and its helpers, `ck_static_value/1`, `ck_static_root/2`,
+  `ck_program_globals/1`); `test/driver.sh` (four checks, and 0.290's changed); `test/cpp.sh` (`globalnames.c` and
+  `stmtstatics.c` as C++); the step's fixtures; the module's version.
+- RULES.md (the rules in their topics; Not done: one record narrowed, one new), HISTORY.md, CLAUDE.md (the versions and
+  the fixtures).
+
+The module 1.6.36, the reader 218 and the lowering 205.

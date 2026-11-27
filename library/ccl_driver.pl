@@ -106,6 +106,7 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
     (   dr_catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
     ->  dr_pp_warnings, dr_remember_expansions(AST),
         (   dr_missing_include(F, AST) -> Objs = Objs1      % an #include of the program's file that finds no file stops the build (1.6.22)
+        ;   dr_own_header_stop(AST) -> Objs = Objs1        % a header of the program's own that no read takes whole stops it (1.6.36)
         ;   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
         ;   memberchk(syntax_only, Options), ccl_lang(cpp) -> Objs = Objs1      % M5 is the reader; C++'s check and lowering are M6
         ;   (   memberchk(debug, Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', full)   % -g (0.128): the lowering's line tables name the file
@@ -133,6 +134,16 @@ dr_unread_notes(_, _).
 %% one that did failed at the header's first name with a note (0.290). The program's file is read preprocessed, so the
 %% directive is one that the build meets, in no group that a conditional skips
 dr_missing_include(F, unit(Is)) :- member(I, Is), dr_missing_in(I, L, missing(N)), !, dr_fatal(F, L, ['''', N, ''' file not found']).
+%% A HEADER OF THE PROGRAM'S OWN THAT ITS PREPROCESSED READ TOO STOPS IN STOPS THE BUILD AT THE HEADER'S LINE (1.6.36):
+%% `syntax error: could not read this item', the file's own words, under the header's name -- the read of the header
+%% that the program includes, or of one that such a header includes. The raw read stops at what C takes and the reader
+%% reads raw not (0.290), and the preprocessed read takes it then; where that one stops too, the text is no C that the
+%% reader reads. The build went on: `return 1 +;' in a function of `syn.h' was `call to undeclared function 'bad2''
+%% at the user's line, with a note of the stopped read, where clang says `./syn.h:1:35: error: expected expression'. A
+%% library header's stop is the note's as before (dr_unread_notes/2), and C++ reads its headers otherwise
+dr_own_header_stop(unit(Is)) :- \+ ccl_lang(cpp), member(I, Is), dr_own_stop_in(I, P, Ln, N), !, dr_error(P, Ln, ['syntax error: could not read this item (gave up near line ', N, ')']).
+dr_own_stop_in(include(_, _, file(P, preprocessed, partial(_, line(Ln), near(N)))), P, Ln, N) :- catch(ccl_own_header(P), _, fail), !.
+dr_own_stop_in(include(_, _, file(P, _, U)), Q, Ln, N) :- catch(ccl_own_header(P), _, fail), ( U = unit(Js) ; U = partial(unit(Js), _, _) ), member(J, Js), dr_own_stop_in(J, Q, Ln, N).
 dr_missing_in(include(L, Spec, missing), L, missing(N)) :- ( Spec = next(S) -> true ; S = Spec ), ( S = system(N) ; S = local(N) ), !.
 dr_unread_in(include(L, _, file(P, unreadable, _)), L, unread(P)) :- !.
 dr_unread_in(include(L, _, file(P, _, partial(unit(Js), line(Ln), _))), L, X) :- !, ( X = stopped(P, Ln) ; member(J, Js), dr_unread_in(J, _, X) ).
@@ -455,8 +466,16 @@ dr_arg_write(A) :- writeq(A).
 
 %% ---- diagnostics, clang's shape ---------------------------------------------------------
 %% once: the callers' recovery fails after reporting, and must not report twice
-dr_report(F, error(E, W)) :- !, catch(once(dr_diag(F, E, W)), X, dr_report_failed(F, E, X)).
+dr_report(F, error(E, W)) :- !, dr_where_file(F, W, F1), catch(once(dr_diag(F1, E, W)), X, dr_report_failed(F1, E, X)).
 dr_report(F, E) :- once(dr_error(F, 0, [E])).
+%% AN ERROR IN A FUNCTION OF THE PROGRAM'S OWN HEADER NAMES THE HEADER (1.6.36): the check's and the lowering's words
+%% name the function and the line, and the line is the header's; the lowering keeps the file of each definition that a
+%% header gives ('$ir_hfile'/2, ir_hdr_take/6, for the debug information), a library header's too, as clang names it.
+%% It was the user's file with the header's line: `main.c:5: error: plain pointer not consumed' for line
+%% 5 of `leak.h', where clang names `./leak.h:5'
+dr_where_file(_, _, P) :- nb_current('$ir_fail_file', P), atom(P), P \== none, !.   % a declaration of the header that the lowering named (ir_unknown_types/1)
+dr_where_file(_, where(Fn, _), P) :- atom(Fn), catch('$ir_hfile'(Fn, P), _, fail), atom(P), !.
+dr_where_file(F, _, F).
 %% A REPORT THAT RAISES AN ERROR OF ITS OWN STILL COUNTS ITS ERROR (0.302): the error and the report's own are said as they are.
 %% It ran out through the driver, which printed no count, and the command took the text of the verdict in cocolog's trace
 %% of the goals left to run for the verdict itself (bin/cicilang): exit 0, no output file and no word
@@ -494,6 +513,7 @@ dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_del
 dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
 dr_diag(F, not_lowered(jump_bypass(goto)), where(_, line(L))) :- !, dr_error(F, L, ['cannot jump from this goto statement to its label']).   % a jump over a cleanup's or a destructor's scope (1.6.25)
 dr_diag(F, not_lowered(jump_bypass(switch)), where(_, line(L))) :- !, dr_error(F, L, ['cannot jump from switch statement to this case label']).
+dr_diag(F, not_lowered(unknown_type(N)), where(_, line(L))) :- !, dr_error(F, L, ['unknown type name ''', N, '''']).   % a type name that nothing declares (1.6.36, ir_unknown_types/1)
 dr_diag(F, not_lowered(redefinition(N)), where(_, line(L))) :- !, dr_error(F, L, ['redefinition of ''', N, '''']).   % C++: a second definition at file scope (1.6.24)
 dr_diag(F, not_lowered(redef_type(K, N, A, B)), where(_, line(L))) :- !, dr_error(F, L, [K, ' of ''', N, ''' with a different type: ''', A, ''' vs ''', B, '''']).
 dr_diag(F, not_lowered(kind_redefinition(N)), where(_, line(L))) :- !, dr_error(F, L, ['redefinition of ''', N, ''' as different kind of symbol']).   % C++: a name of the file scope declared again as another kind (1.6.24, cpp_kind_clashes/1)
