@@ -349,6 +349,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.30 | C's block enumerators, a hundred and three library functions' words, C++'s decltype casts' words | a C block's enumerator is its block's, where one table gave wrong values and a use after the block built; 103 library functions that nothing declares in clang's words and header notes; a void value cast to a decltype type named as written (reader 216, lowering 199) |
 | 1.6.31 | compound literals in the safe part and in C++, global plain slots, 1.6.28's two misfits, decltype braced | a block's compound literal a borrow of its object and C23's static one static storage, where frees aborted and a dead frame was read; a global plain slot's pointer static storage; C++'s address of one in clang++'s words; a generic closure and an aligned delete no misfit; decltype(v){...} read; unevaluated members in a lambda with no this (reader 217, lowering 200) |
 | 1.6.32 | a freed plain pointer, 1.6.28's broken copies carried | a plain pointer that a free consumed is freed, its read, second free and write refused, where a double free built and aborted; of 1.6.28's seventeen uncaught copies seven caught, five guards out, five tests that no program reaches recorded (lowering 201) |
+| 1.6.33 | an outer object's borrows under a hiding name, attributes in their scope, a holder's base statics | a borrow of an object whose name a block declares again is its own, where the block's end refused it; a bracketed error and unavailable read in their own scope alone, where clang ignores the others; a base's static member called from a lambda; 1.6.29's nets and broken copies carried (reader 218, lowering 202) |
 
 ## M5 — the C++ mode
 
@@ -26091,3 +26092,63 @@ job ran, by the owner's rule of 0.271.
   and the fixtures).
 
 The module 1.6.32, the reader 217 and the lowering 201.
+
+## 1.6.33 — an outer object's borrows under a hiding name, attributes in their scope, a holder's base statics
+
+**1.6.33: at the user's word "Next", after "try to run less chain and do more tasks before every chain" and "To prevent
+code lost, first commit and push": one record of Not done closed -- a false refusal of the safe part --, two false
+refusals of the reader and the desugaring found and mended, and 1.6.29's nets and broken copies carried. The step was
+committed while its nets and its broken copies, and 1.6.30's to 1.6.32's, ran: it claims nothing GREEN of them, and the
+next step's commit carries them.**
+
+1. C AND C++: THE BORROWS OF AN OBJECT WHOSE NAME A BLOCK DECLARES AGAIN ARE ITS OWN (`ck_sh_borrows/4`,
+   `ck_shadowed_keys/3`, `ck_unmark/2`; the lowering 202): a borrow names its object by its key, and the block's end
+   dangled every borrow of the key -- `int x = 1; int *p = &x; { int x = 2; ... } *p` was `use of a borrow after its
+   owner was consumed: 'p'`, where clang builds it, and so were a name declared again twice, a loop's body that declares
+   it and is left by a break, an array, a struct's member, and own arrays of static storage and of the function. At the
+   inner declaration each borrow of a masked key is marked as the outer object's, and the block's end, after its own
+   keys' borrows dangle, takes the mark off, as a backward goto's closing of the keys since its label does; the words
+   name the object by its own name -- the first form printed `''$sh'(arr)'`. A borrow of the inner object used after its
+   block is refused still (`shadow_dangle.c`), and so is an outer object's borrow kept past that object's own block
+   (`shadow_outlives.c`). The record of 0.307, closed.
+2. C: A BRACKETED ATTRIBUTE'S `error` AND `unavailable` IN THEIR OWN SCOPE (the reader 218; `ccl_clang_scope//0` in
+   `ccl_skip_attr//0`): `[[error("m")]]`, `[[clang::error("m")]]`, `[[unavailable("m")]]` and `[[gnu::unavailable]]`,
+   which clang ignores (`unknown attribute ... ignored`), were each noted, and the function's call refused; GCC's error
+   is `gnu::`'s alone now and clang's unavailable `clang::`'s, their `__gnu__` and `_Clang` spellings too. Found by
+   1.6.29's broken copy of the bracketed error, which nothing caught: the `__attribute__` form is read by a scan of its
+   own, and the driver gate had no bracketed body.
+3. C++: A BASE'S STATIC MEMBER FUNCTION OF THE CLASS A LAMBDA IS MADE IN (`cpp_static_held/3` in the enclosing class's
+   road): `bs()` in a lambda that a member function of `D : B` makes, over `static int B::bs()`, was `use of undeclared
+   identifier 'bs'`, where clang++ calls it; a base's beside the class's own and a class template's print as clang++'s
+   (`lambdastatics.cpp`). Found by 1.6.29's broken copy of the static member's test in the refusal of a lambda that
+   captured no `this`, which nothing caught: that road is taken first, and the test, which held nothing, is out.
+
+1.6.29'S NETS AND BROKEN COPIES, CARRIED. Over a copy of its tree, LLVM 23 and a fresh HOME, the toolchain check strict:
+the flow gate 1046 s, reader 5 s, compile 44 s, driver 317 s, objects 6 s, the proof, the cross gate 293 s, the library
+read 226 s and the ccllib gate 1408 s GREEN; the C++ gate RED in 1240 s at `alignnew.cpp` and `genericfp.cpp` alone,
+1.6.28's two misfits, which 1.6.31 mended. 4586 s in all. Its twenty-seven broken copies: twenty-five caught, and the
+two that nothing caught are items 2 and 3.
+
+THE BOX RESTARTED while 1.6.30's nets ran, which ended the queue; it ran again from them, and again after a kill of the
+step's own flow gate took the queue's process group with it -- each chain runs in a session of its own since. 1.6.30'S,
+1.6.31'S AND 1.6.32'S NETS AND BROKEN COPIES, RUNNING AT THIS COMMIT, one guarded run at a time; the next step's commit
+carries them.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the flow gate GREEN in 1042 s, the reader gate GREEN in 5 s, the
+compile gate GREEN in 36 s -- `shadowborrow.c`, `shadow_outlives.c` and `shadow_store.c` among them --, the driver
+gate's check of the step, its nine bodies each against clang 23, the copy's whole driver gate over a fresh HOME, GREEN
+in 233 s (172 ok), `shadowborrow.c` built as C++, and a pool of seventeen C++ run fixtures of lambdas, statics, names
+declared again and attributes, each built and run as the C++ gate runs it, each the same. THE BROKEN COPIES, queued
+behind 1.6.32's: the next step's commit carries them. Over the work tree after the port: the toolchain check strict
+GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_check.pl` (`ck_shadow_outer/3`, `ck_sh_borrows/4` and its helpers, `ck_scope_end/2`,
+  `ck_shadowed_keys/3`, `ck_close_since_label/4`, `ck_fail/3`, `ck_unmark/2`); `library/ccl_syntax.pl`
+  (`ccl_skip_attr//0`, `ccl_clang_scope//0`; the reader 218); `library/ccl_cpp_expr.pl` (the enclosing class's static
+  call, the refusal of a lambda that captured no `this`); `library/ccl_ir.pl` (the lowering 202); `test/driver.sh` (one
+  check); `test/cpp.sh` (`shadowborrow.c` as C++); `test/c/run/shadowborrow.c`; `test/c/safe/shadow_outlives.c` and
+  `shadow_store.c`; `test/cpp/run/lambdastatics.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: one record closed), HISTORY.md, CLAUDE.md (the versions and the
+  fixtures).
+
+The module 1.6.33, the reader 218 and the lowering 202.

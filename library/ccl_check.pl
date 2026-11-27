@@ -777,7 +777,11 @@ ck_static_root(stmt_expr(block(Is)), 'a compound literal') :- ck_static_complit(
 ck_static_complit([declaration(_, static, _, [var(N, _, _)]), expr(_, addr(id(N)))]) :- atom(N), atom_concat('$cl', _, N).
 
 ck_line(L) :- ( integer(L), L > 0 -> nb_setval('$ck_line', L) ; true ).
-ck_fail(Kind, Name, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
+ck_fail(Kind, Name0, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short1), ck_unmark(Name0, Name), ck_unmark(Short1, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
+%% the words name an object by its own name: an outer object's mark while a block hides its name is taken off (1.6.33, ck_sh_borrows/4)
+ck_unmark('$sh'(X), Y) :- !, ck_unmark(X, Y).
+ck_unmark(T, T) :- \+ compound(T), !.
+ck_unmark(T0, T) :- T0 =.. [F|As0], maplist(ck_unmark, As0, As), T =.. [F|As].
 %% a form without a macro's whole expansion in it
 ck_squash(stmt_expr(_), '({ ... })') :- !.
 ck_squash(T, S) :- compound(T), !, T =.. [F|As], ck_squash_list(As, Bs), S =.. [F|Bs].
@@ -821,11 +825,26 @@ ck_unmask(Os0, N, Os) :- ( select(N-shadow, Os0, Os1) -> Os = Os1 ; Os = Os0 ).
 %% (ck_innermost/3), no key whose borrows dangle at the frame's end (ck_ending_keys/3), no leak (ck_leaks/2), and gives way at a join to the state that
 %% the other side holds (ck_merge_state/3) and to a state that the frame declares for the key (ck_unmask/3); the frame's
 %% end takes the masks with it, and the outer states answer again
-ck_shadow_outer(st([fr(Os, Ds)|Frs]), N, st([fr(Os1, Ds)|Frs])) :- atom(N),
+ck_shadow_outer(st([fr(Os, Ds)|Frs]), N, St) :- atom(N),
     findall(K-shadow, ( member(fr(Os2, Ds2), Frs), ( member(K-_, Os2), atom(K), ck_key_of(K, N) ; memberchk('$autodrop'(_, N), Ds2), K = N ),
                         \+ memberchk(K-_, Os) ), Ks0),
-    Ks0 \== [], !, sort(Ks0, Ks), append(Ks, Os, Os1).
+    Ks0 \== [], !, sort(Ks0, Ks), append(Ks, Os, Os1),
+    findall(K, member(K-_, Ks), Keys), ck_sh_borrows(wrap, Keys, st([fr(Os1, Ds)|Frs]), St).
 ck_shadow_outer(St, _, St).
+%% ... AND THE BORROWS OF THE OUTER OBJECT ARE ITS OWN (1.6.33): a borrow names its object by its key, so at the
+%% declaration each borrow of a masked key, in any frame, is marked as the outer object's, `borrow('$sh'(x))' -- a mark
+%% on a mark where a name is declared again twice --, and the frame's end, after its own keys' borrows dangle, takes
+%% one mark off (ck_scope_end/2, ck_shadowed_keys/3). The frame's end dangled every borrow of the key: `int x = 1; int
+%% *p = &x; { int x = 2; ... } *p' was `use of a borrow after its owner was consumed: 'p'', where clang builds it
+ck_sh_borrows(How, Keys, st(Frs0), st(Frs)) :- maplist(ck_sh_frame(How, Keys), Frs0, Frs).
+ck_sh_frame(How, Keys, fr(Os0, Ds), fr(Os, Ds)) :- maplist(ck_sh_entry(How, Keys), Os0, Os).
+ck_sh_entry(How, Keys, K-S0, K-S) :- ( ck_sh_state(How, Keys, S0, S1) -> S = S1 ; S = S0 ).
+ck_sh_state(How, Keys, borrow(P0), borrow(P)) :- ck_sh_key(How, Keys, P0, P).
+ck_sh_state(How, Keys, dangling(P0), dangling(P)) :- ck_sh_key(How, Keys, P0, P).
+ck_sh_key(wrap, Keys, P0, '$sh'(P0)) :- ck_sh_base(P0, B), memberchk(B, Keys).
+ck_sh_key(unwrap, Keys, '$sh'(P), P) :- ck_sh_base(P, B), memberchk(B, Keys).
+ck_sh_base('$sh'(P), B) :- !, ck_sh_base(P, B).
+ck_sh_base(B, B).
 %% a key of a name's: the name itself, or a path under it
 ck_key_of(K, N) :- K == N, !.
 ck_key_of(K, N) :- atom_concat(N, Sfx, K), ( sub_atom(Sfx, 0, 1, _, '.') ; sub_atom(Sfx, 0, 2, _, '->') ), !.
@@ -2280,7 +2299,8 @@ ck_close_since_label(st([fr(Os, Ds)|Frs]), LKeys, LDefs, St) :-
     (   St1 == dead -> St = dead
     ;   St1 = st([fr(Os1, Ds1)|Frs1]),
         findall(K-S, ( member(K-S, Os1), \+ memberchk(K, LKeys) ), Gone), findall(K-S, ( member(K-S, Os1), memberchk(K, LKeys) ), Kept),
-        ck_leaks(Gone, scope_end), ck_ending_keys(Gone, Frs1, GKs), ck_dangle_all(st([fr(Kept, Ds1)|Frs1]), GKs, St) ).
+        ck_leaks(Gone, scope_end), ck_ending_keys(Gone, Frs1, GKs), ck_dangle_all(st([fr(Kept, Ds1)|Frs1]), GKs, St2),
+        ck_shadowed_keys(Gone, Frs1, Sh), ( Sh == [] -> St = St2 ; ck_sh_borrows(unwrap, Sh, St2, St) ) ).   % the outer object's borrows its own again, as at the frame's end (1.6.33)
 ck_add_edge(L, St, B0, [L-St2|B1]) :- ( select(L-St1, B0, B1) -> ck_merge(St1, St, St2) ; B1 = B0, St2 = St ).
 %% a label: the state that falls through, then every forward goto's, then the back edges of the last walk
 ck_label_in(L, _, St0, StL) :- ck_bpath_root(LP),
@@ -2341,7 +2361,9 @@ ck_walk_restore(snap(Ti, Sa, Ar, Al, Rf)) :- nb_setval('$ck_ties', Ti), nb_setva
 ck_scope_end(dead, dead) :- !.
 ck_scope_end(st([fr(Os, Ds)|Frs]), St) :-
     ck_run_defers(Ds, st([fr(Os, [])|Frs]), St1),
-    ( St1 == dead -> St = dead ; st([fr(Os1, _)|Frs1]) = St1, ck_leaks(Os1, scope_end), ck_ending_keys(Os1, Frs1, Ks), ck_dangle_all(st(Frs1), Ks, St) ).
+    ( St1 == dead -> St = dead ; st([fr(Os1, _)|Frs1]) = St1, ck_leaks(Os1, scope_end), ck_ending_keys(Os1, Frs1, Ks), ck_dangle_all(st(Frs1), Ks, St2),
+      ck_shadowed_keys(Os1, Frs1, Sh), ( Sh == [] -> St = St2 ; ck_sh_borrows(unwrap, Sh, St2, St) ) ).   % the outer object's borrows its own again (1.6.33, ck_sh_borrows/4)
+ck_shadowed_keys(Os, Frs, Sh) :- findall(K, ( member(K-_, Os), atom(K), member(fr(Os2, _), Frs), memberchk(K-_, Os2) ), Sh0), sort(Sh0, Sh).
 %% THE KEYS WHOSE BORROWS DANGLE AT A FRAME'S END: the frame's own -- but a mask of an outer key (0.297,
 %% ck_shadow_outer/3), and a key of a name that an outer frame holds too, where the frame's state of it is a borrow or
 %% none: a pointer of the block that holds a borrow is no object that a borrow is of, and `borrow(v)' in an outer frame

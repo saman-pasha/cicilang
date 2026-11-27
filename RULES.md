@@ -2448,21 +2448,28 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   has them -- a constructor's function was 0 so since 1.6.8. `test/c/run/noreturn.c`, `noreturn23.c`,
   `test/cpp/run/noreturncpp.cpp`. (1.6.15)
 - A FUNCTION MARKED UNAVAILABLE (1.6.25, reader 213; clang's and GCC's `unavailable`, with a message or none;
-  `ccl_unavailable_note/2`, `ir_unavailable_call/1`): the attribute is a note beside noreturn's, and the result takes the
-  qualifier `unavailable(L, M)`; a call of the function, or any use of its name, is clang's `'g' is unavailable: gone`
-  and its note, `'g' has been explicitly marked unavailable here`, at the line of the declaration that holds the
-  attribute -- clang names the latest declaration's, a definition after it. The attribute was dropped and the call built.
-  IN C++ THE MARK NAMES ITS FUNCTION, `unavailable(L, M, g)` (1.6.26, reader 214; `ccl_unavailable_named/3`), so that a
-  member function's and an overload's callee, the desugaring's `S.g.0` and `g.int`, is refused by the name it declares;
-  and A MEMBER FUNCTION'S MARKS AFTER ITS QUALIFIERS ARE TAKEN (`ccl_init_take_own/2`): `int g() __attribute__((...));`
-  in a class has its attribute after the declarator, where the member's read had taken the marks, and the call built. A
-  free function that no overload keys keeps the first form. The driver gate's eight C bodies, three C++ ones and five
-  more: a member, a static one, `[[clang::unavailable]]`, an overload, a namespace's. (1.6.25, 1.6.26)
+  `ccl_unavailable_note/2`, `ir_unavailable_call/1`): the attribute is a note beside noreturn's, and the result takes
+  the qualifier `unavailable(L, M)`; a call of the function, or any use of its name, is clang's `'g' is unavailable:
+  gone` and its note, `'g' has been explicitly marked unavailable here`, at the line of the declaration that holds the
+  attribute -- clang names the latest declaration's, a definition after it. The attribute was dropped and the call
+  built. IN C++ THE MARK NAMES ITS FUNCTION, `unavailable(L, M, g)` (1.6.26, reader 214; `ccl_unavailable_named/3`), so
+  that a member function's and an overload's callee, the desugaring's `S.g.0` and `g.int`, is refused by the name it
+  declares; and A MEMBER FUNCTION'S MARKS AFTER ITS QUALIFIERS ARE TAKEN (`ccl_init_take_own/2`): `int g()
+  __attribute__((...));` in a class has its attribute after the declarator, where the member's read had taken the marks,
+  and the call built. A free function that no overload keys keeps the first form. The driver gate's eight C bodies,
+  three C++ ones and five more: a member, a static one, `[[clang::unavailable]]`, an overload, a namespace's. IN
+  BRACKETS IT IS `clang::`'S ALONE (1.6.33, reader 218; `ccl_clang_scope//0` in `ccl_skip_attr//0`):
+  `[[unavailable("m")]]` and `[[gnu::unavailable]]`, which clang ignores (`unknown attribute ... ignored`), were each
+  noted and a call refused; `[[_Clang::unavailable]]` is clang's too. (1.6.25, 1.6.26, 1.6.33)
 - A FUNCTION MARKED WITH GCC'S `error("msg")` (1.6.29, reader 215; `ccl_error_attr_note/1`, `ir_error_attr_call/1`): the
   attribute, before the declarator or after it and spelled `__error__` too, is a note beside unavailable's, and the
   result takes the qualifier `error_attr(M)`; a call of the function is clang's `call to 'f' declared with 'error'
   attribute: msg`, where the attribute was dropped and the call built. The function's name as a value is no call. In C:
-  C++'s words name the function with its parameters. The driver gate's five bodies. (1.6.29)
+  C++'s words name the function with its parameters. The driver gate's five bodies. IN BRACKETS IT IS `gnu::`'S ALONE
+  (1.6.33, reader 218; `ccl_gnu_scope//0` in `ccl_skip_attr//0`): `[[gnu::error("m")]]`, `[[gnu::__error__("m")]]` and
+  `[[__gnu__::error("m")]]` are the attribute, and `[[error("m")]]` and `[[clang::error("m")]]`, which clang ignores,
+  were each a call refused; the `__attribute__` form is read by its own scan (`ccl_layout_scan/1`). The driver gate's
+  nine bodies. (1.6.29, 1.6.33)
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -5824,7 +5831,11 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
 - A nested class calls a STATIC member FUNCTION of its holder by its bare name ([class.nest]/1; `cpp_call`'s clause over
   `cpp_encl_chain/2` and `cpp_static_bare/2`): `compute()` in `A::N::get` is `A::compute()` with no object. A non-static
   one needs an object of the holder, which a nested class has none of. The data statics were found so since 0.112. The
-  access check is the nested class's own (a member of the holder). `accessctl2.cpp`. (0.117)
+  access check is the nested class's own (a member of the holder). `accessctl2.cpp`. A BASE'S STATIC MEMBER FUNCTION of
+  the holder too (1.6.33; `cpp_static_held/3`): `bs()` in a lambda that a member function of `D : B` makes was `use of
+  undeclared identifier 'bs'`, where clang++ calls `B::bs`; and a lambda that captured no `this` calls such a function
+  by this road first, so that the test of a static member in 1.6.29's refusal held nothing, and is out.
+  `test/cpp/run/lambdastatics.cpp`. (0.117, 1.6.33)
 - A nested type named as a type registers on the first ask, whatever its kind (`cpp_type`'s nested-tag clause): a lazy
   library instance never runs its holder's nested registrations (`basic_string::__rep`, `__short`, `__long`). (0.63)
 - Inside a nested class's body its own short name takes the nested type with no guard, and the class is made ready
@@ -12014,12 +12025,21 @@ in the first topic (The ccllib gate).
   drops -- with the state `shadow`, which is no state (`ck_in/3`), no key under a base (`ck_innermost/3`), no leak
   (`ck_leaks/2`), the other side's state at a join (`ck_merge_state/3`), and gives way to a state that the frame
   declares for the key (`ck_unmask/3`, in `ck_declare/4`, `ck_declare_borrow/4` and `ck_insert_at/4`); the frame's end
-  takes the masks with it, and the outer states answer again. THE KEYS WHOSE BORROWS DANGLE AT A FRAME'S END
-  (`ck_ending_keys/3`, in `ck_scope_end/2` and a goto's `ck_close_since_label/4`) are the frame's own, but a mask, and a
-  key of a name that an outer frame holds too where the frame's state of it is a borrow or none: a pointer of the block
-  that holds a borrow is no object that a borrow is of, and `borrow(p)` in an outer frame is the outer p's. Why: `double
-  v; v = i;` in a block of a function whose parameter is `vector<int> *v` was `owner overwritten while live: 'v->data'`
-  (the Ambitious session's finding 21), `int v; ... printf("%d", v)` under an outer `vector<int> v` was
+  takes the masks with it, and the outer states answer again. AND THE OUTER OBJECT'S BORROWS ARE ITS OWN (1.6.33;
+  `ck_sh_borrows/4`, `ck_shadowed_keys/3`): at the declaration each borrow of a masked key, in any frame, is marked as
+  the outer object's, `borrow('$sh'(x))` -- a mark on a mark where a name is declared again twice --, and the frame's
+  end, after its own keys' borrows dangle, takes one mark off, as a backward goto's closing of the keys since its label
+  does; the words name the object by its own name (`ck_unmark/2` in `ck_fail/3`). A borrow names its object by its key,
+  and the frame's end dangled every borrow of the key: `int x = 1; int *p = &x; { int x = 2; ... } *p` was `use of a
+  borrow after its owner was consumed: 'p'`, and so were a loop's body that declares the name and is left by a break, an
+  array, a struct's member and own arrays of static storage and of the function. `test/c/run/shadowborrow.c`, in C and
+  as C++; `shadow_dangle.c` is refused still, and so are `test/c/safe/shadow_outlives.c`, an outer object's borrow kept
+  past that object's own block, and `shadow_store.c`, the words of a marked borrow. THE KEYS WHOSE BORROWS DANGLE AT A
+  FRAME'S END (`ck_ending_keys/3`, in `ck_scope_end/2` and a goto's `ck_close_since_label/4`) are the frame's own, but a
+  mask, and a key of a name that an outer frame holds too where the frame's state of it is a borrow or none: a pointer
+  of the block that holds a borrow is no object that a borrow is of, and `borrow(p)` in an outer frame is the outer p's.
+  Why: `double v; v = i;` in a block of a function whose parameter is `vector<int> *v` was `owner overwritten while
+  live: 'v->data'` (the Ambitious session's finding 21), `int v; ... printf("%d", v)` under an outer `vector<int> v` was
   `dropped_copied`, `int v; v = 3;` under an outer own pointer `owner overwritten while live`, and `{ int *p = &x; }` in
   a function whose parameter is `int *p` ended the parameter's own borrow, `use of a borrow after its owner was
   consumed: 'p'`, each where clang builds the program; and `int *q = &v; { int v = 2; q = &v; } *q` was built, the
@@ -17369,14 +17389,6 @@ Declarations topic of the C++ reader).
   block that the store freed (valgrind: `Invalid read of size 4`); over 0.306 the borrow was `plain pointer not
   consumed` at the first unit's function's end. A rule for them is what each function of the program writes, across its
   units: a summary of a unit that the others read.
-- A BORROW OF A NAME THAT A BLOCK DECLARES AGAIN AND ANCHORS ENDS AT THE BLOCK'S END (probed at 0.307, as over 0.306):
-  `int x = 1; int *p = &x; { int x = 2; int *q = &x; ... } *p` is `use of a borrow after its owner was consumed: 'p'`,
-  and so is a borrow of an outer array kept over a block's array of the same name that it uses as a pointer, and a
-  borrow of an own array of static storage, or of a local own array, kept over a block whose array of pointers takes its
-  name. A borrow names its object's key, and a frame's end dangles the borrows of each key that the frame anchors
-  (`ck_ending_keys/3`), the outer object's among them; 0.297's rule of a name declared again hides the outer states, not
-  the outer borrows. A key of each declaration, not of each name, is the rule; the program gives the block's object a
-  name of its own.
 - A FUNCTION THAT GIVES BACK A RECORD WITH A POINTER IN IT GIVES A VALUE WITH NO OWNER BEHIND (probed at 0.290, as it
   was before): `struct tok t = pick(i);` over `static struct tok pick(int i) { return toks[i]; }` is `no owner behind:
   't'`. A call's result is new memory to the check, as a pointer result with no tie is -- but one of a function whose

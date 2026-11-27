@@ -656,6 +656,24 @@ int main() { char *c = 0; return f(&c); }' 'namespace n { extern "C" { int t(); 
 int main() { return 0; }'; do n=$((n + 1)); printf "$src\n" > bcopy$n.cpp; "$ROOT/bin/cicilang++" -c bcopy$n.cpp -o bcopy$n.o 2>&1 | head -1; done)" "bcopy4.cpp:2: error: no matching function for call to 'f'
 bcopy5.cpp:1: error: redefinition of 't' as different kind of symbol"
 check "C++: a header of the program's own whose name clashes inside it keeps its first kind (1.6.32; 1.6.28's broken copies): the file's own declaration of the other kind is refused at its line, in clang++'s words -- clang++ refuses the header's at the header's line, which the words give for the file -- where a header's later kind was taken and the file built" "$(printf 'int t(void);\nint t;\n' > kindh.h; printf '#include "kindh.h"\nint t;\nint main() { return 0; }\n' > kindh1.cpp; "$ROOT/bin/cicilang++" -c kindh1.cpp -o kindh1.o 2>&1 | head -1)" "kindh1.cpp:2: error: redefinition of 't' as different kind of symbol"
+check "C: a bracketed attribute's error and unavailable are read in their own scope alone, as clang reads them (1.6.33): gnu::error, its __error__ and __gnu__ spellings, clang::unavailable and _Clang's, each a call refused -- after the same words with no scope or another one, which clang ignores and which were each a call refused, first" "$(n=0; for src in '[[error("boom")]] void f(void);
+void f(void) {}
+int main(void) { f(); return 0; }' '[[clang::error("boom")]] void f(void);
+void f(void) {}
+int main(void) { f(); return 0; }' '[[unavailable("no")]] void f(void);
+void f(void) {}
+int main(void) { f(); return 0; }' '[[gnu::unavailable("no")]] void f(void);
+void f(void) {}
+int main(void) { f(); return 0; }' '[[gnu::error("boom")]] void f(void);
+int main(void) { f(); return 0; }' '[[gnu::__error__("boom")]] void f(void);
+int main(void) { f(); return 0; }' '[[__gnu__::error("boom")]] void f(void);
+int main(void) { f(); return 0; }' '[[clang::unavailable("no")]] void f(void);
+int main(void) { f(); return 0; }' '[[_Clang::unavailable]] void f(void);
+int main(void) { f(); return 0; }'; do n=$((n + 1)); printf "$src\n" > scattr$n.c; "$CICILI" -std=c23 -c scattr$n.c -o scattr$n.o 2>&1 | head -1; done)" "scattr5.c:2: error: call to 'f' declared with 'error' attribute: boom
+scattr6.c:2: error: call to 'f' declared with 'error' attribute: boom
+scattr7.c:2: error: call to 'f' declared with 'error' attribute: boom
+scattr8.c:2: error: 'f' is unavailable: no
+scattr9.c:2: error: 'f' is unavailable"
 check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
 static int g(int a) { return a; }
 int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}

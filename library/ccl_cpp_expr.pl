@@ -1030,11 +1030,13 @@ cpp_call(Ctx, id(M), As, E) :- Ctx \== none, \+ cpp_local(M), length(As, N), cpp
 %% A NESTED CLASS CALLS A STATIC MEMBER FUNCTION OF ITS ENCLOSING CLASS BY NAME ([class.nest]/1, [expr.prim.id]/2; 0.117): the
 %% nested class's scope is inside the holder's, so `compute()' in `A::N::get' is `A::compute()' -- with no object, since it is static
 %% (a non-static one needs an object of the holder, which a nested class has none of). The data statics were found so since 0.112
-%% (cpp_static_member); the function was `undeclared(compute)'. `accessctl2.cpp'.
-cpp_call(Ctx, id(M), As, E) :- atom(Ctx), Ctx \== none, \+ cpp_local(M), cpp_encl_chain(Ctx, [_|Encs]), member(Enc, Encs), cpp_static_bare(Enc, M),
-    cpp_method(Enc, M, As, Name, _), cpp_static_bare(Enc, M, Name), !,
+%% (cpp_static_member); the function was `undeclared(compute)'. `accessctl2.cpp'. A BASE'S STATIC MEMBER FUNCTION of the
+%% enclosing class too (1.6.33; cpp_static_held/3): `bs()' in a lambda that a member function of `D : B' makes, over `static
+%% int B::bs()', was `use of undeclared identifier 'bs'', where clang++ calls it
+cpp_call(Ctx, id(M), As, E) :- atom(Ctx), Ctx \== none, \+ cpp_local(M), cpp_encl_chain(Ctx, [_|Encs]), member(Enc, Encs), cpp_static_held(Enc, M, _),
+    cpp_method(Enc, M, As, Name, _), cpp_static_held(Enc, M, Name), !,
     cpp_check_access(Ctx, Enc, M), cpp_fill_defaults(Name, As, As1), cpp_object_arg(Name, nullptr, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]).
-cpp_call(Ctx, id(M), As, _) :- atom(M), cpp_closure_uncaptured(Ctx, EC, K), \+ cpp_local(M), cpp_method(EC, M, As, Name, _), \+ cpp_static_held(EC, M, Name), !, cpp_unthis_words(K, call, W), cpp_refuse_prog(W).   % ... no `this' captured (1.6.29), below
+cpp_call(Ctx, id(M), As, _) :- atom(M), cpp_closure_uncaptured(Ctx, EC, K), \+ cpp_local(M), cpp_method(EC, M, As, _, _), !, cpp_unthis_words(K, call, W), cpp_refuse_prog(W).   % ... no `this' captured (1.6.29), below; a static member function, the class's or a base's, is the road above's (1.6.33: its test here held nothing)
 cpp_call(Ctx, id(M), As, E) :- cpp_closure_this(Ctx, EC), \+ cpp_local(M), length(As, N), cpp_method(EC, M, As, Name, Hops), !,   % a lambda's captured this: the enclosing class's method
     cpp_fill_defaults(Name, As, As1), cpp_closure_object(Hops, P),
     (   cpp_slot_call(EC, M, N, Name, Slot) -> cpp_dispatch(Name, P, EC, Slot, As1, E)

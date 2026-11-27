@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.32 the versions are: the module 1.6.32 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 217 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 201 (`ccl_lowering_version/1`,
+At 1.6.33 the versions are: the module 1.6.33 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 202 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -637,7 +637,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             blockenums.c, a block's enumerators, which shadow the file's and another block's (1.6.30);
                             complits.c, compound literals and global slots that the safe part keeps, and complits23.c,
                             C23's static compound literals (1.6.31); freedagain.c, plain pointers that a free leaves
-                            freed and that the program gives new memory again (1.6.32)
+                            freed and that the program gives new memory again (1.6.32); shadowborrow.c, borrows of an
+                            object whose name a block declares again, built as C and as C++ (1.6.33)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -762,7 +763,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             their names, qualnames.cpp, qualified calls that name something, ljlocals.cpp, longjmps out
                             of frames with C++ locals that run nothing, and staticmt.cpp, static member templates
                             (1.6.27); decltypebraced.cpp, a braced cast to a decltype type, and lambdauneval.cpp,
-                            unevaluated operands that name a member with no object (1.6.31)
+                            unevaluated operands that name a member with no object (1.6.31); lambdastatics.cpp, static
+                            member functions, a base's among them, called bare in a lambda that captured nothing
+                            (1.6.33)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);
