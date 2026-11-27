@@ -102,7 +102,7 @@ cpp_path_dependent(Path, TPs) :- member(tparam(_, P, _), TPs), cpp_names_in(Path
 cpp_signature_holds(F, TPs, Ps, Explicit, As, B) :- cpp_signature_holds(F, TPs, Ps, false, Explicit, As, B).
 cpp_signature_holds(F, TPs, Ps, Var, Explicit, As, B) :- cpp_where(sig(F), cpp_signature_holds_(F, TPs, Ps, Var, Explicit, As, B)).
 cpp_signature_holds_(F, TPs, Ps, Var, Explicit, As, B) :-
-    cpp_arity_holds(Ps, Var, As),
+    cpp_arity_holds(F, Ps, Var, As),
     ( cpp_bind_explicit(TPs, Explicit, B0) -> true ; cpp_trace(sig_failed(F, explicit)), fail ),          % each step names itself when it FAILS (a refusal says why; a failure said nothing, and looked like no candidate at all)
     cpp_explicit_skip(Ps, TPs, B0, PsD),   % A PARAMETER WHOSE TEMPLATE PARAMETERS ARE ALL GIVEN EXPLICITLY TAKES NO PART IN DEDUCTION ([temp.deduct.call]/4; 0.115): its argument converts, as libc++ 18's `__vformat_to_n<format_context>(..., make_format_args(...))' hands an arg store to `basic_format_args<_Context>'
     ( cpp_deduce_args_checked(PsD, As, TPs, B0, B1) -> true ; cpp_trace(sig_failed(F, deduce(B0))), fail ),
@@ -110,9 +110,12 @@ cpp_signature_holds_(F, TPs, Ps, Var, Explicit, As, B) :-
     ( cpp_all_bound(TPs, Ps, B) -> true ; cpp_trace(sig_failed(F, unbound(B))), fail ),   % A PARAMETER TYPE STILL NAMING A TEMPLATE PARAMETER after deduction and the defaults is no candidate ([temp.deduct]: deduction failed): an argument the deduction could not type left `reverse_iterator<_Up>' free, and the acceptance step instantiated it on the free name -- 147,000 flattens to the cap (the C++23 optional probe)
     ( cpp_constraints_hold(F, TPs, B) -> true ; cpp_trace(sig_failed(F, constraints(B))), fail ),
     ( cpp_params_accept(Ps, As, B) -> true ; cpp_trace(sig_failed(F, accept(B))), fail ).
-%% the arguments must fit the parameters in number: a default fills, a pack takes any number
-cpp_arity_holds(Ps, Var, As) :- length(As, NA), cpp_arity(Ps, Min, Max), NA >= Min, ( Var == true -> true ; Max == any -> true ; NA =< Max ), !.   % `...' takes any number
-cpp_arity_holds(_, _, _) :- cpp_refuse(0, arity_mismatch).
+%% the arguments must fit the parameters in number: a default fills, a pack takes any number. A misfit in the program's own
+%% code is clang++'s `no matching function for call to 'f'' where no other candidate takes the call (1.6.26: it was
+%% `not lowered yet: arity_mismatch')
+cpp_arity_holds(_, Ps, Var, As) :- length(As, NA), cpp_arity(Ps, Min, Max), NA >= Min, ( Var == true -> true ; Max == any -> true ; NA =< Max ), !.   % `...' takes any number
+cpp_arity_holds(F, _, _, _) :- nb_getval('$cpp_in_lib', no), atom(F), \+ sub_atom(F, _, _, _, '.'), !, cpp_refuse_stmt(no_matching_call(F)).
+cpp_arity_holds(_, _, _, _) :- cpp_refuse(0, arity_mismatch).
 cpp_arity([], 0, 0).
 cpp_arity([param(pack(_), _)|_], 0, any) :- !.
 cpp_arity([param(_, _, _)|Ps], Min, Max) :- !, cpp_arity(Ps, Min, Max0), ( Max0 == any -> Max = any ; Max is Max0 + 1 ).

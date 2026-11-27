@@ -1,1 +1,1 @@
-no conversion from 'int' to 'point'
+passing 'int' to parameter of incompatible type 'point' (aka 'struct point')

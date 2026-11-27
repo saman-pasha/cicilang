@@ -2592,10 +2592,10 @@ ck_jump_to(F, D, st(FrsS), Seq, st(Frs)) :- length(Frs, N),
     (   N < D -> K is D - N, length(Closed, K), append(Closed, _, FrsS),
         ( member(fr(Os, _), Closed), member(V-S, Os), ( ck_owner_state(S) ; S == loose ) -> ck_fail(longjmp_into_ended, V, longjmp) ; true )
     ;   K is N - D, length(Deeper, K), append(Deeper, Outer, Frs),
-        ( member(fr(_, Ds), Deeper), Ds \== [] -> ck_fail(longjmp_over_defer, F, longjmp) ; true ),
+        ( member(fr(_, Ds), Deeper), ck_runs_defer(Ds) -> ck_fail(longjmp_over_defer, F, longjmp) ; true ),
         ck_leaks_frames(Deeper, longjmp), ck_jump_same(F, Seq, Outer, FrsS) ).
 ck_jump_same(_, _, [], []).
-ck_jump_same(F, Seq, [fr(Os, Ds)|T], [fr(OsS, DsS)|TS]) :- ( Ds == DsS -> true ; ck_fail(longjmp_over_defer, F, longjmp) ),
+ck_jump_same(F, Seq, [fr(Os, Ds)|T], [fr(OsS, DsS)|TS]) :- ( ck_run_defers(Ds, R), ck_run_defers(DsS, RS), R == RS -> true ; ck_fail(longjmp_over_defer, F, longjmp) ),
     forall(member(V-S, Os), ( memberchk(V-SS, OsS), \+ ck_volatile_local(V) -> ( S == SS, \+ ck_written_since(V, Seq) -> true ; ck_fail(changed_across_setjmp, V, longjmp) ) ; ck_leaks([V-S], longjmp) )),
     ck_jump_same(F, Seq, T, TS).
 %% A VOLATILE LOCAL KEEPS ITS VALUE ACROSS THE JUMP (1.6.20; C17 7.13.2.1/3 names the objects that are not volatile), so
@@ -2630,8 +2630,13 @@ ck_sj_walk(E, St0, St) :- ( nb_current('$ck_sj_walking', W0) -> true ; W0 = [] )
     (   catch(ck_expr(E, St0, St1), X, ( nb_setval('$ck_sj_walking', W0), throw(X) ))
     ->  nb_setval('$ck_sj_walking', W0), ck_sj_write(E), St = St1
     ;   nb_setval('$ck_sj_walking', W0), fail ).
-ck_jump_out(F, st(Frs)) :- ( member(fr(_, Ds), Frs), Ds \== [] -> ck_fail(longjmp_over_defer, F, longjmp) ; true ),
+ck_jump_out(F, st(Frs)) :- ( member(fr(_, Ds), Frs), ck_runs_defer(Ds) -> ck_fail(longjmp_over_defer, F, longjmp) ; true ),
     ck_leaks_frames(Frs, longjmp), ( last(Frs, fr(Os, _)) -> ck_complete_owners(Os, longjmp) ; true ).
+%% ... A DEFER THAT RUNS NOTHING IS NONE TO A LONGJMP (1.6.26): the mark of a C++ local declared with an initializer,
+%% '$jumpless'(block([])) (ck_initialized_local/2), is a goto's and a case label's alone; 1.6.25 counted it, and a longjmp
+%% past `int r = setjmp(env);' was refused, `cwrap.cpp'
+ck_runs_defer(Ds) :- member(D, Ds), D \== '$jumpless'(block([])), !.
+ck_run_defers(Ds, Rs) :- exclude(==('$jumpless'(block([]))), Ds, Rs).
 %% A FUNCTION THAT MAY LONGJMP IS CALLED BY ITS NAME ALONE (1.6.17): through a pointer, a signal or a library's callback its
 %% jump would leave frames whose call of it no walk followed, so its name -- `longjmp''s too -- as a value is refused, in
 %% a function's body and in a file-scope initializer (ck_lj_globals/2)

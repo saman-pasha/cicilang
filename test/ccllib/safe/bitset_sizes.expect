@@ -1,1 +1,1 @@
-no conversion from 'bitset_12' to 'bitset_8'
+passing 'bitset_12' (aka 'struct bitset_12') to parameter of incompatible type 'bitset_8' (aka 'struct bitset_8')

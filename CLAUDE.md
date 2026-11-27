@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.25 the versions are: the module 1.6.25 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 213 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 194 (`ccl_lowering_version/1`,
+At 1.6.26 the versions are: the module 1.6.26 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 214 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 195 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -748,7 +748,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             local references and returned, and unreachcpp.cpp, the program's __builtin_unreachable()
                             (1.6.23); constmembers.cpp, what a const member function writes, and constexprptrs.cpp,
                             constexpr pointers, const pointers (1.6.24); jumptemps.cpp, jumps past what the desugaring
-                            declares (1.6.25)
+                            declares (1.6.25); castcalls.cpp, the casts, the qualified calls, the defaults and the
+                            ellipses beside 1.6.26's refusals, and qualthis.cpp, members named with their class in
+                            lambdas that captured this (1.6.26)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);
@@ -801,7 +803,9 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             ratio_divide_zero.c, complex_of_int.c, charconv_bool.c and charconv_prec_int.c, what
                             the numbers refuse (1.6.4); void_assign.c, a void value assigned over a vector, refused as
                             C by its type macro and as C++ in clang++'s words (1.6.14); drop_in_loop.c, a vector that a
-                            for declares, dropped in each pass and pushed to again in the next (1.6.19)
+                            for declares, dropped in each pass and pushed to again in the next (1.6.19); seven
+                            refusals of a value of no conversion, in clang's words of its site as C, their C++ words
+                            in NAME.expect.cpp (1.6.26)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;

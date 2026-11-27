@@ -1,1 +1,1 @@
-no conversion from 'span_int' to 'span_const_int'
+passing 'span_int' (aka 'struct span_int') to parameter of incompatible type 'span_const_int' (aka 'struct span_const_int')

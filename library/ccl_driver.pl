@@ -431,6 +431,7 @@ dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_erro
 dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_error(F, L, Ps).   % A VOID VALUE AND THE OPERANDS BESIDE IT (1.6.14, dr_value_text/2)
 dr_diag(F, not_lowered(ptr_conversion(K, Site, A, B)), where(_, line(L))) :- !, dr_int_conv_site(Site, A, B, Ps), ( K == function -> W = 'incompatible function pointer types ' ; W = 'incompatible pointer types ' ), dr_error(F, L, [W|Ps]).   % C: pointers of incompatible types, in clang's words (1.6.23, ir_ptr_clash/4)
 dr_diag(F, not_lowered(no_viable_assign(Op)), where(_, line(L))) :- !, dr_error(F, L, ['no viable overloaded ''', Op, '''']).   % C++: an assignment over a class that no operator= takes (1.6.24)
+dr_diag(F, not_lowered(site_conversion(S, A, B, H)), where(_, line(L))) :- !, dr_site_words(S, A, B, Ps0), ( H == remove_amp -> append(Ps0, ['; remove &'], Ps) ; Ps = Ps0 ), dr_error(F, L, Ps).   % C: a value of another type at a site, in clang's words (1.6.26)
 dr_diag(F, not_lowered(incompatible_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['assigning to ''', A, ''' from incompatible type ''', B, '''']).   % C++: an array or a function for an integer (1.6.24)
 dr_diag(F, not_lowered(init_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize a variable of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
 dr_diag(F, not_lowered(return_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize return object of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
@@ -465,6 +466,8 @@ dr_short_name(N, N).
 %% clang's words for a call's count of arguments (Sema's ConvertArgumentsForCall; 0.302), as the parts dr_error/3 writes
 dr_call_text(too_many_args(N, M), ['too many arguments to function call, expected ', N, ', have ', M]).
 dr_call_text(too_many_args_one(P, M), ['too many arguments to function call, expected single argument ''', P, ''', have ', M, ' arguments']).
+dr_call_text(too_many_args_at_most(N, M), ['too many arguments to function call, expected at most ', N, ', have ', M]).   % C++'s defaults (1.6.26)
+dr_call_text(too_many_args_at_most_one(P, M), ['too many arguments to function call, expected at most single argument ''', P, ''', have ', M, ' arguments']).
 dr_call_text(too_few_args(N, M), ['too few arguments to function call, expected ', N, ', have ', M]).
 dr_call_text(too_few_args_one(P), ['too few arguments to function call, single argument ''', P, ''' was not specified']).
 dr_call_text(too_few_args_at_least(N, M), ['too few arguments to function call, expected at least ', N, ', have ', M]).
@@ -510,6 +513,12 @@ dr_value_text(union_cast(A), ['cast to union type from type ''', A, ''' not pres
 dr_value_text(void_cast(const_kind, B), ['const_cast to ''', B, ''', which is not a reference, pointer-to-object, or pointer-to-data-member']).
 dr_value_text(void_cast(K, B), [S, ' from ''void'' to ''', B, ''' is not allowed']) :- dr_cast_spelled(K, S).
 dr_value_text(void_cast_pointer(B), ['cannot cast from type ''void'' to pointer type ''', B, '''']).
+dr_value_text(nonstatic_no_object, ['call to non-static member function without an object argument']).   % C++ (1.6.26)
+dr_value_text(this_not_captured, ['''this'' cannot be implicitly captured in this context']).
+dr_value_text(no_subscript(T), ['type ''', T, ''' does not provide a subscript operator']).   % C++'s subscript over a plain struct (1.6.26)
+dr_value_text(no_viable_subscript(T), ['no viable overloaded operator[] for type ''', T, '''']).
+dr_value_text(fp_to_pointer(A, B), ['cannot cast from type ''', A, ''' to pointer type ''', B, '''']).   % C++'s casts of a floating value and a pointer (1.6.26)
+dr_value_text(fp_ptr_cast(K, A, B), [S, ' from ''', A, ''' to ''', B, ''' is not allowed']) :- dr_cast_spelled(K, S).
 dr_value_text(void_cast_memptr(B), ['cannot cast from type ''void'' to member pointer type ''', B, '''']).
 dr_value_text(void_cast_rvalue_ref(K, B), [S, ' from rvalue to reference type ''', B, '''']) :- dr_cast_spelled(K, S).
 dr_value_text(void_cast_class(K, B), ['no matching conversion for ', S, ' from ''void'' to ''', B, '''']) :- dr_cast_spelled(K, S).
@@ -526,6 +535,10 @@ dr_value_text(pointer_operand(arrow(record), A), ['member reference type ''', A,
 dr_value_text(pointer_operand(arrow(other), A), ['member reference type ''', A, ''' is not a pointer']).
 dr_value_text(index_operand, ['array subscript is not an integer']).
 %% ... and where an integer and a pointer meet as if by assignment, the words of each place
+dr_site_words(assigning, A, B, ['assigning to ''', B, ''' from incompatible type ''', A, '''']).
+dr_site_words(initializing, A, B, ['initializing ''', B, ''' with an expression of incompatible type ''', A, '''']).
+dr_site_words(passing, A, B, ['passing ''', A, ''' to parameter of incompatible type ''', B, '''']).
+dr_site_words(returning, A, B, ['returning ''', A, ''' from a function with incompatible result type ''', B, '''']).
 dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
 dr_int_conv_site(initializing, A, B, ['initializing ''', B, ''' with an expression of type ''', A, '''']).
 dr_int_conv_site(assigning, A, B, ['assigning to ''', B, ''' from ''', A, '''']).

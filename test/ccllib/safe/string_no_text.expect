@@ -1,1 +1,1 @@
-no conversion from 'basic_string_char' to 'const char *'
+passing 'string' (aka 'struct basic_string_char') to parameter of incompatible type 'const char *'

@@ -342,6 +342,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.23 | C's pointers of incompatible types, C++'s const places, saturating conversions, each against clang | pointers of incompatible types refused in C in clang's words, at the four sites, what clang only warns of taken; C++'s const places refused, the desugaring's own initializations passed over; a constexpr variable over `__builtin_unreachable()` refused; a floating constant out of its integer type's range saturates; an older false refusal of a value through a reference mended; integer types spelled as clang spells them; the library read names a header that the box has not (lowering 192) | committed while its nets ran, at the user's word: the copy's compile 420 and driver 120 GREEN; 1.6.22's nets carried -- eight gates GREEN, the library read RED on the warm of a Mac header, mended; 5 broken copies caught, 8 running |
 | 1.6.24 | Clang's (aka ...), redeclarations in C and C++, const member functions, C++'s integers and pointers | a typedef's type with clang's (aka ...) where the words are clang's; an object declared again with another type refused in C, a second definition and another kind of symbol in C++; a const member function's writes refused, `mutable` marked; a constexpr pointer a const pointer; C++'s integers and pointers refused at an assignment and an initializer; a NaN converted to an integer 0; `-E` stops at its own missing include; a library function's words and header note; the three words that 1.6.23's net found changed mended; cocolog's master taken (reader 212, lowering 193) |
 | 1.6.25 | Jumps past cleanups, destructors and initializations, unavailable functions, K&R at C23, flexible members | a jump into a cleanup's or a destructor's scope or past a C++ initialization in clang's words, a nested block's case label seen; a function marked unavailable refused at its use; a block's extern of another type refused; a K&R definition at C23 and an implicit int refused; a flexible array member's items laid as clang lays them; C++'s return of an integer for a pointer refused; the old check that 1.6.24's net found RED mended; two dead guards taken out (reader 213, lowering 194) |
+| 1.6.26 | C's sites of a value of no conversion, C++'s casts, qualified calls and members, unavailable members | C's assignments, arguments, initializers and returns of no conversion in clang's words; C++'s casts of a floating value and a pointer by the cast's spelling; a member's and an overload's unavailable refused; a qualified call's count in clang++'s words by its defaults and ellipsis; a member named with its class that none takes, or with no object, which ran over a null this; a qualified member call in a lambda passes the closure's object, where it crashed; 1.6.25's net RED at four fixtures, mended (reader 214, lowering 195) |
 
 ## M5 — the C++ mode
 
@@ -25494,3 +25495,101 @@ job ran, by the owner's rule of 0.271.
   versions, the fixtures).
 
 The module 1.6.25, the reader 213 and the lowering 194.
+
+## 1.6.26 — C's sites of a value of no conversion, C++'s casts, qualified calls and members, unavailable members
+
+**1.6.26: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": four records of Not done narrowed and two found, each form held to clang's or clang++'s answer
+at its line, a wrong code that crashed mended, 1.6.25's nets carried, and the eight forms that they found RED mended.
+The step was committed while its nets and its broken copies ran: it claims nothing GREEN of them, and the next step's
+commit carries them.**
+
+1. C: EACH SITE OF A VALUE OF NO CONVERSION IS CLANG'S WORDS (C17 6.5.16.1/1, 6.5.2.2/2, 6.7.9/11, 6.8.6.4/3;
+   `ir_site/3`, `ir_site_from_type/3`, `dr_site_words/4`): an assignment, an argument, an initializer and a return of a
+   record for another type, a number for a record, a pointer for a record and a floating value and a pointer for each
+   other were cicilang's own `no conversion from 'struct B' to 'struct A'`; they are `assigning to 'struct A' from
+   incompatible type 'struct B'`, `passing ...`, `initializing ...` and `returning ...` now, the value named as clang
+   names it -- a literal and an array by its array's type, `'char[4]'`, a typedef's value by its name with its `(aka
+   ...)`, a struct with no tag by its typedef's, `'U'`, where it was `'struct <unnamed>'` --, and `&a` for a parameter
+   of a's type with `; remove &`. The ccllib gate's seven C refusals have the new words; their C++ words stay, each in a
+   `NAME.expect.cpp` of its own.
+2. C++: A FLOATING VALUE CAST TO A POINTER, AND A POINTER TO A FLOATING TYPE ([expr.cast]/4 and the named casts;
+   `cpp_fp_ptr_cast_check/3`): `(int *)d` and its kin were the lowering's `no conversion from 'double' to 'int *'`; each
+   is clang++'s words by the cast's spelling now -- `cannot cast from type 'double' to pointer type 'int *'` by a
+   C-style, a static and a functional cast, `reinterpret_cast from 'double' to 'int *' is not allowed` and const_cast's
+   alike, `C-style cast from 'int *' to 'double' is not allowed` --, a typedef or an alias as written, with its `(aka
+   ...)`.
+3. C++: A MEMBER FUNCTION AND AN OVERLOAD MARKED UNAVAILABLE (reader 214; `ccl_init_take_own/2`,
+   `ccl_unavailable_named/3`): a member's attribute after its declarator was dropped, since the member's read had taken
+   the marks before it, and a member's and an overload's callee, the desugaring's `S.g.0` and `g.int`, was no name that
+   1.6.25's rule asked; the mark names its function in C++ now, and each is clang++'s `'g' is unavailable: gone` with
+   its note -- a member, a static one, `[[clang::unavailable]]`, an overload, a namespace's.
+4. C++: A QUALIFIED CALL OF ONE FUNCTION WITH ANOTHER COUNT, AND THE COUNT WORDS BY THE DECLARATION
+   (`cpp_one_function/3`, `cpp_count_words/5`): `std::printf()`, `n::f()`, `::f()` and a function that a using names
+   were `no matching function for call to 'f'`, the overloads' words, which clang++ says of a bare name alone; they are
+   its count words now, by the declaration's count, its defaults and its ellipsis -- `expected at least 1, have 0`,
+   `expected at most 2, have 3`, `single argument 'a' was not specified`, `at least argument 'a' must be specified`,
+   `expected at most single argument 'a', have 2 arguments` --, a pointer's count alone. A function template that no
+   count fits is `no matching function for call to 'f'` at the call's line, where it was `not lowered yet:
+   arity_mismatch` at no line (`cpp_arity_holds/4`).
+5. C++: A MEMBER NAMED WITH ITS CLASS (`cpp_member_misfit/5`): a static member called with another count was the
+   lowering's `expected 2, have 0`, which knew neither its defaults nor its ellipsis, and an overload set of static
+   members was called by its first; a member that is not static called outside its class, `S::m(1)`, BUILT AND RAN OVER
+   A NULL THIS, and `S::m()` was `not lowered yet: undeclared('S.m')`. Each is clang++'s words now: the count words, `no
+   matching function for call to 'g'`, `no matching member function for call to 'm'` where an object is at hand, and
+   `call to non-static member function without an object argument`.
+6. C++: A MEMBER NAMED WITH ITS CLASS IN A LAMBDA THAT CAPTURED THIS CRASHED (a wrong code of 1.6.25 and before;
+   `cpp_names_scoped_member/2`, the closure's object at the static road): `[this] { return S::m(1) + B::m(2); }` in a
+   member of S passed a null this, and `[&]` and `[=]` around `S::m(x)` captured nothing; the call passes the object
+   that the closure keeps now, and the default captures take this for such a name. `test/cpp/run/qualthis.cpp`, which
+   clang++ 23 and g++ print alike.
+7. TWO RECORDS FOUND: a qualified call of a function whose name a local shares is that local -- `double g = 1.0; return
+   n::g(2);` is `not lowered yet: call(id(g))`, which 1.6.25 refused alike, found by the step's own fixture, whose local
+   was renamed --, and what a qualified member call leaves: a member template that no count fits, a static member
+   function that calls a member that is not static, a closure that captured nothing.
+8. 1.6.25'S NET RED AT FOUR FIXTURES OF THE C++ GATE, MENDED: 1.6.24's net had stopped before the C++ gate, so three of
+   them were 1.6.24's -- `int *p = 0LL;` was refused, since the reader reads `0LL` as a cast of a long literal, which
+   the null pointer's test did not take (`cpp_null_literal/1`, `llong.cpp`), and `auto d = l - id(f);` over an `auto`
+   function was refused with the reader's guess of d's type, the pointer, which the AST keeps for an `auto` declaration
+   (`cpp_ptr_sum_guess/1`, `autoptrdiff.cpp`: a pointer that a difference of two pointers initializes builds so, as
+   before 1.6.24) --, one was 1.6.25's: its mark of a C++ local with an initializer, which runs nothing, was a defer to
+   the longjmp rule, and `int r = setjmp(env);` before a longjmp was refused (`ck_runs_defer/1`, `cwrap.cpp`); and the
+   gate's want of `gotopastdtor.cpp` is clang++'s words, which 1.6.25 gave it. THE CCLLIB GATE, which the chain did not
+   reach and which ran by hand, had not run since 1.6.21: four refusals as C++ have 1.6.22's words for an operator over
+   a plain struct, clang++'s, in their wants now, and a subscript's were a binary operator's, `invalid operands to
+   binary expression ('set_int' and 'int')`, which are clang++'s `type 'set_int' does not provide a subscript operator`
+   now, and `no viable overloaded operator[] for type 'int *'` over a pointer (`cpp_subscript_words/3`).
+9. A HELPER TAKEN OUT BEFORE THE COMMIT: the step's first form of the static members' count gave the count rule the
+   defaults of a function's name (`cpp_with_defaults/3`), which the members' own rule replaced; no road reached it.
+
+1.6.25'S NETS, CARRIED. Over LLVM 23 and its work tree, the toolchain check strict: the flow gate 517 s with no finding
+(61 ok), reader 4 s (173 ok), compile 35 s (422 ok), driver 216 s (140 ok), objects 6 s (29 ok), the proof, the cross
+gate 314 s (278 ok) and the library read 227 s (24 ok) GREEN; then the C++ gate RED in 1195 s, 1233 ok and four failures
+-- `autoptrdiff.cpp`, `cwrap.cpp`, `llong.cpp` and `gotopastdtor.cpp`'s want, item 8 --, and the chain stops at a RED
+gate, so the ccllib gate ran by hand over the same tree and HOME, RED in 1202 s, 621 ok and four failures, item 8's
+refusals as C++. 1.6.25's broken copies: twenty-one, each caught, at its commit.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the driver gate's nine checks of the step, their bodies each
+against clang 23 or clang++ 23 -- sixteen and ten of C's sites, sixteen of C++'s casts, five of the unavailable members,
+twenty-four of the qualified calls, seven of the qualified members and four of the subscripts --, 1.6.25's checks over
+the copy, the seven ccllib refusals as C, the two fixtures by cicilang++ beside clang++ and g++, with the probes of the
+forms beside them -- twenty valid casts, the templates of two counts and of a pack, the lambdas of six captures --, and
+the four fixtures that 1.6.25's net found RED, each built and run as the C++ gate runs it, and the four ccllib refusals
+as C++. THE BROKEN COPIES, forty-seven over the copy, each rule of the step and each mend broken on purpose, ran after
+the commit, and the next step's commit carries them. Over the work tree after the port: the toolchain check strict
+GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_check.pl` (`ck_runs_defer/1`, `ck_run_defers/2`); `library/ccl_ir.pl` (`ir_site/3`,
+  `ir_site_from_type/3`, `ir_no_conversion/2`, `ir_unavailable_call/1`, `ir_fn_result_quals/2`; the lowering 195);
+  `library/ccl_driver.pl` (`dr_site_words/4`, the new words); `library/ccl_syntax.pl` (`ccl_init_take_own/2`,
+  `ccl_unavailable_named/3`; the reader 214); `library/ccl_cpp_expr.pl` (`cpp_fp_ptr_cast_check/3`,
+  `cpp_null_literal/1`, `cpp_ptr_sum_guess/1`, `cpp_subscript_words/3`, `cpp_count_words/5`, `cpp_one_function/3`,
+  `cpp_member_misfit/5`, `cpp_callee_count_wrong/3`, the static road's closure object and its refusal);
+  `library/ccl_cpp_deduce.pl` (`cpp_arity_holds/4`); `library/ccl_cpp_lambda.pl` (`cpp_names_scoped_member/2`);
+  `test/driver.sh` (six checks, the wants of three); `test/cpp.sh` (`gotopastdtor.cpp`'s want); `test/ccllib/safe/`
+  (four C++ wants more); `test/ccllib/safe/` (seven C wants, seven C++ wants); `test/cpp/run/castcalls.cpp`,
+  `qualthis.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: four records narrowed, two found), HISTORY.md, CLAUDE.md (the versions,
+  the fixtures).
+
+The module 1.6.26, the reader 214 and the lowering 195.

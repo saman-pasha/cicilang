@@ -1,1 +1,1 @@
-no conversion from 'int' to 'bitset_12'
+passing 'int' to parameter of incompatible type 'bitset_12' (aka 'struct bitset_12')

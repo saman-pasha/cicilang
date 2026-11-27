@@ -203,8 +203,11 @@ cpp_captures_this(Ctx, Caps, Body, EC) :- atom(Ctx), memberchk(cap(default, _), 
 cpp_this_item(Ctx, EC, V) :- ( cpp_closure_this(Ctx, EC) -> cpp_closure_object([], V) ; V = id(this) ).
 cpp_names_enclosing(C, Body) :- cpp_ids(Body, Ids), member(N, Ids), cpp_has_member(C, N), !.
 cpp_names_enclosing(_, Body) :- cpp_mentions_this(Body), !.
+cpp_names_enclosing(C, Body) :- cpp_names_scoped_member(Body, C), !.   % ... AND A MEMBER OF IT OR OF A BASE NAMED WITH ITS CLASS, `S::m(x)' (1.6.26): it was no use of the object, and the call went out with a null this
 cpp_mentions_this(this) :- !.
 cpp_mentions_this(T) :- compound(T), T =.. [_|As], member(A, As), cpp_mentions_this(A), !.
+cpp_names_scoped_member(scoped(Path, N), C) :- atom(N), catch(cpp_scope_class(Path, SC), _, fail), ( SC == C -> true ; catch(cpp_derives(C, SC), _, fail) ), cpp_has_member(SC, N), !.
+cpp_names_scoped_member(T, C) :- compound(T), T \= scoped(_, _), T =.. [_|As], member(A, As), cpp_names_scoped_member(A, C), !.
 cpp_has_member(C, N) :- cpp_data_member(C, N, _), !.
 cpp_has_member(C, N) :- cpp_static_member(C, N, _), !.
 cpp_has_member(C, N) :- '$cpp_mt'(C, N, _, _), !.                                        % a MEMBER TEMPLATE, which libc++'s vector names from a lambda inside emplace_back
