@@ -172,7 +172,7 @@ ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$i
 %% ---- state: frames of Key-State, innermost first; with each frame its defers ----------
 ck_function(L, Ret, Name, Params0, Body) :-
     ck_ref_params(Params0, Params),                                      % C++: a reference parameter is a borrow, as a pointer is
-    nb_setval('$ck_fn', Name), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
+    nb_setval('$ck_fn', Name), nb_setval('$ck_reallocs', []), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
     nb_setval('$ck_arrlocals', []), nb_setval('$ck_ref_binds', []), nb_setval('$ck_holders', []), ck_note_arrparams(Params),
     ccl_scope_push, ccl_declare_params(Params),
     ck_param_names(Params, Names), nb_setval('$ck_params', Names),
@@ -668,6 +668,7 @@ ck_static_value(cast(_, E)) :- !, ck_static_value(E).
 ck_static_value(ccast(_, _, E)) :- !, ck_static_value(E).
 ck_static_value(addr(deref(E))) :- ck_static_value(E), !.   % `&*X' is X: a static compound literal's address (1.6.31)
 ck_static_value(addr(E)) :- !, ck_storage_base(E, N), ck_is_global(N).
+ck_static_value(global_fn(_)) :- !.   % the file's function that a qualified name gives beside a local (1.6.34)
 ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_type(T, T1), ( T1 = arr(_, _) ; T1 = fn(_, _, _) ), !.
 ck_static_value(index(E, I)) :- !, ck_static_array_place(index(E, I)).   % a row of a static array, used as a pointer (0.297, ck_static_array_place/1)
 ck_static_value(member(E, F)) :- !, ck_static_array_place(member(E, F)).   % an array member of a static object (0.297)
@@ -849,7 +850,7 @@ ck_sh_base(B, B).
 ck_key_of(K, N) :- K == N, !.
 ck_key_of(K, N) :- atom_concat(N, Sfx, K), ( sub_atom(Sfx, 0, 1, _, '.') ; sub_atom(Sfx, 0, 2, _, '->') ), !.
 %% a plain pointer assigned again: a borrow of something else, or of nothing
-ck_rebind(St0, N, none, St) :- !, ( ck_state(St0, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ) -> ck_set(St0, N, none, St) ; St = St0 ).
+ck_rebind(St0, N, none, St) :- !, ( ck_state(St0, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ; S == realloced ) -> ck_set(St0, N, none, St) ; St = St0 ).
 ck_rebind(St0, N, S, St) :- ( ck_state(St0, N, _) -> ck_set(St0, N, S, St) ; ck_declare_at(St0, N, S, St) -> true ; ck_declare(St0, N, S, St) ).
 %% a local: declared in a frame of the function's, not the file's, and not
 %% static (a static local's storage never ends: a global's); its type from there
@@ -1029,11 +1030,24 @@ ck_consume_loose(St0, P, St) :- ck_set(St0, P, none, St1), ck_dangle(St1, P, St)
 %% ... AND FREED: THE POINTER IS `freed' (1.6.32; C17 7.22.3.3/2, 6.2.4/2: its value is indeterminate), a state of no owner
 %% -- a read, a second free and a write through it are `use after free' (ck_read/2), an assignment gives it new memory, a
 %% borrow or a null, and a join keeps new memory or its own state (ck_merge_state/3). Its address handed to a call leaves
-%% it freed (ck_anchor_local/3): the call may read it -- getline reallocs `*lineptr' --, so a null is given it first. `free', `fclose' and a deallocator consume so (ck_args_/5's `free'); realloc's old block and an own
-%% parameter leave it `none', since realloc's failure leaves the block live. It was `none', a pointer that holds nothing
+%% it freed (ck_anchor_local/3): the call may read it -- getline reallocs `*lineptr' --, so a null is given it first. `free', `fclose' and a deallocator consume so (ck_args_/5's `free'); an own
+%% parameter leaves it `none', and realloc's old block is `realloced' (1.6.34, below). It was `none', a pointer that holds nothing
 %% that the check follows: `char *p = malloc(8); free(p); free(p);', a write through p after its free and its read were
 %% built
 ck_free_loose(St0, P, St) :- ck_set(St0, P, freed, St1), ck_dangle(St1, P, St).
+%% ... AND REALLOC'S OLD BLOCK IS `realloced' (1.6.34; C17 7.22.3.5/3-4): freed where the result is not null, live where it
+%% is null. The result's variable is noted beside it (ck_note_realloc/2), and the result's null test refines it
+%% (ck_realloc_refine/4): live and still to be given back where the result is null, freed where it is not; with no test
+%% its read is a use after free. It was `none', so `q = realloc(p, n); if (q) free(p);' was built, a double free
+ck_realloc_loose(St0, P, St) :- ck_set(St0, P, realloced, St1), ck_dangle(St1, P, St).
+ck_note_realloc(N, I) :- ck_strip_casts(I, call(id(realloc), [A|_])), ck_strip_casts(A, id(P)), atom(P), !, nb_getval('$ck_reallocs', L), nb_setval('$ck_reallocs', [N-P|L]).
+ck_note_realloc(_, _).
+ck_strip_casts(cast(_, X), Y) :- !, ck_strip_casts(X, Y).
+ck_strip_casts(X, X).
+ck_realloc_refine(assign('=', id(Q), _), Side, St0, St) :- !, ck_realloc_refine(id(Q), Side, St0, St).
+ck_realloc_refine(id(Q), Side, St0, St) :- atom(Q), nb_current('$ck_reallocs', L), findall(P, member(Q-P, L), Ps), Ps \== [], !, foldl(ck_realloc_side(Side), Ps, St0, St).
+ck_realloc_refine(_, _, St, St).
+ck_realloc_side(Side, P, St0, St) :- ( ck_state(St0, P, realloced) -> ( Side == null -> ck_set(St0, P, loose, St) ; ck_set(St0, P, freed, St) ) ; St = St0 ).
 ck_loose_taken(E, St0, St) :- ( ck_carries_none(E) -> St = St0 ; ck_borrows_from(E, St0, P), ck_state(St0, P, loose) -> ck_set(St0, P, none, St) ; St = St0 ).
 %% ... NEVER BY AN ARITHMETIC VALUE (0.238): `return p[0] - 1' hands the caller an int, and the block stays the function's
 %% to give back -- it was taken, and the leak never seen. A class's value may take it (a `unique_ptr' made from it)
@@ -1633,8 +1647,14 @@ ck_merge_state(borrow(P), loose, borrow(P)) :- !.
 ck_merge_state(anchor, borrow(P), borrow(P)) :- !.                  % a library object anchored on one path, holding a borrow on the other (0.216)
 ck_merge_state(borrow(P), anchor, borrow(P)) :- !.
 ck_merge_state(null, loose, loose) :- !.               % new memory on one path, a null found by its test on the other (0.290): still to be given back
-ck_merge_state(freed, loose, loose) :- !.              % ... or its free (1.6.32): still to be given back on the other
-ck_merge_state(loose, freed, loose) :- !.
+ck_merge_state(freed, loose, maybe_freed) :- !.        % ... or its free on one path (1.6.32, 1.6.34): `maybe_freed', whose read or free is a use after free
+ck_merge_state(loose, freed, maybe_freed) :- !.        % on that path and whose end or overwrite a leak on the other (ck_read/2, ck_leaks/2)
+ck_merge_state(maybe_freed, S, maybe_freed) :- memberchk(S, [loose, freed, null, none, realloced]), !.
+ck_merge_state(S, maybe_freed, maybe_freed) :- memberchk(S, [loose, freed, null, none, realloced]), !.
+ck_merge_state(realloced, freed, freed) :- !.          % realloc's old block (1.6.34): freed on both paths, by realloc on one
+ck_merge_state(freed, realloced, freed) :- !.
+ck_merge_state(realloced, loose, maybe_freed) :- !.
+ck_merge_state(loose, realloced, maybe_freed) :- !.
 ck_merge_state(freed, null, freed) :- !.               % freed on one path, a null on the other: no memory to follow, neither read (1.6.32)
 ck_merge_state(null, freed, freed) :- !.
 ck_merge_state(loose, null, loose) :- !.
@@ -1687,7 +1707,7 @@ ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L),
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
-ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, C, Ends, St1, St2), ck_expr(C, St2, St).
+ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, C, Ends, St1, St).
 ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_sj_loop(do(L, S, C)), ck_loop_ends(C, Ends), ck_do_loop(S, C, Ends, St0, St).
 ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        % C++: a range-for over an array is the for it stands for
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
@@ -1869,14 +1889,18 @@ ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ck_bpath_pus
 %% on the then path, `if (p)', `if (p != NULL)' on the else path -- and its
 %% own fields with it, there being nothing behind a null
 ck_refine(C, St, StThen, StElse) :-
-    (   ck_null_test(C, E, Sense) -> ( Sense == null -> ck_set_null(E, St, StThen), StElse = St ; StThen = St, ck_set_null(E, St, StElse) )
+    (   ck_null_test(C, E, Sense) -> ( Sense == null -> ck_set_null(E, St, T0), ck_realloc_refine(E, null, T0, StThen), ck_realloc_refine(E, live, St, StElse)
+                                       ; ck_realloc_refine(E, live, St, StThen), ck_set_null(E, St, F0), ck_realloc_refine(E, null, F0, StElse) )   % realloc's old block by its result's test (1.6.34)
     ;   StThen = St, StElse = St ).
 ck_null_test(not(E), E, null) :- !.
 ck_null_test(bin('==', E, N), E, null) :- ck_null(N), !.
 ck_null_test(bin('==', N, E), E, null) :- ck_null(N), !.
 ck_null_test(bin('!=', E, N), E, live) :- ck_null(N), !.
 ck_null_test(bin('!=', N, E), E, live) :- ck_null(N), !.
-ck_null_test(E, E, live) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ), !.
+ck_null_test(E, E, live) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ; E = assign('=', _, _) ), !.
+%% THE NULL TEST OF AN ASSIGNMENT TESTS ITS LEFT OPERAND (1.6.34; C17 6.5.16/3: its value is the left operand's after
+%% the assignment): `if ((q = malloc(n)) == NULL) return 1;' was `plain pointer not consumed: 'q'' at the return
+ck_set_null(assign('=', L, _), St0, St) :- !, ck_set_null(L, St0, St).
 ck_set_null(E, St0, St) :-
     (   ck_path(E, K), ck_state(St0, K, S), memberchk(S, [live, partial]) -> ck_own_under(St0, K, Ks), ck_set_all(St0, [K|Ks], null, St)
     ;   E = id(N), atom(N), ck_state(St0, N, loose) -> ck_set(St0, N, none, St)   % A LOOSE POINTER THAT IS NULL HOLDS NOTHING (0.290; below), AND IS NO OWNER (1.6.18)
@@ -1952,7 +1976,7 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
             ;   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
             ;   ck_is_pointer_type(T), ck_plain_value(St5a, Init, _) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'; and its sum with an integer, and of an anchored pointer (0.299, ck_plain_value/3)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
-            ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
+            ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6), ck_note_realloc(N, Init)
             ;   ck_is_pointer_type(T), ck_null(Init), \+ ck_is_static(N) -> ck_declare(St5a, N, none, St6)   % A PLAIN POINTER DECLARED NULL IS A KEY OF ITS FRAME (1.6.20), a static local's kept as it was, one that holds nothing the check follows: in no frame, a label's join took it for a declaration that a goto jumped over
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
@@ -2174,10 +2198,16 @@ ck_loop_with_step(S, Step, C, Ends, St0, St) :-
     ;   ck_refine_falses(C, [St0|PassEnds], Fs), append(Fs, Exits, All), ck_merge_all(All, St) ).
 ck_loop_passes(S, Step, C, At, In, N, [End|Ends], Exits) :-
     ck_refine_cond(C, In, InT, _),
-    ck_loop_pass(S, Step, At, InT, End, Exits1), ( N == 1 -> ck_no_moves_across(InT, End, S) ; true ),
+    ck_loop_pass(S, Step, At, InT, End0, Exits1), ( N == 1 -> ck_no_moves_across(InT, End0, S) ; true ),
+    ck_loop_cond_again(C, End0, End),
     (   ck_merge(In, End, J), J \== In
     ->  ck_loop_more(N, At), N1 is N + 1, ck_loop_passes(S, Step, C, At, J, N1, Ends, Exits2), append(Exits1, Exits2, Exits)
     ;   Ends = [], Exits = Exits1 ).
+%% THE CONDITION IS EVALUATED AGAIN AFTER EACH PASS (1.6.34; C17 6.8.5/4: before each execution of the body), so a
+%% pass ends where it does: `while ((q = malloc(n)) != NULL) { free(q); }' was refused, its next pass entered with the
+%% body's end and no assignment, and the loop's last state evaluated the assignment again after the test that refined it
+ck_loop_cond_again(C, End0, End) :- ( C == none ; End0 == dead ), !, End = End0.
+ck_loop_cond_again(C, End0, End) :- ck_expr(C, End0, End).
 ck_loop_more(N, _) :- N < 8, !.
 ck_loop_more(_, at(Ln, _)) :- nb_getval('$ck_fn', Fn), throw(error(not_lowered(loop_state_unsettled), where(Fn, line(Ln)))).
 %% where a loop is: its line, for the refusal of a loop that does not settle, and the labels noted at its start
@@ -2371,7 +2401,7 @@ ck_shadowed_keys(Os, Frs, Sh) :- findall(K, ( member(K-_, Os), atom(K), member(f
 ck_ending_keys([], _, []).
 ck_ending_keys([K-S|Os], Frs, Ks) :-
     (   S == shadow -> Ks = Ks1
-    ;   ( S = borrow(_) ; S = dangling(_) ; S == none ; S == freed ), member(fr(Os2, _), Frs), memberchk(K-_, Os2) -> Ks = Ks1
+    ;   ( S = borrow(_) ; S = dangling(_) ; S == none ; S == freed ; S == realloced ), member(fr(Os2, _), Frs), memberchk(K-_, Os2) -> Ks = Ks1
     ;   Ks = [K|Ks1] ),
     ck_ending_keys(Os, Frs, Ks1).
 ck_run_defers([], St, St).
@@ -2401,8 +2431,8 @@ ck_leaks_frames([], _).
 ck_leaks_frames([fr(Os, _)|Frs], Form) :- ck_leaks(Os, Form), ck_leaks_frames(Frs, Form).
 ck_leaks([], _).
 ck_leaks([N-S|Os], Form) :-
-    (   S == loose -> ck_fail(unconsumed, N, Form)
-    ;   ( memberchk(S, [moved, unset, null, none, freed, anchor, array, shadow]) ; S = borrow(_) ; S = dangling(_) ; ck_is_borrowed_field(N) ) -> true
+    (   ( S == loose ; S == maybe_freed ) -> ck_fail(unconsumed, N, Form)
+    ;   ( memberchk(S, [moved, unset, null, none, freed, realloced, anchor, array, shadow]) ; S = borrow(_) ; S = dangling(_) ; ck_is_borrowed_field(N) ) -> true
     ;   ck_fail(owner_leaked, N, Form) ),
     ck_leaks(Os, Form).
 ck_any_owner(st(Frs)) :- member(fr(Os, _), Frs), member(_-S, Os), ck_owner_state(S), !.
@@ -2473,7 +2503,7 @@ ck_dangle_owners([], _, []).
 ck_dangle_owners([N-borrow(P)|T], P, [N-dangling(P)|T1]) :- !, ck_dangle_owners(T, P, T1).
 ck_dangle_owners([X|T], P, [X|T1]) :- ck_dangle_owners(T, P, T1).
 %% a read of an owner, a field, a borrow, an anchor
-ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> true ; S = borrow(_) -> true ; S = dangling(P) -> ck_fail_dangling(K, P) ; S == unset -> ck_fail(owner_unset, K, id(K)) ; S == freed -> ck_fail(use_after_free, K, id(K)) ; ck_fail(use_after_move, K, id(K)) ).
+ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> true ; S = borrow(_) -> true ; S = dangling(P) -> ck_fail_dangling(K, P) ; S == unset -> ck_fail(owner_unset, K, id(K)) ; ( S == freed ; S == maybe_freed ; S == realloced ) -> ck_fail(use_after_free, K, id(K)) ; ck_fail(use_after_move, K, id(K)) ).
 
 %% the walk's clauses are ordered by what a node is most often (counted on
 %% the B-tree: a third are names, then members, operators, literals), and a
@@ -2561,12 +2591,12 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     (   ck_is_param(N), ck_state(St1, N, borrow(N)) -> ck_rebind(St1, N, none, St2)   % a parameter re-assigned is a plain local from here
     ;   St2 = St1 ),
     ( ck_local_type(N, T) -> true ; T = unknown ),
-    ( ck_state(St2, N, loose) -> ck_fail(unconsumed, N, assign('=', id(N), R)) ; true ),      % overwritten, its memory still nobody's
+    ( ck_state(St2, N, S0), ( S0 == loose ; S0 == maybe_freed ) -> ck_fail(unconsumed, N, assign('=', id(N), R)) ; true ),      % overwritten, its memory still nobody's -- on one path where it is maybe freed (1.6.34)
     (   T \== unknown, ck_borrowing_type(T), ck_borrows_from(R, St1, P) -> ck_rebind(St2, N, borrow(P), St)   % read before the parameter was unbound; a library object a trivial assignment copies (`sv = s', 0.216) as a pointer
     ;   T \== unknown, ck_is_pointer_type(T), ck_static_value(R) -> ck_static_name(R, SN), ck_rebind(St2, N, borrow(static(SN)), St)   % static storage (0.294)
     ;   T \== unknown, ck_is_pointer_type(T), ck_plain_value(St1, R, _) -> ( ck_state(St2, N, anchor) -> St = St2 ; ck_rebind(St2, N, null, St) )   % a pointer that holds no memory the check follows (0.299, ck_plain_value/3); an anchored local stays one
-    ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St)
-    ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )   % a freed one given a null or another value of nothing that the check follows (1.6.32)
+    ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St), ck_note_realloc(N, R)
+    ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ; S == realloced ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )   % a freed one given a null or another value of nothing that the check follows (1.6.32)
     ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2
     ;   St = St2 ).
 %% A STORE THROUGH A LIBRARY MEMBER (0.216): `m[k] = &x' and `v[0] = &y' write what a library object holds, through the
@@ -2971,7 +3001,7 @@ ck_args_([A|As], Callee, I, St0, St) :-
         ;   ck_own_elem(A1, K) -> ck_expr(A1, St0, St1a), ck_dangle(St1a, K, St1)          % an element freed, or taken: the slot nulled by the lowering
         ;   A = move(_) -> ck_expr(A, St0, St1)
         ;   ck_path(A, K), ck_by_value(A), ck_own_under(St0, K, Fs), Fs \== [] -> ck_expr(A, St0, St1a), ck_move_out(St1a, Fs, Form, St1)
-        ;   ck_borrows_from(A, St0, P), ck_state(St0, P, loose) -> ck_expr(A, St0, St1a), ( How == free -> ck_free_loose(St1a, P, St1) ; ck_consume_loose(St1a, P, St1) )   % loose memory freed, or taken by an own parameter
+        ;   ck_borrows_from(A, St0, P), ck_state(St0, P, loose) -> ck_expr(A, St0, St1a), ( How == free -> ck_free_loose(St1a, P, St1) ; Callee == id(realloc) -> ck_realloc_loose(St1a, P, St1) ; ck_consume_loose(St1a, P, St1) )   % loose memory freed, or taken by an own parameter
         ;   ck_kind(A, St0, borrow(P)), \+ ck_library_root(P) -> ( A = id(N) -> true ; P = static(N) -> true ; N = P ), ck_fail(borrow_consumed, N, Form)   % static storage too, freed or given to an own parameter (0.294) ... unless the borrow is of a LIBRARY OBJECT (0.94): a plain pointer a library class's member answers is a borrow of it (0.91, so an array's `end()' is no loose pointer), and what the program then does with it is the library's discipline -- `delete u.release()' is how a unique_ptr hands its object out, and the check refused it as a borrow freed
         ;   ck_expr(A, St0, St1) )
     ;   ck_strip_move(A, A1), ck_path(A1, K), ck_by_value(A1), ck_own_under(St0, K, Fs), Fs \== [], ck_param_by_value(Callee, I)   % a struct with owners handed by value: its fields go to the callee's copy

@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.33 the versions are: the module 1.6.33 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 202 (`ccl_lowering_version/1`,
+At 1.6.34 the versions are: the module 1.6.34 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 203 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -638,7 +638,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             complits.c, compound literals and global slots that the safe part keeps, and complits23.c,
                             C23's static compound literals (1.6.31); freedagain.c, plain pointers that a free leaves
                             freed and that the program gives new memory again (1.6.32); shadowborrow.c, borrows of an
-                            object whose name a block declares again, built as C and as C++ (1.6.33)
+                            object whose name a block declares again, built as C and as C++ (1.6.33); reallocs.c,
+                            realloc's old block by its result's null test, the null tests of an assignment and loops
+                            whose condition assigns, built as C and as C++ (1.6.34)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -685,7 +687,10 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             local refuse still (1.6.20); complit_*.c and slot_*.c, a compound literal's address and a
                             global plain slot's pointer freed, given to an owner or returned (1.6.31); freed_*.c, a
                             plain pointer freed twice, written through, read, copied, closed again or handed to getline
-                            after its free (1.6.32)
+                            after its free (1.6.32); freed_one_path_twice.c, a free on one path, then a second;
+                            realloc_*.c, realloc's old block freed, kept, read or freed with no test of the result, and
+                            joined with new memory or a free; loop_cond_leak.c, a pass that keeps the memory that the
+                            next pass's condition replaces (1.6.34)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -765,7 +770,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             (1.6.27); decltypebraced.cpp, a braced cast to a decltype type, and lambdauneval.cpp,
                             unevaluated operands that name a member with no object (1.6.31); lambdastatics.cpp, static
                             member functions, a base's among them, called bare in a lambda that captured nothing
-                            (1.6.33)
+                            (1.6.33); qualglobal.cpp, qualified calls beside a local pointer of their name, and a local
+                            pointer beside the file's overloads of its name (1.6.34)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

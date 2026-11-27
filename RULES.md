@@ -7558,8 +7558,17 @@ is in `test/cpp/run/`.
   `test/cpp/run/qualshadow.cpp`, which clang++ 23 and g++ print alike, with the two forms that 1.6.27's broken copies
   needed (1.6.28): an instance's own local of its name that it calls, a closure, which the mark's scope keeps -- without
   it the instance called itself --, and a local pointer to a function named as the file's, called through, which the
-  type test keeps. The driver gate's twenty-four bodies against clang++ 23; `test/cpp/run/castcalls.cpp` holds the
-  counts, the defaults and the ellipses that C++ takes. (0.302, 1.6.26, 1.6.27, 1.6.28)
+  type test keeps. A QUALIFIED CALL BESIDE A LOCAL OF ITS NAME THAT IS A FUNCTION OR A POINTER TO ONE CALLS THE FILE'S
+  FUNCTION (1.6.34; [basic.lookup.qual]/1; `cpp_global_callee/2`, `global_fn/1` in `ir_call/4`, `ir_expr_/4` and
+  `ir_lval_/4`): the flattened bare name was the local's to the lowering, so `int (*k)(int) = dbl; return ::k(6);`
+  called `dbl`, where clang++ calls the file's `k`; where a frame holds a local of the name and the file declares a
+  function of it, the call is the node `global_fn(k)`, which the lowering calls by its symbol, and `::k` as a value is
+  the function's address. A LOCAL POINTER TO A FUNCTION IS CALLED THROUGH BESIDE THE FILE'S OVERLOADS OF ITS NAME
+  (1.6.34; [basic.lookup.unqual]/1: the local hides them; `cpp_local_fn_pointer/1`): `int (*ov)(int) = dbl; ov(3)`
+  beside `ov(int)` and `ov(double)` was the overloads' choice. `test/cpp/run/qualglobal.cpp`, which clang++ 23 prints
+  alike: a class's static member and a namespace's function of the name stay theirs, and a closure's capture of the
+  local stands beside `::k`. The driver gate's twenty-four bodies against clang++ 23; `test/cpp/run/castcalls.cpp`
+  holds the counts, the defaults and the ellipses that C++ takes. (0.302, 1.6.26, 1.6.27, 1.6.28, 1.6.34)
 
 ### Constness, value category and reference binding
 
@@ -12109,7 +12118,13 @@ in the first topic (The ccllib gate).
   end where the join is the start; the path after the loop leaves from each pass's test where it fails and from each
   pass's breaks. THE JOIN, NOT THE END ALONE: each pass starts from at least what the last one started from, so the
   passes settle; two own pointers swapped in each pass change places in each pass, and from the end alone their states
-  would change places until the cap. A continue's state joins its pass's end (`ck_continue_to/3`), not the loop's exits:
+  would change places until the cap. THE CONDITION IS EVALUATED AGAIN AFTER EACH PASS (1.6.34; C17 6.8.5/4: before
+  each execution of the body; `ck_loop_cond_again/3`): a pass ends after the step and the test, and a `while` evaluates
+  its condition no more after the join of its exits. `while ((q = malloc(n)) != NULL) { free(q); }` was refused, since
+  the next pass started from the body's end with no assignment and the loop's last state evaluated the assignment again
+  after the test that refined it (`test/c/run/reallocs.c`); a pass that keeps the memory is refused at the next pass's
+  assignment (`test/c/safe/loop_cond_leak.c`). A continue's state joins its pass's end (`ck_continue_to/3`), not the
+  loop's exits:
   it reaches the step, the test after it and the next pass. EACH PASS STARTS WITH THE LABELS NOTED AT THE LOOP'S START
   (`ck_loop_at/1`): a pass notes its body's labels again, so a goto before one of them is a forward goto in every pass;
   with the first pass's notes, a later pass's goto was a backward one, closed to the frames that it shares with that
@@ -12290,7 +12305,11 @@ in the first topic (The ccllib gate).
   p;`, `v.p = p;` and `own char *o = p;` on that path are taken (`test/c/run/nullcopies.c`). Where the two paths join,
   none on one and loose on the other is loose (`ck_merge_state/3`): `if (!p) puts("none");` with no free after it is
   `unconsumed` as before (`test/c/safe/loose_null_test.c`), and `if (f) fclose(f);` with nothing after it, refused until
-  0.290, is taken (`test/c/run/loadedptr.c`; `test/c/run/loopjoins.c`). (M3, 0.290, 1.6.18)
+  0.290, is taken (`test/c/run/loadedptr.c`; `test/c/run/loopjoins.c`). THE NULL TEST OF AN ASSIGNMENT TESTS ITS LEFT
+  OPERAND (1.6.34; C17 6.5.16/3: the assignment's value is the left operand's after it; `ck_set_null/3`,
+  `ck_null_test/3`): `if ((q = malloc(n)) == NULL) return 1;`, `if (!(f = fopen(...))) return 1;` and `if ((r =
+  malloc(n))) free(r);` were `plain pointer not consumed` at the return, the new memory of the null path not refined
+  (`test/c/run/reallocs.c`). (M3, 0.290, 1.6.18, 1.6.34)
 - A statement expression's last value is consumed when it is an owner. That is how `clone`'s copy leaves its block.
   (M3)
 
@@ -12703,12 +12722,23 @@ in the first topic (The ccllib gate).
   `ck_free_loose/3`), a state of no owner: a read of it, a second free, a write through it, a copy, a stream closed
   again and its address handed to getline, which reads `*lineptr` and reallocs it, are `use after free of 'p'`
   (`ck_read/2`), and in C++ a second `delete` and a read after one; an assignment gives it new memory, a borrow or a
-  null (`ck_rebind/4`), and a join keeps new memory or its own state (`ck_merge_state/3`). realloc's old block and an
-  own parameter leave it `none`, since realloc's failure leaves the block live. It was `none`, a pointer that holds
-  nothing that the check follows, and each was built -- the first aborted in `free`, `double free detected`.
-  `test/c/run/freedagain.c`; `test/c/safe/freed_twice.c`, `freed_write.c`, `freed_read.c`, `freed_copy.c`,
-  `freed_fclose.c` and `freed_getline.c`, in C and as C++, and `freed_one_path.c`, a free on one path only, the leak's
-  words as before; `test/cpp/deleted_twice.cpp` and `deleted_read.cpp`. (M3, 1.6.32)
+  null (`ck_rebind/4`), and a join keeps new memory or its own state (`ck_merge_state/3`). An own parameter leaves it
+  `none`. It was `none`, a pointer that holds nothing that the check follows, and each was built -- the first aborted
+  in `free`, `double free detected`. A JOIN OF FREED AND NEW MEMORY IS `maybe_freed` (1.6.34): its read, its free and a
+  write through it are `use after free of 'p'`, and a return or the scope's end with it is `plain pointer not consumed`,
+  the other path's memory not given back; the join kept the new memory, so `if (c) free(p); free(p);` was built, a
+  double free where c held. REALLOC'S OLD BLOCK IS `realloced` (1.6.34; C17 7.22.3.5/3-4: freed where the result is a
+  new block, live and unchanged where it is null; `ck_realloc_loose/3`, `ck_note_realloc/2`, `ck_realloc_refine/4`): the
+  local that takes the result, by a declaration or an assignment and through a cast, is noted beside it, and that
+  local's null test refines it -- loose, new memory still to be given back, where the result is null, and freed where it
+  is not; a read before the test is `use after free`, and the paths' join is freed where both freed it, `maybe_freed`
+  where one kept it. It was `none`, realloc's failure the block's live road, so `q = realloc(p, n); if (q) free(p);` was
+  built, a double free, and a return on the null path that kept the old block, a leak, was taken.
+  `test/c/run/freedagain.c` and `reallocs.c`, the second in C and as C++; `test/c/safe/freed_twice.c`, `freed_write.c`,
+  `freed_read.c`, `freed_copy.c`, `freed_fclose.c` and `freed_getline.c`, in C and as C++, `freed_one_path.c`, a free
+  on one path only, the leak's words as before, `freed_one_path_twice.c`, then a second free, and `realloc_old_freed.c`,
+  `realloc_old_leaks.c`, `realloc_old_read.c`, `realloc_untested.c`, `realloc_one_path.c` and `realloc_or_free.c`, the
+  joins; `test/cpp/deleted_twice.cpp` and `deleted_read.cpp`. (M3, 1.6.32, 1.6.34)
 - `untied` ("no owner behind") is a slot the check cannot follow, given a fresh value or a loose pointer: a struct by
   value (`ck_no_owner_behind/4`), or a field, an element, `*p`, a global or an initializer item (`ck_into_plain/6`,
   named by `ck_slot_label/4`). `test/c/safe/untied.c`. A VALUE READ OUT OF A PLAIN SLOT HAS ITS OWNER BEHIND IT, OR IS
@@ -17254,10 +17284,6 @@ Declarations topic of the C++ reader).
   as C++ too, its modules' texts among them -- 1.6.28's first form refused `visit<show>(*v)` over a const variant and
   `shared_ptr`'s text, which gives malloc's result to a typed pointer. A rule of C++'s own would tell the program's C++
   from a C file built as C++.
-- C++: A QUALIFIED CALL BESIDE A LOCAL POINTER TO A FUNCTION OF ITS NAME CALLS THE LOCAL (found at 1.6.28, by the broken
-  copies of 1.6.27's rule): `int (*k)(int) = dbl; return ::k(6);` calls `dbl`, where clang++ calls the file's `k`. The
-  desugaring flattens the qualified name to the bare one, and the lowering takes a local that is a function or a pointer
-  to one as the callee (`ir_callable_type/1`): there is no node for the file's function beside such a local.
 - A LIBRARY HEADER'S `__FILE__` IS ITS PATH UNDER `$LLVM` (found at 1.6.10): clang++ finds libc++'s headers through its
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints
@@ -17284,11 +17310,16 @@ Declarations topic of the C++ reader).
 - A CYCLE OF A BACKWARD GOTO IS WALKED IN THE ORDER OF ITS FIRST PASS (found at 1.6.17, narrowed at 1.6.19, which walks
   a loop's body again until its state settles; the safe part's topic): the function is walked again from the label's
   join, as the gotos' walk has it, and a write in the goto's cycle after the jump is not noted for its next pass.
-- A FREED PLAIN POINTER, WHAT 1.6.32 LEAVES (found at 1.6.18; the safe part's topic): a free on one path only, then a
-  second free, is taken -- the join keeps the other path's new memory, so that it is given back (`ck_merge_state/3`) --,
-  and so is realloc's old block freed after a success, `q = realloc(p, n); if (q) free(p);`, since realloc leaves it
-  `none`, its failure the block's live road. A freed pointer's address handed to a call keeps it freed, so `free(p);
-  init(&p);` with no null between is refused at p's next read.
+- A FREED PLAIN POINTER, WHAT 1.6.34 LEAVES (found at 1.6.18, narrowed at 1.6.34; the safe part's topic): a freed
+  pointer's address handed to a call keeps it freed, so `free(p); init(&p);` with no null between is refused at p's next
+  read; and realloc's old block is refined by the null test of the local that took the result alone, so a test of a
+  copy of that local leaves it `realloced`, and a free of it on the null path is `use after free`.
+- A COPY OF NEW MEMORY INTO A POINTER OF AN OUTER SCOPE IS THE INNER POINTER'S (found at 1.6.34; the safe part's
+  topic): `char *p; { char *q = malloc(4); p = q; } free(p);` is `plain pointer not consumed: 'q'` at the block's end,
+  where clang builds it, and so is realloc's idiom in a loop's body, `do { char *q = realloc(p, n); if (!q) { free(p);
+  return 1; } p = q; } while (...);`: the copy borrows the inner pointer's memory, and the inner pointer's scope ends
+  with it loose. A state that gives the memory to the outer pointer at the end of the inner scope, where a live copy
+  holds it, would close it.
 - FOUR TESTS OF 1.6.28'S MISFITS AND ONE OF ITS KINDS THAT NO PROGRAM REACHES (found at 1.6.32 by 1.6.28's broken
   copies): an argument of a class or of an enumeration takes its namespace's road first, a qualified call's too, where
   `cpp_type_misfit_pair/2` is not asked -- the tests of the same enumeration, of a class's parameter, of a pointer to a

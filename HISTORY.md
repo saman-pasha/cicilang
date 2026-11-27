@@ -350,6 +350,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.31 | compound literals in the safe part and in C++, global plain slots, 1.6.28's two misfits, decltype braced | a block's compound literal a borrow of its object and C23's static one static storage, where frees aborted and a dead frame was read; a global plain slot's pointer static storage; C++'s address of one in clang++'s words; a generic closure and an aligned delete no misfit; decltype(v){...} read; unevaluated members in a lambda with no this (reader 217, lowering 200) |
 | 1.6.32 | a freed plain pointer, 1.6.28's broken copies carried | a plain pointer that a free consumed is freed, its read, second free and write refused, where a double free built and aborted; of 1.6.28's seventeen uncaught copies seven caught, five guards out, five tests that no program reaches recorded (lowering 201) |
 | 1.6.33 | an outer object's borrows under a hiding name, attributes in their scope, a holder's base statics | a borrow of an object whose name a block declares again is its own, where the block's end refused it; a bracketed error and unavailable read in their own scope alone, where clang ignores the others; a base's static member called from a lambda; 1.6.29's nets and broken copies carried (reader 218, lowering 202) |
+| 1.6.34 | a qualified call beside a callable local, a free on one path, realloc's old block, a loop's condition | `::k(6)` beside a local pointer named k calls the file's function, and a local pointer beside the file's overloads of its name is called through; a join of freed and new memory is maybe freed, realloc's old block freed or live by its result's null test, the null test of an assignment refines its left operand, and a loop's condition is evaluated again after each pass (reader 218, lowering 203) |
 
 ## M5 — the C++ mode
 
@@ -26152,3 +26153,87 @@ GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the
   fixtures).
 
 The module 1.6.33, the reader 218 and the lowering 202.
+
+## 1.6.34 — a qualified call beside a callable local, a free on one path, realloc's old block, a loop's condition
+
+**1.6.34: at the user's word "Next", after "try to run less chain and do more tasks before every chain" and "To prevent
+code lost, first commit and push": one record of Not done closed -- a call that the C++ desugaring gave to the wrong
+function --, one narrowed -- two double frees that the safe part let through --, a second wrong call and three false
+refusals of the safe part that the step's probes found mended; one new record. The step was committed while its nets
+ran, and 1.6.30's to 1.6.33's nets and broken copies: it claims nothing GREEN of them, and the next step's commit
+carries them.**
+
+1. C++: A QUALIFIED CALL BESIDE A LOCAL OF ITS NAME THAT IS A FUNCTION OR A POINTER TO ONE CALLS THE FILE'S FUNCTION
+   (`cpp_global_callee/2`, `global_fn/1` in `ir_call/4`, `ir_global_call/5`, `ir_expr_/4` and `ir_lval_/4`,
+   `ccl_type_of/2`, `ck_static_value/1`; the lowering 203): the desugaring flattens `::k(6)` to the bare name, and the
+   lowering took the bare name's callable local as the callee, so `int (*k)(int) = dbl; return ::k(6);` called `dbl`,
+   where clang++ calls the file's `k` ([basic.lookup.qual]/1). Where a frame holds a local of the name and the file
+   declares a function of it, the call is the node `global_fn(k)`, which the lowering calls by its symbol, and `::k` as
+   a value is the function's address -- `int (*q)(int) = ::k;` called `dbl` too. 1.6.28's broken copies found it, and
+   Not done kept it since.
+2. C++: A LOCAL POINTER TO A FUNCTION IS CALLED THROUGH BESIDE THE FILE'S OVERLOADS OF ITS NAME
+   (`cpp_local_fn_pointer/1`, `cpp_call_value/4`): `int (*ov)(int) = dbl; ov(3)` beside `ov(int)` and `ov(double)` was
+   the overloads' choice, 4 where clang++ prints 6, and so was a parameter of the name inside a function, `apply`'s
+   `ov(v)`; the local hides them ([basic.lookup.unqual]/1), and the call goes through it. Found by item 1's fixture.
+   `test/cpp/run/qualglobal.cpp` holds both: 1.6.33 printed `13 2 4 4 12 12 1006 106 3 10`, and clang++ 23 and this step
+   print `13 101 4 6 106 12 1006 106 3 13`.
+3. C AND C++: A JOIN OF FREED AND NEW MEMORY IS `maybe_freed` (`ck_merge_state/3`, `ck_read/2`, `ck_leaks/3`, the plain
+   assignment): its read, its free and a write through it are `use after free`, and a return or the scope's end with it
+   is `plain pointer not consumed`. The join kept the new memory, so that the other path gave it back, and `if (argc >
+   5) free(p); free(p);` was built -- with six arguments the run aborted in `free`.
+   `test/c/safe/freed_one_path_twice.c`; `freed_one_path.c` keeps the leak's words.
+4. C AND C++: REALLOC'S OLD BLOCK IS `realloced` UNTIL ITS RESULT'S NULL TEST (`ck_realloc_loose/3`,
+   `ck_note_realloc/2`, `ck_strip_casts/2`, `ck_realloc_refine/4`, `ck_realloc_side/4`): C17 7.22.3.5/3-4 frees it where
+   the result is a new block and leaves it live and unchanged where the result is null. The local that takes the result
+   -- by a declaration or an assignment, through a cast -- is noted beside the block, and that local's null test makes
+   the block new memory still to give back on the null path and freed on the other; a read before the test is a use
+   after free. It was `none`: `q = realloc(p, n); if (q) free(p);` and `q = realloc(p, n); free(q); free(p);` were built
+   and aborted, `double free detected in tcache 2`, and `if (!q) return 1;`, a leak of the old block, and `p[0]` after a
+   success were taken. Where the paths join, the block is freed where both freed it and `maybe_freed` where one kept it;
+   a third pair of joins, with `none`, was the `none` clause's own result, and is out. `test/c/safe/
+   realloc_old_freed.c`, `realloc_old_leaks.c`, `realloc_old_read.c`, `realloc_untested.c`, and the joins'
+   `realloc_one_path.c` and `realloc_or_free.c`, the second refused before too. ccllib's texts give the result to the
+   field that they give, `v->data = realloc(v->data, n)`, which the rule leaves as it was.
+5. C AND C++: THE NULL TEST OF AN ASSIGNMENT TESTS ITS LEFT OPERAND (`ck_set_null/3`, `ck_null_test/3`; C17 6.5.16/3):
+   item 4's probes found that `if ((q = realloc(p, n)) == NULL) { free(p); return 1; }` gave nothing to refine, and so
+   did `if ((q = malloc(n)) == NULL) return 1;`, `if (!(f = fopen(...))) return 1;` and `if ((r = malloc(n))) free(r);`
+   -- each `plain pointer not consumed` at the return, before this step too.
+6. C AND C++: A LOOP'S CONDITION IS EVALUATED AGAIN AFTER EACH PASS (`ck_loop_cond_again/3`, `ck_loop_passes/8`; C17
+   6.8.5/4): item 5's probes found that `while ((q = malloc(4)) != NULL) { free(q); }` was refused -- `plain pointer not
+   consumed: 'q'` before this step, `use after free` with item 3 --, since the next pass started from the body's end
+   with no assignment, and a `while` evaluated its condition again after the join of its exits, after the test that had
+   refined it. A pass ends after its step and its test now, and the `while` evaluates nothing after the join.
+   `test/c/safe/loop_cond_leak.c`, a pass that keeps its memory, is refused at the next pass's assignment, as before.
+
+`test/c/run/reallocs.c`, in C and as C++, holds what items 4 to 6 take: the result tested with `!` and against NULL, in
+the test's assignment, with an arm for each case and with `abort()`, `p = realloc(p, n)`, the tests of an assignment and
+three loops; clang 23, clang++ 23 and this step print `3 2 7 1 1` and `1 333`. A NEW RECORD OF NOT DONE: a copy of new
+memory into a pointer of an outer scope is the inner pointer's -- `{ char *q = malloc(4); p = q; } free(p);` and
+realloc's idiom in a `do`'s body are `plain pointer not consumed: 'q'`, before this step too. THE RECORD OF A FREED
+PLAIN POINTER narrows to a freed pointer's address handed to a call and to a test of a copy of realloc's result.
+
+THE QUEUE. 1.6.30's nets ran at this commit, their gates GREEN as far as the library read, 1.6.31's to 1.6.33's and the
+broken copies of 1.6.31 to 1.6.33 behind them, one guarded run at a time; the next step's commit carries them.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the compile gate GREEN in 34 s -- `reallocs.c`,
+`freed_one_path_twice.c`, the seven refusals and the loops' fixtures among its 456 lines --, every probe of the step
+built by clang 23 or clang++ 23 and by this step, the run outputs alike, and `qualglobal.cpp` built and run as the C++
+gate runs it. THE FLOW GATE WAS RED at first, in 873 s: `ir_global_call/5`, item 1's helper, stood between two clauses
+of `ir_call/4`, a split that the gate names; it stands after `ir_call/4`'s last clause now, and the gate is GREEN in
+1025 s. The driver gate GREEN in 286 s (172 ok). Its ccllib gate -- the loops of ccllib's texts are each item 6's -- and
+a pool of thirty C++ run fixtures of calls, closures, loops and containers ran at the commit, with its broken copies
+queued: the next step's commit carries them. Over the work tree after the port: the toolchain check strict GREEN; the
+other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_check.pl` (`ck_merge_state/3`, `ck_read/2`, `ck_leaks/3`, the plain assignment, `ck_static_value/1`,
+  `ck_realloc_loose/3` and its helpers, `ck_set_null/3`, `ck_null_test/3`, `ck_loop_cond_again/3`, the `while`
+  statement, `ck_function`'s notes); `library/ccl_cpp_expr.pl` (`cpp_global_callee/2`, `cpp_local_fn_pointer/1`,
+  `cpp_call_value/4`, `::N` as a value); `library/ccl_infer.pl` (`global_fn/1`'s type); `library/ccl_ir.pl`
+  (`global_fn/1` in `ir_call/4`, `ir_global_call/5`, `ir_expr_/4` and `ir_lval_/4`; the lowering 203); `test/cpp.sh`
+  (`reallocs.c` as C++); `test/c/run/reallocs.c`; `test/c/safe/freed_one_path_twice.c`, `realloc_old_freed.c`,
+  `realloc_old_leaks.c`, `realloc_old_read.c`, `realloc_untested.c`, `realloc_one_path.c`, `realloc_or_free.c` and
+  `loop_cond_leak.c`; `test/cpp/run/qualglobal.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: one record closed, one narrowed, one new), HISTORY.md, CLAUDE.md (the
+  versions and the fixtures).
+
+The module 1.6.34, the reader 218 and the lowering 203.

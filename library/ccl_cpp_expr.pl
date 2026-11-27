@@ -112,6 +112,7 @@ cpp_expr(_, scoped(Path, N), _) :- memberchk(nonclass(A), Path), !, cpp_refuse(0
 cpp_expr(_, scoped(Path, N), id(K)) :- atom(N), cpp_ns_key(Path, N, K), K \== N, ccl_enum_value(K, _), !.   % `n2::x', an enumerator two namespaces declare: its key (cpp_qualify_enum, 0.127)
 cpp_expr(Ctx, scoped(Path, N), E) :- atom(N), cpp_enumerator(Ctx, Path, N, V), !, ( ( cpp_enum_path_tag(Ctx, Path, Tag) -> true ; cpp_ns_enum_tag(Path, N, _, Tag) -> true ; cpp_hdr_enum_tag(Path, N, Tag) ) -> E = cast(base([], [typedef(Tag)]), int(V)) ; E = int(V) ).   % ... OF ITS ENUM'S TYPE (0.127): a bare `int(V)', `k(Fruit::Pear)' chose `k(long)' over `k(Fruit)', and a template deduced an int   % A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (0.94): `Kind::ptr' asks the enumerators' table directly, since flattened to `id(ptr)' it would meet the local that now shadows the bare name
 cpp_expr(_, scoped(Path, N), id(GName)) :- atom(N), ( cpp_ns_key(Path, N, K) -> true ; K = N ), cpp_global_var(K, GName), !.   % ... a deeper namespace's colliding object by its key (0.100)   % `std::cout': a library header's extern GLOBAL, by the symbol the shipped binary exports (a scoped name is flattened in the lowering, so it must be taken here)
+cpp_expr(_, scoped([global], N), global_fn(N)) :- atom(N), ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), catch(ccl_gdeclared(N, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.   % `::k' NAMED AS A VALUE beside a local of its name, the file's function (1.6.34, cpp_global_callee/2): it was the local's value
 cpp_expr(_, scoped(Path, N), id(Name)) :- atom(N), \+ cpp_scope_class(Path, _), cpp_lazy_fn_value(N, Name), !.   % `std::hex' named as a value: the header's function, emitted (the bare name's road below)
 cpp_expr(_, scoped(Path, tmpl(N0, Args0)), E) :- atom(N0), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, N0, K), cpp_variable_template(K) -> N = K ; cpp_variable_template(N0), N = N0 ), !,   % A NAMESPACE-QUALIFIED VARIABLE TEMPLATE IS ITS VALUE (0.104): `std::is_same_v<A, B>' in an expression had its value put back INSIDE the scoped path, `scoped([std], bool(false))', which the lowering met as a name
     cpp_targ_values(Args0, Args), cpp_instantiate_variable(N, Args, E).   % ... BY ITS NAMESPACE KEY FIRST (0.132): `views::empty<int>' is `views.empty', libc++'s variable template, and the bare `empty' is the function template std::empty, whose instance over `int' named `__c.empty()'
@@ -921,6 +922,15 @@ cpp_local(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), \+ cpp_qualifi
 cpp_qualified_name(F, G) :- ( nb_current('$cpp_qname', Q0) -> true ; Q0 = none ), nb_getval('$ccl_scope', Sc), nb_setval('$cpp_qname', q(F, Sc)),
     ( catch(G, X, ( nb_setval('$cpp_qname', Q0), throw(X) )) -> nb_setval('$cpp_qname', Q0) ; nb_setval('$cpp_qname', Q0), fail ).
 cpp_qualified_hides(N) :- nb_current('$cpp_qname', q(N0, Sc)), N0 == N, nb_getval('$ccl_scope', Sc1), Sc1 == Sc.
+%% ... AND ITS CALL NAMES THE FILE'S FUNCTION WHERE A LOCAL OF ITS NAME STANDS (1.6.34; [basic.lookup.qual]): the
+%% desugared call `call(id(k), ...)' was the local's to the lowering, which takes a local that is a function or a pointer to
+%% one as the callee -- `::k(6)' and `n::k(6)' of a function emitted as `k' beside `int (*k)(int) = dbl;' called dbl, where
+%% clang++ calls the file's `k'. It is `call(global_fn(k), ...)', which the inference types by the file's declaration and
+%% the lowering calls by its symbol (ir_global_call/5)
+cpp_global_callee(call(id(N), As), call(global_fn(N), As)) :- atom(N), ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), catch(ccl_gdeclared(N, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.
+cpp_global_callee(E, E).
+cpp_local_fn_pointer(F) :- cpp_local(F), ccl_locals(Fs), member(Fr, Fs), memberchk(F-T, Fr), !, catch(ccl_resolve_type(T, R), _, fail),
+    ( R = ptr(_, X) ; R = ref(_, X) ; R = rref(_, X) ), catch(ccl_resolve_type(X, fn(_, _, _)), _, fail), !.
 %% the way to a member: o.$base...n by value, p->n or p->$base...n through a pointer
 cpp_hops(X, [], X) :- !.
 %% AN XVALUE'S BASE IS AN XVALUE (1.6.21): over `std::move(x)' a base's member is reached through x's base, the move kept
@@ -1071,7 +1081,7 @@ cpp_call(Ctx, scoped(Path, F), As, E) :- atom(F), Path \== [], cpp_ns_key(Path, 
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, F, K) -> true ; K = F ), \+ ( K == F, cpp_object_elsewhere(Path, F) ), cpp_callable_global(K, Name, C), !, cpp_object_call(Name, C, As, E).   % A NAMESPACE-SCOPE OBJECT CALLED goes to its class's operator() (0.100): `ranges::iter_move(x)' is libc++'s customization point object, `inline constexpr auto iter_move = __iter_move::__fn{}', where the bare name also names the hidden friends
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), cpp_ns_key(Path, F, K), !, cpp_call(none, id(K), As, E).   % a deeper namespace's colliding name, qualified: its key
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), cpp_cross_fn_key(Path, F, K), !, cpp_without_using(K, cpp_call(none, id(K), As, E)).   % ... and a name two reads define in two namespaces, qualified by one of them that is not std: that namespace's functions (0.227, cpp_cross_fn_key/3)
-cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_lib_qualified(Path, F, cpp_without_using(F, cpp_qualified_name(F, cpp_call(none, id(F), As, E)))).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
+cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_lib_qualified(Path, F, cpp_without_using(F, cpp_qualified_name(F, cpp_call(none, id(F), As, E0)))), cpp_global_callee(E0, E).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
 %% THE ARGUMENT PASS ON A CALL THROUGH AN OBJECT'S operator() (0.221; cpp_ref_args_of), as the other member roads have it: a local
 %% object, a namespace-scope object, a callable data member and a qualified method call took their arguments as written, so a class
 %% value went to a by-value parameter of another class without its conversion function -- `h(s)' over `int operator()(V) const',
@@ -1162,6 +1172,11 @@ cpp_call(_, scoped(_, C), As, E) :- atom(C), cpp_class_l(C, _), cpp_class_takes(
 %% temporary or a cast (above), a static data member a value: only a name the class has NOTHING of refuses.
 cpp_call(_, scoped(Path, M), As, _) :- atom(M), cpp_scope_class(Path, C), \+ cpp_has_member(C, M), \+ cpp_class_typedef(C, M, _), !,
     length(As, K), cpp_refuse(0, no_member(C, M, K)).
+%% A LOCAL THAT IS A POINTER OR A REFERENCE TO A FUNCTION HIDES THE FILE'S FUNCTIONS OF ITS NAME (1.6.34; [basic.lookup.unqual]/1,
+%% [over.call.func]/3): its call is the general road's, through its value; the overloads of the name were chosen first,
+%% and `ov(3)' beside `int (*ov)(int) = dbl;' called the file's `ov(int)', where a name of one function only went to the
+%% local by the lowering's choice alone (cpp_local_fn_pointer/1)
+cpp_call(Ctx, id(F), As, E) :- atom(F), cpp_local_fn_pointer(F), !, cpp_call_value(Ctx, id(F), As, E).
 cpp_call(_, id(F), As, E) :- !, ( cpp_fn_best(F, As, Ps, D) -> ( cpp_no_overload_fits(F, As) -> cpp_refuse_prog(no_matching_call(F)) ; cpp_free_call(F, Ps, D, As, E) )   % the overload the arguments fit best; a name with one definition keeps it, as C does -- and none where every candidate misfits by its types (1.6.28: the choice took one, `f(c)' of `int f(int *)' over a char array)
     ;   cpp_deleted_hdr_fn(F) -> cpp_refuse(0, deleted_function(F))   % A HEADER'S DELETED FUNCTION, a poison pill (0.219, cpp_deleted_hdr_fn/1)
     ;   cpp_libq_elsewhere(F) -> cpp_refuse(0, no_member_of_std(F))   % ... AND A NAME THAT std DECLARES NOTHING OF HERE (0.221, cpp_object_elsewhere/2)
@@ -1174,7 +1189,9 @@ cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp
         ( D == C -> cpp_call(Ctx, X, As, E) ; cpp_base_hops(D, C, Hops0), cpp_base_operator_call(X, C, Hops0, As, E) )
     ;   cpp_call(Ctx, X, As, E) ), !.
 cpp_call(Ctx, F, As, E) :- ( F = move(X0) -> true ; cpp_std_move_call(F, X0) ), !, cpp_call(Ctx, X0, As, E).   % ... AND THROUGH `std::move' THE OBJECT IT NAMES (0.206): libc++'s `basic_string::resize_and_overwrite' calls `std::move(__op)(data(), __n)', and the call of a `move' reached the lowering
-cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_object_unfit(F1, As, C) -> cpp_refuse(0, no_call_operator_fits(C)) ; cpp_callee_count_wrong(F1, As, W) -> cpp_refuse_prog(W) ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer; AN OBJECT WHOSE operator() NOTHING FITS too (0.221, cpp_object_unfit/3)
+cpp_call(Ctx, F, As, E) :- cpp_call_value(Ctx, F, As, E).
+%% a call of a callee's value: its type's parameters, its count, its temporaries -- the general road, and a callable local's (below)
+cpp_call_value(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_object_unfit(F1, As, C) -> cpp_refuse(0, no_call_operator_fits(C)) ; cpp_callee_count_wrong(F1, As, W) -> cpp_refuse_prog(W) ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer; AN OBJECT WHOSE operator() NOTHING FITS too (0.221, cpp_object_unfit/3)
 %% A CALL THAT NO OVERLOAD OF THE NAME FITS BY THE COUNT OF ITS ARGUMENTS, OR BY AN INTEGER AND A POINTER, IS REFUSED in the
 %% program's code (0.302; [over.match.viable]/2-3, [conv.ptr]/1, clang++'s "no matching function for call to"): the name has
 %% functions noted, no local object of the name stands in for them (cpp_fn_best/4 found none that fit), and each candidate

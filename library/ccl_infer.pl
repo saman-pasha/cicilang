@@ -868,6 +868,7 @@ ccl_type_of(u8str(_), ptr([], base([], [unsigned, char]))) :- !.
 ccl_type_of(wchr(_), base([], [wchar_t])) :- !.
 ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
+ccl_type_of(global_fn(N), T) :- !, ( ccl_gdeclared(N, T0) -> T = T0 ; T = unknown ).   % the file's function that a qualified call names beside a local of its name (1.6.34, cpp_global_callee/2)
 ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; atom(N), nb_getval('$ccl_enums', L), memberchk(N-_, L) -> ccl_enumerator_type(N, L, T) ; ccl_func_name(N) -> T = ptr([], base([const], [char])) ; T = unknown ).   % AN ENUMERATOR is an int in C, its ENUM in C++ (0.127; ccl_enumerator_type): the parser declares one in scope, the bulk noter keeps its value and its enum in the table of values, so after the passes' rebuild it is found there (0.100: it was `unknown' when the table held only the value -- libc++'s __to_failure_order)
 ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
 ccl_type_of(call(id(B), [_, _]), base([], [bool])) :- memberchk(B, ['__atomic_always_lock_free', '__atomic_is_lock_free']), !.   % GCC's lock-free questions (0.194)
