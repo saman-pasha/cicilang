@@ -361,6 +361,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.42 | the verbose trap's arguments as its parameters, a C++ header's clashes and second definitions | a verbose trap's argument is its const char * parameter's first, in clang 23's words; a C++ header of the program's own is walked for a clash and a second definition as the file's run kept it (reader 221, lowering 210) |
 | 1.6.43 | a C++ const object with no initializer | a C++ const object of a type that is no class, with no initializer, is clang++'s default initialization words, a constexpr one its own (reader 221, lowering 211) |
 | 1.6.44 | GCC's error in C++, a null pointer constant for an array parameter | a C++ call of a function that GCC's error marks is clang++'s words, the callee by its demangled name, a plain call alone; 0 for an array parameter (reader 221, lowering 212) |
+| 1.6.45 | a constexpr object of a class builds again | a C++ constexpr object of a class with no initializer is its constexpr default constructor's, which 1.6.43 refused; the chain over 1.6.44 (reader 221, lowering 213) |
 
 ## M5 — the C++ mode
 
@@ -26903,3 +26904,41 @@ test is out. Over the work tree after the port: the toolchain check strict GREEN
 - RULES.md (the rules in their topics; Not done: one record narrowed, one new), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.44, the reader 221 and the lowering 212.
+
+## 1.6.45 — a constexpr object of a class builds again
+
+**1.6.45: after 1.6.44, whose chain was RED at the C++ gate: a mend of 1.6.43's rule of a `constexpr` object with no
+initializer, which refused one of a class. The chain ran over 1.6.44's commit (below); this step was committed with its
+nets and its broken copy, and claims nothing GREEN of the chain.**
+
+1. C++: A `constexpr` OBJECT OF A CLASS WITH NO INITIALIZER IS ITS CONSTEXPR DEFAULT CONSTRUCTOR'S
+   (`cpp_const_default/4`; [dcl.constexpr]/10, [dcl.init.general]/7): 1.6.43 gave `constexpr variable 'x' must be
+   initialized by a constant expression` to a `constexpr` object of any type, and `constexpr OptBool none;` of the C++
+   gate's `within.cpp` and `constexpr ND gnd;` of its `itaniumlayout.cpp`, which a class's constexpr default constructor
+   initializes, were refused. The words are a type's that is no class now, as the rule's other words are, a const
+   arithmetic type, an enumeration, a pointer or an array of them. 1.6.43's nets did not reach it: its pool of 103
+   fixtures held neither file, and its check held a scalar alone. A search of the C++ fixtures for a `constexpr` object
+   with no initializer finds these two alone.
+
+The driver gate's check of 1.6.43 holds the class's form, a thirteenth body, `struct C { constexpr C() {} int v = 1; };`
+and `constexpr C c;` at file scope and in a block, as clang++ 23 builds and runs it.
+
+THE CHAIN OVER 1.6.44'S COMMIT, over LLVM 23 and libc++ 23, a fresh HOME, the toolchain check strict: the toolchain
+check GREEN in 1 s, the flow gate GREEN in 480 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in 34 s
+(482 ok), the driver gate GREEN in 309 s (194 ok), the objects gate GREEN in 6 s (29 ok), M0's proof GREEN, the cross
+gate GREEN in 315 s (294 ok), the library read GREEN in 225 s (24 ok), the C++ gate RED in 1228 s (1273 ok, 2 FAIL:
+`within.cpp` and `itaniumlayout.cpp`, item 1) and the ccllib gate GREEN in 1410 s (625 ok: 36 programs in three runs,
+189 refused, 21 alone), 4012 s in all.
+
+THE NETS. Over the copy: the flow gate GREEN in 483 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+37 s (482 ok), the driver gate GREEN in 258 s (194 ok); the pool of 105 C++ run fixtures, 1.6.44's 103 and the two that
+the chain met, each built as the C++ gate builds it over a HOME of its own, 105 the same, in 131 s. THE BROKEN COPY:
+CX1, which gave the `constexpr` words to a type of any kind again, run from a copy of the copy over a fresh HOME, was
+caught by the check. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's
+rule of 0.271.
+
+- `library/ccl_cpp.pl` (`cpp_const_default/4`); `library/ccl_ir.pl` (the lowering 213); `test/driver.sh` (1.6.43's
+  check); the module's version.
+- RULES.md (the rule in the C reader's topic), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.45, the reader 221 and the lowering 213.

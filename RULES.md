@@ -2814,12 +2814,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   namespace, of its nested namespaces and `extern "C"` blocks, or of a block, static or not, whose type is a const
   arithmetic type, a const enumeration, a const pointer or an array of them, and that no `extern` declares, is clang++'s
   `default initialization of an object of const type 'const int[3]'` at its line, the type spelled with its `(aka ...)`
-  where it has one; a `constexpr` one of any type, `constexpr variable 'k' must be initialized by a constant expression`
-  -- the declaration's base holds the word. They built: `int *const p;` a null pointer, a block's `const int x;` and a
-  namespace's; a file's `const int T[3];` before its definition with rows was refused as a second definition (Not done
-  since 0.310). A class's object asks a user-provided default constructor (Not done), and an extern declaration, a
-  pointer to const and a class with a user-provided default constructor or default member initializers build. The driver
-  gate's check of twelve bodies, as clang++ 23 refuses and builds them. (1.6.43)
+  where it has one; a `constexpr` one of such a type, `constexpr variable 'k' must be initialized by a constant
+  expression` -- the declaration's base holds the word --, and one of a class is its constexpr default constructor's,
+  `constexpr OptBool none;` (1.6.45: 1.6.43 refused a `constexpr` object of any type, and the chain over 1.6.44 was RED
+  at the C++ gate's `within.cpp` and `itaniumlayout.cpp`). They built: `int *const p;` a null pointer, a block's `const
+  int x;` and a namespace's; a file's `const int T[3];` before its definition with rows was refused as a second
+  definition (Not done since 0.310). A class's object asks a user-provided default constructor (Not done), and an extern
+  declaration, a pointer to const and a class with a user-provided default constructor or default member initializers
+  build. The driver gate's check of thirteen bodies, as clang++ 23 refuses and builds them. (1.6.43, 1.6.45)
 - A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C (1.6.7; C17 6.9/3 and /5, 6.9.2/1, 6.7/3, 6.7.2.3/1 and /2,
   6.7.2.2/3; C23 6.7.2.3/1 and 6.2.7/1; `ccl_redefinitions/3` at the end of the file's read, `ccl_redef_check/5`), in
   clang's words at the second one's line. A FUNCTION'S SECOND BODY AND AN OBJECT'S SECOND INITIALIZER, `redefinition of

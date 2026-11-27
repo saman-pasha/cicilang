@@ -239,12 +239,13 @@ cpp_redef_vars([_|Vs], Sto, L, S0, S) :- cpp_redef_vars(Vs, Sto, L, S0, S).
 %% block, static or not, whose type is a const scalar, a const pointer, a const enumeration or an array of them, and that
 %% no `extern' declares, is clang++'s `default initialization of an object of const type 'const int[3]'', at its line; a
 %% file's `const int T[3];' was refused as a second definition where its rows came after it, `int *const p;' built a null
-%% pointer, and a block's `const int x;' built. A `constexpr' one of any type is `constexpr variable 'x' must be
-%% initialized by a constant expression' (the declaration's base holds the word). A class's object asks a user-provided
-%% default constructor (Not done)
+%% pointer, and a block's `const int x;' built. A `constexpr' one of such a type is `constexpr variable 'x' must be
+%% initialized by a constant expression' (the declaration's base holds the word); one of a class is its constexpr default
+%% constructor's, `constexpr OptBool none;' (1.6.45: 1.6.43 refused it, and the C++ gate's within.cpp and
+%% itaniumlayout.cpp with it). A class's object asks a user-provided default constructor (Not done)
 cpp_const_defaults(B, Sto, L, Vs) :- ( Sto \== extern, member(var(N, T, none), Vs), atom(N), cpp_const_default(B, N, T, W) -> cpp_redef_throw(W, L) ; true ).
-cpp_const_default(B, N, _, constexpr_uninit(N)) :- nonvar(B), B = base(QB, _), is_list(QB), memberchk(constexpr, QB), !.
-cpp_const_default(_, _, T0, default_const_init(A)) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail), cpp_const_scalar(R), catch(ir_type_aka(T0, A), _, fail).
+cpp_const_default(B, N, T0, W) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail), cpp_const_scalar(R),
+    ( nonvar(B), B = base(QB, _), is_list(QB), memberchk(constexpr, QB) -> W = constexpr_uninit(N) ; catch(ir_type_aka(T0, A), _, fail), W = default_const_init(A) ).
 cpp_const_scalar(arr(_, E)) :- !, catch(once(ccl_resolve_type(E, R)), _, fail), cpp_const_scalar(R).
 cpp_const_scalar(ptr(Q, _)) :- !, memberchk(const, Q).
 cpp_const_scalar(base(Q, S)) :- memberchk(const, Q), ( ccl_is_integer(base([], S)) -> true ; ccl_is_float(base([], S)) -> true ; memberchk(nullptr_t, S) ).
