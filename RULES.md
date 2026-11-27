@@ -2458,6 +2458,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   in a class has its attribute after the declarator, where the member's read had taken the marks, and the call built. A
   free function that no overload keys keeps the first form. The driver gate's eight C bodies, three C++ ones and five
   more: a member, a static one, `[[clang::unavailable]]`, an overload, a namespace's. (1.6.25, 1.6.26)
+- A FUNCTION MARKED WITH GCC'S `error("msg")` (1.6.29, reader 215; `ccl_error_attr_note/1`, `ir_error_attr_call/1`): the
+  attribute, before the declarator or after it and spelled `__error__` too, is a note beside unavailable's, and the
+  result takes the qualifier `error_attr(M)`; a call of the function is clang's `call to 'f' declared with 'error'
+  attribute: msg`, where the attribute was dropped and the call built. The function's name as a value is no call. In C:
+  C++'s words name the function with its parameters. The driver gate's five bodies. (1.6.29)
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -7995,6 +8000,14 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
 - `this auto self` (C++23) is the closure by value, or by reference for `&` and `&&` (`cpp_self_type/3`); the body runs
   under `Ctx = self(C, SN)`, a bare capture `member(id(self), N)`. A recursive lambda through `self` deduces its result
   from a first return that does not recurse, as C++ requires ([dcl.spec.auto]/11; `recself.cpp`, 0.112). (0.43, 0.112)
+- A LAMBDA THAT CAPTURED NO `this`, MADE IN A MEMBER FUNCTION, NAMES NO MEMBER OF THE CLASS THAT IS NOT STATIC AND CALLS
+  NONE (1.6.29; [expr.prim.lambda.capture]/8; `cpp_closure_uncaptured/3`): by itself, with its class or a base, by
+  `this` -- clang++'s `'this' cannot be implicitly captured in this context`, and in a static member function's lambda
+  the static function's words (`cpp_unthis_words/3`: `invalid use of member 'a' in static member function` and the
+  others of 1.6.28), where they were `use of undeclared identifier 'm'`, the words of a call with no object and the
+  lowering's `no_member(a, ...)`. The mark is the call operator's own signature in the program's code, evaluated: the
+  closure's other members, which the desugaring writes, keep their `this`, a static member is called, and sizeof's
+  operand is unevaluated. A lambda made in another lambda is not asked. The driver gate's sixteen bodies. (1.6.29)
 - A LAMBDA INSIDE A LAMBDA captures what the outer closure holds ([expr.prim.lambda.capture]/9; 0.117): a name is
   capturable when it is a local or, inside a closure's `operator()`, a capture of that closure
   (`cpp_capturable/3`, read as the body reads it, `this->a`, its type unreferenced), so `[a] { return [a] { return a +
@@ -13489,9 +13502,12 @@ in the first topic (The ccllib gate).
   function. C++'s names are the desugaring's, and one that it did not settle is refused by name, as before -- but A
   PLAIN NAME OF THE PROGRAM'S, no implementation's `_' and no desugaring's `.`, has clang++'s words too (1.6.27):
   `return nowhere(1);`, a value, an operand, a place and an argument were `not lowered yet: undeclared(nowhere)`, and
-  `sizeof` of such a name, in C and in C++, `not lowered yet: sizeof(id(nowhere))`. In C++ an argument that names
-  nothing is refused so before the call's roads meet it (`cpp_undeclared_args/1`): a template's deduction refused
-  `cannot_deduce('T')` at no line. A QUALIFIED NAME THAT NOTHING DECLARES (1.6.27; [namespace.qual]/2;
+  `sizeof` of such a name, in C and in C++, `not lowered yet: sizeof(id(nowhere))`. In C++ an argument of a FUNCTION
+  TEMPLATE'S call that names nothing is refused so before the call's roads meet it (`cpp_undeclared_args/2`,
+  `cpp_template_callee/1`): a template's deduction refused `cannot_deduce('T')` at no line. The rule asked every call's
+  arguments at 1.6.27, in every walk, and 1.6.27's nets found fourteen fixtures of the C++ gate refused -- `offsetof(M2,
+  b)`, `decltype(up(orig))` of an earlier parameter, unevaluated, a member typedef in a walk that recovers --; it asks a
+  template's call alone, evaluated, since 1.6.29. A QUALIFIED NAME THAT NOTHING DECLARES (1.6.27; [namespace.qual]/2;
   `cpp_declared_nowhere/2`: a name in no namespace's key -- an anonymous namespace's function among them -- and of no
   function, object, typedef, tag, enumerator or template's head -- a namespace's function template declared alone; five
   more guards held nothing, 1.6.28) is clang++'s `no member named 'nowhere' in namespace 'n'`, `in namespace 'a::b'`,
@@ -13617,15 +13633,17 @@ in the first topic (The ccllib gate).
   name as the program wrote the call -- a span of const elements, an `operator[]`'s, a member's and a free function's
   const reference --, where it was C's `read-only variable is not assignable`. The driver gate's eight bodies and six.
   (1.6.23, 1.6.24, 1.6.28)
-- C++: A CONST MEMBER FUNCTION WRITES NO MEMBER BUT A MUTABLE ONE (1.6.24; [class.this]/1, [dcl.stc]/9; the second clause
-  of `cpp_const_assign/2`): in a const member function a write of a member through `this` -- the member, an element of
-  an array member, a member of it, a base's member through its subobject (`cpp_this_path/3`, `cpp_member_kept/3`) -- is
-  `cannot assign to non-static data member within const member function 'g'`, and a const member in any member function
-  `cannot assign to non-static data member 'cm' with const-qualified type 'const int'`; both built. A `mutable` member,
-  its own or its primary base's, is written: the reader marks it, `mutable(N)` beside the members as `default_init(N,
-  E)` is (`ccl_mutable_marks/3`), its type unchanged. A write through a pointer member or a reference member is no
-  write of the object, and a static member is no member of it. A closure's members are the lambda's rules. Reader 212.
-  `test/cpp/run/constmembers.cpp`, the driver gate's eleven bodies. (1.6.24)
+- C++: A CONST MEMBER FUNCTION WRITES NO MEMBER BUT A MUTABLE ONE (1.6.24; [class.this]/1, [dcl.stc]/9; the second
+  clause of `cpp_const_assign/2`): in a const member function a write of a member through `this` -- the member, an
+  element of an array member, a member of it, a base's member through its subobject (`cpp_this_path/3`,
+  `cpp_member_kept/3`) -- is `cannot assign to non-static data member within const member function 'g'`, and a const
+  member in any member function `cannot assign to non-static data member 'cm' with const-qualified type 'const int'`;
+  both built. A `mutable` member, its own or a base's, is written -- a base that is not the primary one, a virtual one
+  too, is followed through its sub-object since 1.6.29, where a write of such a base's member built, a plain one's and a
+  mutable one's alike (`cpp_member_kept/3`) --: the reader marks it, `mutable(N)` beside the members as `default_init(N,
+  E)` is (`ccl_mutable_marks/3`), its type unchanged. A write through a pointer member or a reference member is no write
+  of the object, and a static member is no member of it. A closure's members are the lambda's rules. Reader 212.
+  `test/cpp/run/constmembers.cpp`, the driver gate's eleven bodies and eight. (1.6.24, 1.6.29)
 - A CONSTEXPR POINTER IS A CONST POINTER (1.6.24; [dcl.constexpr]/10, C23 6.7.1/5; `ccl_constexpr_fold/2`): the const
   that comes with the marker is the pointer's, an array's elements' and a pointer to a function's, `const char *const`
   for `constexpr const char *m`, where the reader held it on what the pointer points to, `const const char *`, and `m =
@@ -13645,7 +13663,11 @@ in the first topic (The ccllib gate).
   pointer types assigning to 'int *' from 'char *'`, `assigning to 'int *' from incompatible type 'double'`; each built,
   the last the lowering's `no conversion from`. A void pointee on either side, a base class's and the qualifiers fit: a
   void pointer for another and a pointer that drops a qualifier are C's, which ccllib's programs and texts are, built as
-  C++ too (Not done). The driver gate's eleven bodies and seven. (1.6.24, 1.6.28)
+  C++ too (Not done). AN ENUMERATION IS AN INTEGER FOR A POINTER (1.6.29): `E e = &x;`, `e = &x`, `return p;` of an `E`,
+  built, and are an integer's words now. A SCALAR MEMBER'S INITIALIZER IS AN INITIALIZATION (1.6.29;
+  [class.base.init]/7; the mark `'$member_init'(E)` that the desugaring's assignment carries, `cpp_assign_int_ptr/3`):
+  `S(int a) : p(a)` is clang++'s `cannot initialize a member subobject of type 'int *' with an lvalue of type 'int'`,
+  where it had an assignment's words. The driver gate's eleven bodies, seven and fifteen. (1.6.24, 1.6.28, 1.6.29)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
@@ -16915,11 +16937,12 @@ Declarations topic of the C++ reader).
   1.6.25, the safe part's topic): A CLEANUP THAT FREES THROUGH ITS PARAMETER, `void free_str(char **p) { free(*p); }`,
   is refused by the safe part, `a borrow consumed`, as the same defer written by hand is. THE OTHER ATTRIBUTES that the
   probes took (`p113/forms`, s02 to s08) are read and dropped as before: `section`, `weak` and `alias` fail at the link,
-  `transparent_union` in LLVM's parser, `error` builds a call that clang refuses as it makes the code (`call to 'f'
-  declared with 'error' attribute`), C's and C++'s `unavailable` are clang's words since 1.6.25 and 1.6.26 -- but a
-  virtual call's and the address of a member, `&S::g`, which build --, and C++'s `init_priority` orders nothing. A
-  `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's `register_t`, an `int` of four bytes
-  where clang's is a `long`.
+  `transparent_union` in LLVM's parser, `error` is clang's words in C since 1.6.29 -- but a call in a branch that a
+  constant condition drops, `if (0) f();`, is refused, where clang's code generation drops it first, and `-fsyntax-only`
+  refuses none, as clang; in C++, where clang++ names `'f()'`, it builds --, C's and C++'s `unavailable` are clang's
+  words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
+  `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
+  `register_t`, an `int` of four bytes where clang's is a `long`.
 - A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.7 LEAVES (the C reader's topic): GNU'S `extern inline` WITH
   `__attribute__((gnu_inline))`, then the function's external definition, is refused `redefinition of 'k'`, where clang
   builds it and calls the second: the reader keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, and drops
@@ -17108,10 +17131,9 @@ Declarations topic of the C++ reader).
   verbose_trap_string(m)` and `verbose_trap_string(call)`: the lowering reads no object's initializer. A wide or a UTF-8
   literal is refused in clang 21's words, `must be a pointer to a constant string`, where clang 22 names the types
   (`incompatible pointer types passing 'int[5]' to parameter of type 'const char *'`; in C++ `cannot initialize a
-  parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'`). In C++ `auto f = __builtin_trap;` is
-  `not lowered yet: auto(f)`, where clang says `builtin functions must be directly called`, as `void (*f)() =
-  __builtin_trap;` says here; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap,
-  where a build does.
+  parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'`). In C++ `auto f = __builtin_trap;` has
+  clang's words, `builtin functions must be directly called`, since 1.6.29; and C++'s `-fsyntax-only`, which stops after
+  the reader, refuses no misuse of a trap, where a build does.
 - THE WORDS OF TWO VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14; a void value through `printf`'s ellipsis has the
   format's type since 1.6.27): a variable of a `typeof` or a `decltype` type that is void is `variable has incomplete
   type 'void'`, where clang names the type written, `'typeof (f())' (aka 'void')`; and a closure called with a void
@@ -17126,11 +17148,6 @@ Declarations topic of the C++ reader).
   alone, `'double'` for `'D' (aka 'double')` (the driver gate holds one, 1.6.27). A class named with its scope is
   spelled by its own: `::M(f())` is `'M'`, where clang++ refuses `::M` as `no member named 'M' in the global namespace`,
   and a nested class named bare in its class `'O::N'` for clang++'s `'N'`.
-- C++: A VOID VALUE THAT THE DESUGARING DOES NOT TRUST, WHAT 1.6.27 LEAVES (found at 1.6.14): an overloaded name's raw
-  call is no void value to the desugaring, whose type is its chosen overload's, and its argument has the lowering's
-  words, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang++ says `no matching
-  function for call to 'g'`; a call through a local's or a member's pointer or reference to a function is trusted by its
-  type since 1.6.27 (`cpp_void_value/1`).
 - C++: A FUNCTIONAL CAST TO A `decltype` TYPE NAMES ITS TARGET ALONE IN A REFUSAL (found at 1.6.14, narrowed at 1.6.22):
   `decltype(mm)(f())` over a void f is `no matching conversion for functional-style cast from 'void' to 'M'`, where
   clang++ says `... to 'decltype(mm)' (aka 'M')`; the cast of a value builds since 1.6.22.
@@ -17139,10 +17156,10 @@ Declarations topic of the C++ reader).
   1.6.22 (`cpp_builtin_op_words/4`, `cpp_cond_bool/2`, the topic of C++'s operators), and a cast of a floating value to
   a pointer and back since 1.6.26 (the lowering's topic of a record for another type); a library's body keeps the terms
   its substitution failures read, `no conversion from 'const double' to 'int *'` of a cast among them.
-- C++: A QUALIFIED MEMBER CALL, WHAT 1.6.28 LEAVES (the topic of methods and calls; a member template named with its
-  class that no count fits has clang++'s words since 1.6.27, and a static member function's body since 1.6.28): a
-  closure that captured nothing has the words of a call with no object, where clang++ says `'this' cannot be implicitly
-  captured in this context`.
+- C++: A LAMBDA THAT CAPTURED NO `this`, WHAT 1.6.29 LEAVES (the lambdas' topic): `sizeof(a)` of a member in its body is
+  `use of undeclared identifier 'a'`, where clang++ takes the unevaluated operand; a generic lambda's refusal is `not
+  lowered yet: auto_result(...)`, the deduction's; and a lambda made in another lambda is not asked, its member's use
+  the words of before.
 - C++: A VOID POINTER FOR ANOTHER AND A POINTER THAT DROPS A QUALIFIER BUILD (found at 1.6.28): `int *p = malloc(4);`,
   `f(&cx)` of `int f(int *)` over a `const int`, where clang++ says `cannot initialize a variable of type 'int *' with an
   rvalue of type 'void *'` and `no matching function for call to 'f'`. They are C's, and ccllib's programs, C, are built
@@ -17425,15 +17442,6 @@ Declarations topic of the C++ reader).
   an object of another kind (the owner's question of 0.307); a unique_ptr of an object with a pointer in it (decision
   2); `if (p)` and `p == nullptr`; `get_deleter`; `std::hash` (1b) and `operator<<` (1d); `shared_ptr`, `weak_ptr` and
   `make_shared`, phase 1b's next.
-- AN INTEGER AND A POINTER IN C++, WHAT 1.6.25 LEAVES (found at 0.288, narrowed at 1.6.22, 1.6.24 and 1.6.25, which
-  refuse an assignment, a scalar's initializer and a return): an enumeration's object given a pointer, and a member's
-  initializer, which the desugaring writes as an assignment and so names as one. A call's count and a pointer and an
-  integer in each other's place in a call are the overloads' `no matching function for call to 'f'` in C++ (seen at
-  1.6.22).
-- C++: A MUTABLE MEMBER OF A BASE THAT IS NOT THE PRIMARY ONE (found by 0.295; 1.6.24 refuses a const member function's
-  writes and makes a constexpr pointer const, and 1.6.28 names a span's const result as clang++ does): a `mutable`
-  member of a base that is not the primary one is not found, so its write in a const member function builds as a write
-  of any other such base's member does, where clang++ refuses the second. (0.295, 1.6.10, 1.6.22, 1.6.23, 1.6.24)
 - A PAIR'S, A TUPLE'S, AN OPTIONAL'S AND A VARIANT'S RELATIONS OVER A PLAIN STRUCT ARE REFUSED IN THE MODULE'S TEXT (found
   at 0.308): `a == b` over two `variant<point, int>` meets the struct's `==` in the module's function, `variant_point_int_eq`
   in C, where C++ refuses it too, in its own words, since the struct has no `operator==`; and C++'S `*s` OVER A PLAIN

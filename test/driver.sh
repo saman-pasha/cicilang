@@ -473,6 +473,120 @@ statics22.cpp:1: error: invalid use of member 'a' in static member function
 statics23.cpp:1: error: call to non-static member function without an object argument
 statics24.cpp:1: error: invalid use of member 'p' in static member function
 statics25.cpp:2: error: call to non-static member function without an object argument"
+check "C++: a lambda that captured no this, made in a member function, names no member of the class that is not static and calls none, in clang++'s words (1.6.29; [expr.prim.lambda.capture]/8): bare, with its class or a base, by this, and in a static member function's lambda the static function's words -- they were an undeclared name, a call with no object and the lowering's words -- after what C++ takes, first: a captured this by name, by reference and by copy, a static member, a parameter and a local of the name, an object handed in, an init-capture" "$(n=0; for src in 'struct S { int a = 1; int m() { return 1; } int k() { auto l = [this] { return m() + a + this->a + S::m(); }; return l(); } };
+int main() { S s; return s.k() - 4; }' 'struct S { int a = 1; int m() { return 1; } int k() { auto l = [&] { return m() + a; }; return l(); } };
+int main() { S s; return s.k() - 2; }' 'struct S { int a = 1; int m() { return 1; } int k() { auto l = [=] { return m() + a; }; return l(); } };
+int main() { S s; return s.k() - 2; }' 'struct S { static int n() { return 1; } int k() { auto l = [] { return n() + S::n(); }; return l(); } };
+int main() { S s; return s.k() - 2; }' 'struct S { int a = 1; int k() { auto l = [](int a) { return a; }; return l(2); } };
+int main() { S s; return s.k() - 2; }' 'struct S { int a = 1; int k() { auto l = [] { int a = 3; return a; }; return l(); } };
+int main() { S s; return s.k() - 3; }' 'struct S { int a = 1; int k() { auto l = [](S &s) { return s.a; }; return l(*this); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int a = 1; int k() { auto l = [x = a] { return x; }; return l(); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int m() { return 1; } int k() { auto l = [] { return m(); }; return l(); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int a = 1; int k() { auto l = [] { return a; }; return l(); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int m() { return 1; } int k() { auto l = [] { return S::m(); }; return l(); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int a = 1; int k() { auto l = [] { return this->a; }; return l(); } };
+int main() { S s; return s.k() - 1; }' 'struct B { int m() { return 1; } };
+struct S : B { int k() { auto l = [] { return B::m(); }; return l(); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int a = 1; static int k() { auto l = [] { return a; }; return l(); } };
+int main() { return S::k() - 1; }' 'struct S { int m() { return 1; } static int k() { auto l = [] { return m(); }; return l(); } };
+int main() { return S::k() - 1; }' 'struct S { int a = 1; static int k() { auto l = [] { return this->a; }; return l(); } };
+int main() { return S::k() - 1; }'; do n=$((n + 1)); printf "$src\n" > nocap$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c nocap$n.cpp -o nocap$n.o 2>&1 | head -1; done)" "nocap9.cpp:1: error: 'this' cannot be implicitly captured in this context
+nocap10.cpp:1: error: 'this' cannot be implicitly captured in this context
+nocap11.cpp:1: error: 'this' cannot be implicitly captured in this context
+nocap12.cpp:1: error: 'this' cannot be implicitly captured in this context
+nocap13.cpp:2: error: 'this' cannot be implicitly captured in this context
+nocap14.cpp:1: error: invalid use of member 'a' in static member function
+nocap15.cpp:1: error: call to non-static member function without an object argument
+nocap16.cpp:1: error: invalid use of 'this' outside of a non-static member function"
+check "C++: an enumeration given a pointer, and a member initializer of a scalar, in clang++'s words (1.6.29; [conv.ptr]/1, [class.base.init]/7): an assignment, an initializer, a return and a member's -- the enumeration's built, and a member's had an assignment's words -- after what C++ takes, first: an enumerator, a cast, members from their own types, a null pointer constant" "$(n=0; for src in 'enum E { A, B };
+int main() { int x = 0; E e = A; e = B; int *p = &x; return e - 1 + (p != 0) - 1; }' 'enum E { A, B };
+int main() { E e = (E)1; return e - 1; }' 'struct S { int v; double d; long l; S(int a) : v(a), d(a), l(a) {} };
+int main() { S s(2); return s.v - 2; }' 'struct S { int *p; S() : p(0) {} };
+int main() { S s; return s.p != 0; }' 'struct S { int *p; S() : p(nullptr) {} };
+int main() { S s; return s.p != 0; }' 'enum E { A, B };
+int main() { int x = 0; E e = A; e = &x; return 0; }' 'enum E { A, B };
+int main() { int x = 0; E e = &x; return 0; }' 'enum class F : int { a };
+int main() { int x = 0; F f = &x; return 0; }' 'enum E { A };
+int main() { int v[2] = {0, 0}; E e = A; e = v; return 0; }' 'enum E { A, B };
+static E f(int *p) { return p; }
+int main() { int x = 0; return f(&x); }' 'struct S { int *p; int v; S(int a) : p(a), v(0) {} };
+int main() { S s(1); return 0; }' 'struct S { int v; int *q; S(int *a) : v(a), q(0) {} };
+int main() { int x; S s(&x); return 0; }' 'struct S { int *p; S(char *q) : p(q) {} };
+int main() { char c[4]; S s(c); return 0; }' 'struct S { long v; S(int *q) : v(q) {} };
+int main() { int x = 0; S s(&x); return 0; }' 'enum E { A, B };
+struct S { E e; S(int *q) : e(q) {} };
+int main() { int x = 0; S s(&x); return 0; }'; do n=$((n + 1)); printf "$src\n" > enumptr$n.cpp; "$ROOT/bin/cicilang++" -c enumptr$n.cpp -o enumptr$n.o 2>&1 | head -1; done)" "enumptr6.cpp:2: error: incompatible pointer to integer conversion assigning to 'E' from 'int *'
+enumptr7.cpp:2: error: cannot initialize a variable of type 'E' with an rvalue of type 'int *'
+enumptr8.cpp:2: error: cannot initialize a variable of type 'F' with an rvalue of type 'int *'
+enumptr9.cpp:2: error: assigning to 'E' from incompatible type 'int[2]'
+enumptr10.cpp:2: error: cannot initialize return object of type 'E' with an lvalue of type 'int *'
+enumptr11.cpp:1: error: cannot initialize a member subobject of type 'int *' with an lvalue of type 'int'
+enumptr12.cpp:1: error: cannot initialize a member subobject of type 'int' with an lvalue of type 'int *'
+enumptr13.cpp:1: error: cannot initialize a member subobject of type 'int *' with an lvalue of type 'char *'
+enumptr14.cpp:1: error: cannot initialize a member subobject of type 'long' with an lvalue of type 'int *'
+enumptr15.cpp:2: error: cannot initialize a member subobject of type 'E' with an lvalue of type 'int *'"
+check "C++: a const member function writes no member of a base that is not the primary one but a mutable one, in clang++'s words (1.6.29; [dcl.stc]/9, [class.this]/1): bare, through this, of that base's own base, of a virtual base -- a plain one's write built, and a mutable one was found nowhere -- after the mutable ones, first" "$(n=0; for src in 'struct A { int x = 0; virtual ~A() {} };
+struct B { mutable int m = 0; int n = 0; };
+struct C : A, B { void f() const { m = 1; } };
+int main() { C c; c.f(); return c.m - 1; }' 'struct A { int x = 0; };
+struct B { mutable int m = 0; int n = 0; };
+struct C : A, B { void f() const { m = 2; this->m += 1; } };
+int main() { C c; c.f(); return c.m - 3; }' 'struct A { int x = 0; };
+struct B { int n = 0; mutable int m = 0; };
+struct B2 : B {};
+struct C : A, B2 { void f() const { m = 1; } };
+int main() { C c; c.f(); return c.m - 1; }' 'struct V { int n = 0; mutable int m = 0; };
+struct C : virtual V { void f() const { m = 1; } };
+int main() { C c; c.f(); return c.m - 1; }' 'struct A { int x = 0; virtual ~A() {} };
+struct B { mutable int m = 0; int n = 0; };
+struct C : A, B { void f() const { n = 1; } };
+int main() { C c; c.f(); return 0; }' 'struct A { int x = 0; };
+struct B { mutable int m = 0; int n = 0; };
+struct C : A, B { void f() const { this->n = 1; } };
+int main() { C c; c.f(); return 0; }' 'struct A { int x = 0; };
+struct B { int n = 0; mutable int m = 0; };
+struct B2 : B {};
+struct C : A, B2 { void f() const { n = 1; } };
+int main() { C c; c.f(); return 0; }' 'struct V { int n = 0; mutable int m = 0; };
+struct C : virtual V { void f() const { n = 1; } };
+int main() { C c; c.f(); return 0; }'; do n=$((n + 1)); printf "$src\n" > mutbase$n.cpp; "$ROOT/bin/cicilang++" -c mutbase$n.cpp -o mutbase$n.o 2>&1 | head -1; done)" "mutbase5.cpp:3: error: cannot assign to non-static data member within const member function 'f'
+mutbase6.cpp:3: error: cannot assign to non-static data member within const member function 'f'
+mutbase7.cpp:4: error: cannot assign to non-static data member within const member function 'f'
+mutbase8.cpp:2: error: cannot assign to non-static data member within const member function 'f'"
+check "C++: a void value of an overloaded function, of a namespace's and of a member's, as an argument, is the overloads' words (1.6.29, which holds 1.6.27's record closed)" "$(n=0; for src in 'static void h(int) {}
+static void h(double) {}
+static int g(int a) { return a; }
+int main() { return g(h(1)); }' 'static void h(int) {}
+static void h(double) {}
+static int g(int a) { return a; }
+static int g(double a) { return 2; }
+int main() { return g(h(1.0)); }' 'namespace n { void h(int) {} void h(double) {} }
+static int g(int a) { return a; }
+int main() { return g(n::h(1)); }' 'struct S { void h(int) {} void h(double) {} };
+static int g(int a) { return a; }
+int main() { S s; return g(s.h(1)); }'; do n=$((n + 1)); printf "$src\n" > voidov$n.cpp; "$ROOT/bin/cicilang++" -c voidov$n.cpp -o voidov$n.o 2>&1 | head -1; done)" "voidov1.cpp:4: error: no matching function for call to 'g'
+voidov2.cpp:5: error: no matching function for call to 'g'
+voidov3.cpp:3: error: no matching function for call to 'g'
+voidov4.cpp:3: error: no matching function for call to 'g'"
+check "C++: a builtin that is only called, named as an auto's initializer, in clang++'s words (1.6.29): it was auto(f) -- after a function's name, first" "$(n=0; for src in 'static void h() {}
+int main() { auto f = h; f(); return 0; }' 'int main() { auto f = __builtin_trap; (void)f; return 0; }' 'int main() { auto f = __builtin_unreachable; (void)f; return 0; }' 'int main() { auto f = __builtin_debugtrap; (void)f; return 0; }'; do n=$((n + 1)); printf "$src\n" > bvalue$n.cpp; "$ROOT/bin/cicilang++" -c bvalue$n.cpp -o bvalue$n.o 2>&1 | head -1; done)" "bvalue2.cpp:1: error: builtin functions must be directly called
+bvalue3.cpp:1: error: builtin functions must be directly called
+bvalue4.cpp:1: error: builtin functions must be directly called"
+check "C: a call of a function that GCC's error attribute marks, in clang's words (1.6.29): before and after the declarator, its __error__ spelling -- the attribute was dropped and the call built -- after a warning attribute and the function's name as a value, first" "$(n=0; for src in 'void f(void) __attribute__((warning("x")));
+void f(void) {}
+int main(void) { f(); return 0; }' 'void f(void) __attribute__((error("x")));
+int main(void) { void (*p)(void) = f; (void)p; return 0; }' 'void f(void) __attribute__((error("do not call")));
+int main(void) {
+  f();
+  return 0;
+}' '__attribute__((__error__("no"))) int g(int);
+int main(void) { return g(1); }' '__attribute__((error("x"))) void f(void);
+int main(void) {
+  f();
+  return 0;
+}'; do n=$((n + 1)); printf "$src\n" > errattr$n.c; "$CICILI" -c errattr$n.c -o errattr$n.o 2>&1 | head -1; done)" "errattr3.c:3: error: call to 'f' declared with 'error' attribute: do not call
+errattr4.c:2: error: call to 'g' declared with 'error' attribute: no
+errattr5.c:3: error: call to 'f' declared with 'error' attribute: x"
 check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
 static int g(int a) { return a; }
 int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}

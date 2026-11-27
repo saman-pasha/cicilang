@@ -424,6 +424,7 @@ dr_diag(F, not_lowered(instance_refused(I, W0)), Where) :- atom(I), dr_inner_wor
 dr_diag(F, not_lowered(undeclared_call(N)), where(_, line(L))) :- atom(N), dr_lib_fn(N, Ty, H), !,   % A LIBRARY FUNCTION THAT NOTHING DECLARES, in clang's words and its note of the header (1.6.24, dr_lib_fn/3)
     dr_error(F, L, ['call to undeclared library function ''', N, ''' with type ', Ty, '; ISO C99 and later do not support implicit function declarations']),
     write(F), write(':'), write(L), write(': note: include the header <'), write(H), write('> or explicitly provide a declaration for '''), write(N), write(''''), nl.
+dr_diag(F, not_lowered(error_attr_call(N, M)), where(_, line(L))) :- !, dr_error(F, L, ['call to ''', N, ''' declared with ''error'' attribute: ', M]).   % GCC's error (1.6.29)
 dr_diag(F, not_lowered(unavailable(N, M, DL)), where(_, line(L))) :- !,   % a call of a function marked unavailable, in clang's words (1.6.25)
     ( M == none -> Ps = ['''', N, ''' is unavailable'] ; Ps = ['''', N, ''' is unavailable: ', M] ), dr_error(F, L, Ps),
     ( integer(DL), DL > 0 -> write(F), write(':'), write(DL), write(': note: '''), write(N), write(''' has been explicitly marked unavailable here'), nl ; true ).
@@ -435,6 +436,7 @@ dr_diag(F, not_lowered(site_conversion(S, A, B, H)), where(_, line(L))) :- !, dr
 dr_diag(F, not_lowered(incompatible_ptr_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['incompatible pointer types assigning to ''', A, ''' from ''', B, '''']).   % C++: a pointer to another type (1.6.28)
 dr_diag(F, not_lowered(incompatible_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['assigning to ''', A, ''' from incompatible type ''', B, '''']).   % C++: an array or a function for an integer (1.6.24)
 dr_diag(F, not_lowered(init_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize a variable of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
+dr_diag(F, not_lowered(member_init_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize a member subobject of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).   % C++ (1.6.29)
 dr_diag(F, not_lowered(return_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize return object of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
 dr_diag(F, not_lowered(int_conversion_amp(Dir, Site, A, B)), where(_, line(L))) :- !,   % C++: an lvalue whose address is the place's type, named (1.6.24)
     ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),

@@ -1,1 +1,1 @@
-undeclared(prev)
+use of undeclared identifier 'prev'

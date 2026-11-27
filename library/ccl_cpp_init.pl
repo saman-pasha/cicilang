@@ -767,7 +767,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- member
     findall(item([], A), member(A, Args), Items), cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1),
     cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :-
-    (   memberchk(init(N, [E]), Inits) -> cpp_void_init_check(member, MT, E, L), Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]   % a void value refused in clang++'s words (1.6.14)
+    (   memberchk(init(N, [E]), Inits) -> cpp_void_init_check(member, MT, E, L), ( cpp_scalar_member_type(MT) -> E1 = '$member_init'(E) ; E1 = E ), Pre = [expr(L, assign('=', arrow(this, N), E1))|Pre1]   % a void value refused in clang++'s words (1.6.14); a scalar's value marked an initializer's (1.6.29, cpp_assign_int_ptr/3)
     ;   memberchk(init(N, []), Inits)                                                        % `second()' -- an EMPTY initializer VALUE-INITIALIZES ([dcl.init]/8): a scalar's zero, a class without constructors zero-filled (libc++'s __map_value_compare writes `: __comp_()' over an empty less<int>); left alone it was the member's garbage (7 32759 for pair<int, int>(piecewise_construct, forward_as_tuple(7), forward_as_tuple()))
     ->  ( cpp_scalar_member_type(MT) -> cpp_zero_of(MT, Z), Pre = [expr(L, assign('=', arrow(this, N), Z))|Pre1]
         ; cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1) )

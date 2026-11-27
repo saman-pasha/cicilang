@@ -1,1 +1,1 @@
-undeclared(data)
+use of undeclared identifier 'data'

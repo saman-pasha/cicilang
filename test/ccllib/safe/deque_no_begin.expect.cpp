@@ -1,1 +1,1 @@
-undeclared(begin)
+use of undeclared identifier 'begin'
