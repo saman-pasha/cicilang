@@ -389,6 +389,7 @@ cpp_mangle_basic(S, C) :- ( memberchk(int, S) ; memberchk(signed, S) ; memberchk
     ( memberchk(unsigned, S) -> C = j ; C = i ).
 cpp_fn_overloaded(F) :- atom(F), atomic_list_concat([op, _, K], '.', F), atom_number(K, _), !.   % A FREE OPERATOR SET'S NAME, `op.eq.2' exactly (an instance of one, `op.lt.2.c21.char...', is one function under its own name), IS ALWAYS AN OVERLOAD SET: every class's hidden friend `operator==' is `op.eq.2', and the first registered -- __tree_iterator's, alone at that moment -- was declared under the bare name, so once the others arrived the call's `op.eq.2.<keys>' named nothing and `__i == end()' stayed a comparison of two structs
 cpp_fn_overloaded(F) :- '$cpp_fn'(F, K1, _, yes, _), '$cpp_fn'(F, K2, _, yes, _), K1 \== K2, !.
+cpp_fn_overloaded(F) :- '$cpp_fn'(F, K, _, yes, O1), cpp_fn_variadic(O1), '$cpp_fn'(F, K, _, yes, O2), \+ cpp_fn_variadic(O2), !.   % one key with the ellipsis and without it (1.6.38, cpp_fn_name_va/5)
 cpp_fn_overloaded(F) :- '$cpp_fn'(F, K1, Ps1, yes, _), '$cpp_fn'(F, K2, Ps2, no, _), K1 \== K2, cpp_params_surely_differ(Ps1, Ps2), !.   % ONE DEFINITION BESIDE A DECLARATION OF OTHER PARAMETERS (0.181, below)
 %% ---- A CLASS'S ABI TAGS (0.236; the Itanium ABI's <abi-tags>, GCC's `abi_tag', as clang spells them) -----------------
 %% `B <source-name>' after the class's name, each tag once and sorted (the reader's marker abi_tag(Tags)), the name with its

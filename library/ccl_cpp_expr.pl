@@ -78,8 +78,8 @@ cpp_expr(_, scoped(Path, tmpl(M, TArgs0)), id(Thunk)) :- cpp_member_template_id(
 %% `&C::f' OF A STATIC MEMBER FUNCTION IS AN ORDINARY POINTER TO FUNCTION ([expr.unary.op]/3: a pointer to member is only
 %% for a non-static member; 0.160): the thunk the function's name as a value is (cpp_static_thunk). It took the member
 %% pointer road, `{ ptr, i64 }', and `int (*p)(int, int) = &M::sum;' was an `inttoptr' of a struct that LLVM refused
-cpp_expr(Ctx, addr(scoped(Path, N)), addr(id(Thunk))) :- atom(N), cpp_scope_class(Path, C), cpp_static_method(C, N, Name), !,
-    cpp_check_access(Ctx, C, N), cpp_static_thunk(C, N, Name, Thunk).
+cpp_expr(Ctx, addr(scoped(Path, N)), E) :- atom(N), cpp_scope_class(Path, C), cpp_static_method(C, N, Name), !,
+    cpp_check_access(Ctx, C, N), ( cpp_static_set(C, N) -> E = '$staticfn'(C, N) ; cpp_static_thunk(C, N, Name, Thunk), E = addr(id(Thunk)) ).   % several of the name: the target chooses (1.6.38, cpp_static_set/2)
 %% `&C::m' IS A POINTER TO MEMBER ([expr.unary.op]/4): the address of the one function this compiler emits for
 %% that method, wrapped in a cast to the member-pointer type so the deduction and the traits read it for what it
 %% is (cpp_type's memptr clause). A method with several overloads has no target here to choose by, a VIRTUAL one
@@ -112,7 +112,7 @@ cpp_expr(_, scoped(Path, N), _) :- memberchk(nonclass(A), Path), !, cpp_refuse(0
 cpp_expr(_, scoped(Path, N), id(K)) :- atom(N), cpp_ns_key(Path, N, K), K \== N, ccl_enum_value(K, _), !.   % `n2::x', an enumerator two namespaces declare: its key (cpp_qualify_enum, 0.127)
 cpp_expr(Ctx, scoped(Path, N), E) :- atom(N), cpp_enumerator(Ctx, Path, N, V), !, ( ( cpp_enum_path_tag(Ctx, Path, Tag) -> true ; cpp_ns_enum_tag(Path, N, _, Tag) -> true ; cpp_hdr_enum_tag(Path, N, Tag) ) -> E = cast(base([], [typedef(Tag)]), int(V)) ; E = int(V) ).   % ... OF ITS ENUM'S TYPE (0.127): a bare `int(V)', `k(Fruit::Pear)' chose `k(long)' over `k(Fruit)', and a template deduced an int   % A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (0.94): `Kind::ptr' asks the enumerators' table directly, since flattened to `id(ptr)' it would meet the local that now shadows the bare name
 cpp_expr(_, scoped(Path, N), id(GName)) :- atom(N), ( cpp_ns_key(Path, N, K) -> true ; K = N ), cpp_global_var(K, GName), !.   % ... a deeper namespace's colliding object by its key (0.100)   % `std::cout': a library header's extern GLOBAL, by the symbol the shipped binary exports (a scoped name is flattened in the lowering, so it must be taken here)
-cpp_expr(_, scoped([global], N), global_fn(N)) :- atom(N), ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), catch(ccl_gdeclared(N, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.   % `::k' NAMED AS A VALUE beside a local of its name, the file's function (1.6.34, cpp_global_callee/2): it was the local's value
+cpp_expr(_, scoped([global], N), global_fn(N)) :- atom(N), cpp_local_object(N), catch(ccl_gdeclared(N, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.   % `::k' NAMED AS A VALUE beside a local of its name, the file's function (1.6.34, cpp_global_callee/2): it was the local's value
 cpp_expr(_, scoped(Path, N), id(Name)) :- atom(N), \+ cpp_scope_class(Path, _), cpp_lazy_fn_value(N, Name), !.   % `std::hex' named as a value: the header's function, emitted (the bare name's road below)
 cpp_expr(_, scoped(Path, tmpl(N0, Args0)), E) :- atom(N0), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, N0, K), cpp_variable_template(K) -> N = K ; cpp_variable_template(N0), N = N0 ), !,   % A NAMESPACE-QUALIFIED VARIABLE TEMPLATE IS ITS VALUE (0.104): `std::is_same_v<A, B>' in an expression had its value put back INSIDE the scoped path, `scoped([std], bool(false))', which the lowering met as a name
     cpp_targ_values(Args0, Args), cpp_instantiate_variable(N, Args, E).   % ... BY ITS NAMESPACE KEY FIRST (0.132): `views::empty<int>' is `views.empty', libc++'s variable template, and the bare `empty' is the function template std::empty, whose instance over `int' named `__c.empty()'
@@ -120,7 +120,7 @@ cpp_expr(_, scoped(Path, N), cast(base([], [typedef(Tag)]), int(V))) :- atom(N),
 cpp_expr(Ctx, scoped(Path, N), E) :- cpp_scope_class(Path, C), !,
     (   cpp_static_value(C, N, V) -> E = V                                                        % C::value, a static const with a constant: the constant
     ;   cpp_static_use(C, N, Name) -> E = id(Name)
-    ;   cpp_static_method(C, N, Name) -> cpp_static_thunk(C, N, Name, Thunk), E = id(Thunk)   % `_Traits::eq' NAMED AS A VALUE: a plain function (below)
+    ;   cpp_static_method(C, N, Name) -> ( cpp_static_set(C, N) -> E = '$staticfn'(C, N) ; cpp_static_thunk(C, N, Name, Thunk), E = id(Thunk) )   % `_Traits::eq' NAMED AS A VALUE: a plain function (below); several of the name wait for the target (1.6.38)
     ;   cpp_static_body_now(Ctx), cpp_data_member(C, N, _) -> cpp_refuse_prog(static_member_use(N))   % ... and `S::a' so (1.6.28)
     ;   cpp_qualified_data_member(Ctx, C, N, E) -> true
     ;   nb_current('$cpp_uneval', yes), atom(C), cpp_data_member(C, N, Hops) -> cpp_null_object(C, P), cpp_access(P, N, Hops, E)   % AN UNEVALUATED OPERAND'S `S::a' with no object (1.6.31; [expr.prim.id.general]/4): typed through a null S -- in a lambda that captured no `this' it was `undeclared('S.a')'
@@ -419,6 +419,10 @@ cpp_static_fn_value(Ctx, N, E) :- atom(N), cpp_static_fn_class(Ctx, C),
     ;   Names = [_, _|_], E = '$staticfn'(O, N) ).
 cpp_static_fn_names(C, N, Names) :- cpp_class(C, cls(_, _, Ms, _, _, _)),
     findall(Name, ( member(method(_, Qs, _, N, Ps, _, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, N, Qs, Ps, Name) ), Names).
+%% SEVERAL STATIC MEMBER FUNCTIONS OF ONE NAME NAMED WITH THEIR CLASS AS A VALUE WAIT FOR THEIR TARGET, as the bare name does
+%% (1.6.38; [over.over]): `int (*pd)(double) = T::s' and `&T::s' beside `static int s(int)' took the first of the name, the
+%% wrong function, with no word -- clang++'s 71 was 31
+cpp_static_set(C, N) :- cpp_static_fn_names(C, N, [_, _|_]).
 cpp_static_fn_class(Ctx, C) :- atom(Ctx), Ctx \== none, !, C = Ctx.
 cpp_static_fn_class(none, C) :- cpp_class_ctx(C), C \== none, !.
 cpp_static_fn_class(Ctx, C) :- cpp_closure_this(Ctx, C).
@@ -511,7 +515,8 @@ cpp_static_thunk(C, M, Name, Thunk) :-
     atom_concat(Name, '.fn', Thunk),
     (   cpp_instance_done(Thunk) -> true
     ;   cpp_making(Thunk) -> true
-    ;   cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, R0, M, Ps0, _, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps0, Name), !,
+    ;   cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, R0, M, Ps0, V0, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps0, Name), !,
+        ( V0 == true, nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(static_member_ellipsis_value(M)) ; true ),   % its thunk passes no argument past the named ones (1.6.38; Not done)
         cpp_in_class(C, ( cpp_type_or_self(R0, R), cpp_resolved_params(Ps0, Ps1) )), cpp_thunk_params(Ps1, 1, Ps, Args),
         ccl_declare(Thunk, fn(R, Ps, false)),
         nb_getval('$cpp_making', K0), nb_setval('$cpp_making', [Thunk|K0]),
@@ -927,8 +932,14 @@ cpp_qualified_hides(N) :- nb_current('$cpp_qname', q(N0, Sc)), N0 == N, nb_getva
 %% one as the callee -- `::k(6)' and `n::k(6)' of a function emitted as `k' beside `int (*k)(int) = dbl;' called dbl, where
 %% clang++ calls the file's `k'. It is `call(global_fn(k), ...)', which the inference types by the file's declaration and
 %% the lowering calls by its symbol (ir_global_call/5)
-cpp_global_callee(call(id(N), As), call(global_fn(N), As)) :- atom(N), ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), catch(ccl_gdeclared(N, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.
+cpp_global_callee(call(id(N), As), call(global_fn(N), As)) :- atom(N), cpp_local_object(N), catch(ccl_gdeclared(N, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.
 cpp_global_callee(E, E).
+%% A LOCAL OBJECT OF THE NAME, NEVER A FUNCTION THAT A FRAME HOLDS (1.6.38): ccl_declare/2 puts a declaration into the innermost
+%% open frame, and a header's function declared while a body is walked stands there as `fn(...)' -- `floor', where `std::floor(2.7)'
+%% stood beside <chrono>: the call went to the file's `floor', chrono's template, and `stdabs.cpp', `fmtchrono.cpp' and
+%% `fmtchrono2.cpp' were `template_argument_free('_Rep')' and a failed static assertion from 1.6.34 on. A block's declaration
+%% of a function names the file's function itself
+cpp_local_object(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-LT, F), !, \+ catch(ccl_resolve_type(LT, fn(_, _, _)), _, fail).
 cpp_local_fn_pointer(F) :- cpp_local(F), ccl_locals(Fs), member(Fr, Fs), memberchk(F-T, Fr), !, catch(ccl_resolve_type(T, R), _, fail),
     ( R = ptr(_, X) ; R = ref(_, X) ; R = rref(_, X) ), catch(ccl_resolve_type(X, fn(_, _, _)), _, fail), !.
 %% the way to a member: o.$base...n by value, p->n or p->$base...n through a pointer
@@ -1386,10 +1397,11 @@ cpp_declared_nowhere(Path, F) :- \+ catch(cpp_ns_key(Path, F, _), _, fail), \+ c
     \+ catch(ccl_enum_value(F, _), _, fail), \+ catch(ccl_tag(F, _), _, fail), \+ catch('$cpp_tmplh'(F, _, _, _), _, fail).
 cpp_ns_words(Path, global) :- \+ ( member(S, Path), atom(S), S \== global ), !.
 cpp_ns_words(Path, ns(T)) :- findall(S, ( member(S, Path), atom(S), S \== global ), Ss), atomic_list_concat(Ss, '::', T).
-%% one function of the name, no overload and no template: its parameters and its ellipsis
+%% one function of the name, no overload and no template: its parameters and its ellipsis -- one key with the ellipsis and
+%% without it is two (1.6.38, cpp_fn_name_va/5)
 cpp_one_function(K, Ps, V) :- \+ catch(cpp_template(K, _, _), _, fail),
-    findall(Key, catch('$cpp_fn'(K, Key, _, _, _), _, fail), Ks0), sort(Ks0, Ks),
-    (   Ks = [Key] -> once(catch('$cpp_fn'(K, Key, Ps, _, O), _, fail)), ( cpp_fn_variadic(O) -> V = true ; V = false )
+    findall(Key-Vk, ( catch('$cpp_fn'(K, Key, _, _, Ok), _, fail), ( cpp_fn_variadic(Ok) -> Vk = true ; Vk = false ) ), Ks0), sort(Ks0, Ks),
+    (   Ks = [Key-V] -> once(catch('$cpp_fn'(K, Key, Ps, _, _), _, fail))
     ;   Ks == [], catch(ccl_declared(K, fn(_, Ps, V0)), _, fail), ( ( V0 == true ; nonvar(V0), V0 = q(V1, _), V1 == true ) -> V = true ; V = false ) ).
 %% A HEADER'S DELETED FUNCTION CALLED, and no overload that fits (0.219): libc++'s poison pill, `void strong_order() =
 %% delete;' inside std::__strong_order (libc++ 21; and weak_order, partial_order, iter_move kin), stands where ordinary lookup

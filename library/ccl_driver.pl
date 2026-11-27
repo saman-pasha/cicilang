@@ -602,6 +602,7 @@ dr_call_text(too_few_args_at_least_one(P), ['too few arguments to function call,
 dr_call_text(knr_arg_count(many, Fn), ['too many arguments in call to ''', Fn, '''']).
 dr_call_text(knr_arg_count(few, Fn), ['too few arguments in call to ''', Fn, '''']).
 dr_call_text(no_matching_call(Fn), ['no matching function for call to ''', S, '''']) :- dr_short_name(Fn, S).
+dr_call_text(ambiguous_call(Fn), ['call to ''', S, ''' is ambiguous']) :- dr_short_name(Fn, S).   % two overloads of one key, the ellipsis's and the other's (1.6.38, cpp_free_call_/5)
 dr_call_text(undeclared_call(N), ['call to undeclared function ''', N, '''; ISO C99 and later do not support implicit function declarations']).   % a name that nothing declares, in C (1.1.2, ir_undeclared/1)
 dr_call_text(undeclared_use(N), ['use of undeclared identifier ''', N, '''']).
 dr_call_text(cleanup_not_single(F), ['''cleanup'' argument ''', F, ''' is not a single function']).   % C++'s overloads named by a cleanup (1.6.8, cpp_cleanup_single/2)
@@ -660,6 +661,7 @@ dr_value_text(bad_dynamic_cast(A, B), ['cannot use dynamic_cast to convert from 
 dr_value_text(not_a_class(A), ['''', A, ''' is not a class type']).
 dr_value_text(dynamic_target(B), ['invalid target type ''', B, ''' for dynamic_cast; target type must be a reference or pointer type to a defined class']).
 dr_value_text(no_matching_member(M), ['no matching member function for call to ''', S, '''']) :- dr_short_name(M, S).
+dr_value_text(ambiguous_member(M), ['call to member function ''', S, ''' is ambiguous']) :- dr_short_name(M, S).   % a member with an ellipsis beside its plain twin (1.6.38, cpp_member_va_ambiguous/3)
 dr_value_text(no_matching_ctor(C), ['no matching constructor for initialization of ''', S, '''']) :- dr_class_spelled(C, S).
 dr_value_text(void_auto(N, T), ['variable ''', N, ''' with type ''', T, ''' has incompatible initializer of type ''void''']).
 dr_value_text(switch_operand(A), ['statement requires expression of integer type (''', A, ''' invalid)']).

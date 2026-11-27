@@ -77,7 +77,11 @@ cpp_fn_ready(F) :- atom(F), cpp_hdr_join(F), '$cpp_fn'(F, _, _, _, _), !.   % th
 %% is defined inline in the header and emitted where it is called, so the name must be loaded here. A load that
 %% REFUSES throws through (it marks the name loaded before it registers it, so a refusal swallowed here would
 %% leave the name marked and its templates unregistered ever after -- std::swap linked to nothing for a turn).
-cpp_fn_defined(F, Ps, D) :- ( '$cpp_fn'(F, _, Ps, yes, _) -> D = yes ; D = no ).
+cpp_fn_defined(F, Ps, D) :- ( '$cpp_fn'(F, _, Ps, yes, _) -> D = yes ; cpp_fn_own_def_of(F, Ps) -> D = yes ; D = no ).
+%% A PROTOTYPE OF THE PROGRAM'S OWN IS ITS DEFINITION'S FUNCTION, by the parameters' key (1.6.38): `int g(int);' and `int
+%% g(double);' before `main', defined after it, `g(4)' named the bare `g' -- the call took the prototype's parameters, which
+%% name nothing, and no definition has them whole --, where the definitions were `g.int' and `g.double', a link error
+cpp_fn_own_def_of(F, Ps) :- cpp_params_key(Ps, K), '$cpp_fn'(F, K, _, yes, own(_)), !.
 cpp_exact_params([], []).
 cpp_exact_params([P|Ps], [A|As]) :- ( P = param(T, _) ; P = param(T, _, _) ), cpp_arg_exact(T, A), cpp_exact_params(Ps, As).
 cpp_arg_exact(PT, A) :- cpp_fn_template_ref(A, F), !, cpp_fn_target(PT, FnT), cpp_target_deduces(F, FnT).   % a template's name the target deduces is exact
@@ -130,8 +134,12 @@ cpp_free_call(F, Ps, D, As, E) :- cpp_deleted_call(F, Ps, As), cpp_free_call_(F,
     (   E0 = call(id(Name), _), '$cpp_consteval'(Name)                                             % a consteval function is EVALUATED AT COMPILE TIME ([dcl.constexpr]/13; 0.99: it ran at run time like constexpr since 0.42)
     ->  ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_immediate_context -> E = E0 ; cpp_refuse(0, consteval_call_not_constant(F)) )
     ;   E = E0 ).
+%% more arguments than named parameters name the overload with the ellipsis (1.6.38, cpp_fn_name_va/5); as many or fewer
+%% fit both alike, and the call is ambiguous, as clang++ says ([over.ics.rank]: no conversion of an argument tells them apart)
 cpp_free_call_(F, Ps, D, As, call(id(Name), As2)) :-
-    cpp_fn_name(F, Ps, D, Name), cpp_use_fn(F, Ps, Name), cpp_use_mangled(F, Ps, Name),
+    ( length(As, NA), length(Ps, NP), NA > NP -> V = true ; V = false ),
+    ( V == false, D == yes, cpp_fn_va_twin(F, Ps) -> cpp_refuse_prog(ambiguous_call(F)) ; true ),
+    cpp_fn_name_va(F, Ps, V, D, Name), cpp_use_fn(F, Ps, Name), cpp_use_mangled(F, Ps, Name),
     cpp_fill_defaults(Name, As, As1), cpp_ref_args(Name, As1, As2).
 %% a mangled name is nothing this compiler defines, so the unit needs its PROTOTYPE: the item the lowering
 %% takes a `declare' line from, emitted once, and the symbol table's entry so the call has a type
@@ -214,7 +222,7 @@ cpp_register_([function(_, _, Ret0, operator(Op), Ps, V, Body)|Is]) :- !,
     cpp_plain_params(Ps, Ps1), cpp_type_or_self(Ret0, Ret), ccl_declare(Name, fn(Ret, Ps1, V)), cpp_note_defaults(Name, Ps),
     cpp_register_(Is).
 cpp_register_([function(_, _, Ret, N, Ps, V, Body)|Is]) :- atom(N), !,
-    cpp_fn_body_mark(Body, D), cpp_fn_name(N, Ps, D, Name), cpp_note_defaults(Name, Ps),
+    cpp_fn_body_mark(Body, D), cpp_fn_name_va(N, Ps, V, D, Name), cpp_note_defaults(Name, Ps),
     ( Name == N -> true ; ccl_declare(Name, fn(Ret, Ps, V)) ),                                     % an overload's own name is not in the table the reader built
     cpp_register_(Is).
 cpp_register_([dtor_def(_, C, _, _)|Is]) :- !, asserta('$cpp_dtor_def'(C)), cpp_register_(Is).

@@ -346,7 +346,9 @@ cpp_note_hdr_fns([function(L, Sto, Ret, operator(Op), Ps, V, Body)|Is]) :- Body 
     cpp_note_hdr_fns([function(L, Sto, Ret, N0, Ps, V, Body)|Is]).
 cpp_note_hdr_fns([I|Is]) :- cpp_note_fns([I]), cpp_note_hdr_fns(Is).
 cpp_fn_put(N, Ps, Body, Origin) :- ( Body == none -> D = no ; D = yes ), cpp_params_key(Ps, K),
-    ( '$cpp_fn'(N, K, _, D, _) -> true ; assertz('$cpp_fn'(N, K, Ps, D, Origin)) ).
+    ( '$cpp_fn'(N, K, _, D, O0), cpp_fn_same_ellipsis(O0, Origin) -> true ; assertz('$cpp_fn'(N, K, Ps, D, Origin)) ).
+%% two noted functions of one name and key are one where both have the ellipsis or neither has it (1.6.38, below)
+cpp_fn_same_ellipsis(O1, O2) :- ( cpp_fn_variadic(O1) -> cpp_fn_variadic(O2) ; \+ cpp_fn_variadic(O2) ).
 %% A FUNCTION DECLARED DELETED (0.257): `'$cpp_fn_del'(N, Key, Why)', its reason or none, which a call that chooses it asks
 %% (cpp_deleted_call/3). It is a candidate as any declaration is ([over.match]/2: a deleted function takes part in overload
 %% resolution), and chosen it was called by a name nothing defines: `undeclared(g)'
@@ -370,6 +372,15 @@ cpp_fn_name(F, Ps, no, Name) :- cpp_mangled_name(F, Ps, Name), !.               
 %% call named `swap.Box_r.Box_r', declared nowhere
 cpp_fn_name(F, Ps, yes, Name) :- cpp_hdr_join(F), cpp_fn_overloaded(F), !, cpp_params_key(Ps, K), atomic_list_concat([F, '.', K], Name).
 cpp_fn_name(F, _, _, F).
+%% A DEFINITION WITH AN ELLIPSIS BESIDE ONE OF THE SAME PARAMETERS WITHOUT IT IS AN OVERLOAD OF ITS OWN (1.6.38;
+%% [dcl.fct]/4, [over.load]: the ellipsis is part of the function's type), named by the parameters' key and `z', the
+%% Itanium ABI's code of an ellipsis: `int f(int)' and `int f(int, ...)' were noted under one key, the first kept, and
+%% both were emitted as `f' -- LLVM's `invalid redefinition of function 'f'' --, and `f(1, 2)' was `no matching function
+%% for call to 'f''. A call that passes more arguments than the named parameters takes the one with the ellipsis
+%% (cpp_free_call_/5); one that passes as many takes the other, where clang++ says the call is ambiguous (Not done)
+cpp_fn_name_va(F, Ps, V, D, Name) :- V == true, D == yes, cpp_fn_va_twin(F, Ps), !, cpp_fn_name(F, Ps, D, Name0), atom_concat(Name0, '.z', Name).
+cpp_fn_name_va(F, Ps, _, D, Name) :- cpp_fn_name(F, Ps, D, Name).
+cpp_fn_va_twin(F, Ps) :- cpp_params_key(Ps, K), '$cpp_fn'(F, K, _, yes, O1), cpp_fn_variadic(O1), '$cpp_fn'(F, K, _, yes, O2), \+ cpp_fn_variadic(O2), !.
 
 %% ---- items ----------------------------------------------------------------------
 cpp_items([], []).
@@ -423,7 +434,7 @@ cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T0, Init)]), [declaration(L
     cpp_static_object_init(C, Sto, Name, T, Init, Init1, Init2),                                    % a class-typed one constructed (0.186)
     cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init2)], Vs1), ( Sto == inline -> Sto1 = linkonce ; Sto1 = Sto ).   % an inline one linkonce (0.192); a const one keeps its class's external linkage
 cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), [function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]) :- cpp_class_l(C, _), !,
-    cpp_sto_quals(Sto, Qs, Sto0), cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT),
+    cpp_sto_quals(Sto, Qs1, Sto0), cpp_member_va_quals(C, M, Ps, V, Qs1, Qs), cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT),
     cpp_pf_decl_quals(C, M, Ps, Qs, FQs0), ( cpp_sto_word(Sto, inline) -> FQs = FQs0 ; FQs = [out_of_line|FQs0] ),   % defined out of its class and not inline: its closures are clang's `$_N' (0.236)
     cpp_with_fsig(fsig(member, C, M, Ret, Ps, V, FQs, none), cpp_method_body(C, Ret, [param(ThisT, this)|Ps1], Body, Body1)),
     cpp_own_fns([function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]), cpp_note_nce_free(L, M, Name).
@@ -442,7 +453,7 @@ cpp_item(function(L, Sto, Ret0, operator(Op), Ps, V, Body), [function(L, Sto, Re
 cpp_item(function(_, _, _, N, Ps, _, _), []) :- atom(N), cpp_auto_params(Ps, 0, _, TPs), TPs \== [], !.   % an abbreviated template: instantiated on use
 cpp_item(function(L, Sto, Ret0, N, Ps, V, Body), [function(L, Sto, Ret, Name, Ps1, V, Body1)]) :- !,
     cpp_nx_def_take(NxD),                                                                          % its conditional noexcept (0.199), from the clause above
-    cpp_fn_body_mark(Body, D), cpp_fn_name(N, Ps, D, Name),                                        % an overloaded name's definition carries its parameters' keys
+    cpp_fn_body_mark(Body, D), cpp_fn_name_va(N, Ps, V, D, Name),                                  % an overloaded name's definition carries its parameters' keys, and an ellipsis's (1.6.38)
     cpp_fsig_marks(Sto, N, FMs), cpp_fsig_own(N, fsig(free, none, N, Ret0, Ps, V, FMs, none), Sig),   % what its own name says (0.166): an instance's, its pattern's; inline, static, C's linkage for its local names (0.236)
     cpp_plain_params(Ps, Ps1), ( cpp_auto_result(Ret0) -> cpp_with_fsig(Sig, cpp_fn_auto_ret(Ret0, Ps1, Body, Ret)), ccl_declare(Name, fn(Ret, Ps1, V)) ; cpp_decltype_ret(Ret0, Ps, Ret) -> ccl_declare(Name, fn(Ret, Ps1, V)) ; cpp_type(Ret0, Ret), cpp_declare_resolved(Name, Ret0, Ret, Ps1, V) ),   % C++14: auto f(...): the first return's type -- DECLARED under the deduced type (0.100): the table held the raw `auto', so `auto f = make(3)' in a later function typed the call as `auto' and asked again without end; [dcl.spec.auto]: such a function is defined before its type is used, so the item order serves
     ( cpp_fn_nx_guarded(NxD, N, Ps1, Body) -> cpp_nx_wrap(L, Body, BodyG) ; BodyG = Body ), cpp_with_fsig(Sig, cpp_with_fn(N, cpp_method_body(none, Ret, Ps1, BodyG, Body1))),   % the function's own name is what a friend declaration names (0.117)

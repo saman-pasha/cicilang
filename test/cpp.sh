@@ -223,6 +223,12 @@ for pair in "cleanup_overload:'cleanup' argument 'bye' is not a single function"
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
+echo "-- and an overload with an ellipsis beside its plain twin: a call that both fit, in clang++'s words, and a static one's value (1.6.38)"
+for pair in "va_ambiguous:va_ambiguous.cpp:4: error: call to 'f' is ambiguous" "va_ambiguous_member:va_ambiguous_member.cpp:3: error: call to member function 'm' is ambiguous" "va_static_value:va_static_value.cpp:3: error: not lowered yet: static_member_ellipsis_value(s)" "va_few_qualified:va_few_qualified.cpp:5: error: no matching function for call to 'f'"; do
+  n=${pair%%:*}; what=${pair#*:}
+  got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
+  case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
+done
 # A VOID VALUE IS NO VALUE (1.6.14; [basic.fundamental]/13, [expr.call]/7, [dcl.init.general]/16): sixty-three bodies, each
 # at line 3, refused in clang++'s words at clang++'s line -- a variable, a member, an element, a new value, a return object, a
 # parameter and a reference initialized by one, a call of a function, an overload, a template, a member and a constructor

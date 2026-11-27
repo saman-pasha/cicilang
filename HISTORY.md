@@ -354,6 +354,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.35 | new memory handed out of a block, a library's out-writers, records from static storage, a returned array | one copy of an outer scope takes new memory at its pointer's end; a freed pointer's address to asprintf, vasprintf or posix_memalign is anchored and a held one's a leak, and a condition anchors its addresses; a record from static storage or filled with static values is a static result, and a local copied from static storage holds static pointers, so their free is refused; a local's array returned is a borrow that leaves; 1.6.30's chain carried; one chain over the newest tree (reader 218, lowering 204) |
 | 1.6.36 | the program's own headers in the words, unknown type names, a statement expression's statics | an error in a function of the program's own header names the header, and a header that no read takes stops the build at its line; a type name that nothing declares is clang's `unknown type name` at its declaration's line; a statement expression's static local is static storage, so its free is refused; 1.6.30's and 1.6.31's broken copies carried (reader 218, lowering 205) |
 | 1.6.37 | include chains before a header's error, a block's unknown type names, a compound literal's block | an error in a header is led by clang's `In file included from` lines; a block's unknown type name is clang's use of an undeclared identifier, a for's own among them; a compound literal that a pointer borrows ends with its block; two stale texts of RULES.md corrected (reader 218, lowering 206) |
+| 1.6.38 | overloads with an ellipsis, prototypes before definitions, static overloads as values | C++: a function or member with an ellipsis beside its plain twin is an overload of its own, `.z` after its key, a call that both fit clang++'s ambiguity; a prototype of the program's own names its definition; `T::s` of several static members waits for its target; 1.6.34's qualified call no longer takes a frame's function for a local, which the chain's C++ gate found (reader 218, lowering 207) |
 
 ## M5 — the C++ mode
 
@@ -26448,3 +26449,93 @@ strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran,
   (the versions and the fixtures).
 
 The module 1.6.37, the reader 218 and the lowering 206.
+
+## 1.6.38 — overloads with an ellipsis, prototypes before definitions, static overloads as values
+
+**1.6.38: at the user's word "Fix overload naming and run full gate": a C++ overload with an ellipsis beside its plain
+twin is an overload of its own, free and member, and two older faults of the naming beside it are closed -- overloads
+declared before their definitions, and several static members named with their class as values. The whole chain ran, the
+first since 1.6.30's: its C++ gate found a fault of 1.6.34, mended here, and a second chain ran over the tree of the
+commit.**
+
+1. C++: A FUNCTION WITH AN ELLIPSIS BESIDE ONE OF THE SAME PARAMETERS WITHOUT IT IS AN OVERLOAD OF ITS OWN
+   (`cpp_fn_same_ellipsis/2` in `cpp_fn_put/4`, `cpp_fn_name_va/5`, `cpp_fn_overloaded/1`; [dcl.fct]/4, [over.load]):
+   the parameters' key holds no ellipsis, the note kept the first of the two, and `int f(int)` and `int f(int, ...)`
+   were both `f` -- LLVM's `invalid redefinition of function 'f'` -- and `f(1, 2)` was `no matching function for call to
+   'f'`. The one with the ellipsis is `F.<keys>.z`, `z` the Itanium ABI's code of an ellipsis; a call of more arguments
+   than the named parameters takes it, a call of as many or fewer is clang++'s `call to 'f' is ambiguous`, and a
+   pointer's target names the one of its own ellipsis (`cpp_fn_of_target/5`). `cpp_one_function/3` counts the two as
+   two, so that `::f()` beside them is clang++'s `no matching function for call to 'f'`, where 1.6.37 said `too few
+   arguments to function call`. The found form was Not done's (1.6.24).
+2. C++: A MEMBER OF THE SAME FORM IS MARKED IN ITS CLASS'S RECORD (`cpp_mark_va_twins/2` at the registration,
+   `cpp_mangle_q/5`'s `.z`, `cpp_member_va_quals/6` for an out-of-class definition, `cpp_member_va_ambiguous/3`): item
+   1's probes found `T.m.int` defined two times; every road that names a member reads the record's qualifiers, so the
+   mark reaches them all. Twins have one name, key, constness, reference qualifier and staticness: a const plain member
+   beside a non-const variadic one is no pair, and `x.c(1)` calls the variadic one, as clang++ does. A member pointer's
+   target and a static member's value take the one of their own ellipsis; a call that both fit is `call to member
+   function 'm' is ambiguous`. A static member with an ellipsis taken as a value is refused by name: its thunk passes no
+   argument past the named ones (a new record of Not done).
+3. C++: A PROTOTYPE OF THE PROGRAM'S OWN IS ITS DEFINITION'S FUNCTION, BY THE KEY (`cpp_fn_own_def_of/2` in
+   `cpp_fn_defined/3`): item 1's probes found that overloads declared before `main` and defined after it did not link,
+   with no ellipsis too -- `int g(int); int g(double);` and `g(4)` called the bare `g`, since the call took the
+   prototype's parameters, which no definition has whole, where the definitions were `g.int` and `g.double`. 1.6.37 gave
+   the same link error.
+4. C++: SEVERAL STATIC MEMBERS OF ONE NAME NAMED WITH THEIR CLASS AS A VALUE WAIT FOR THEIR TARGET (`cpp_static_set/2`):
+   `int (*pd)(double) = T::s` and `&T::s` beside `static int s(int)` took the first of the name, the wrong function with
+   no word -- 1.6.37 printed `31 31 31` where clang++ prints `31 71 72`. The bare name waited since 0.126.
+5. A NAMESPACE'S OVERLOAD SET NAMED AS A VALUE, `n::h` beside `n::h(double)`, is `use of undeclared identifier 'h'` in
+   1.6.37 too: a new record of Not done, since the target's road takes a bare name alone.
+6. C++, THE CHAIN'S FIND: 1.6.34'S QUALIFIED CALL BESIDE A LOCAL OF ITS NAME TOOK A FRAME'S FUNCTION FOR THE LOCAL
+   (`cpp_local_object/1` in `cpp_global_callee/2` and in `::k`'s value): `ccl_declare/2` puts a declaration into the
+   innermost open frame, and a header's `floor`, declared while `main`'s body was walked, stood there as `fn(...)`, so
+   that `std::floor(2.7)` beside `<chrono>` was the file's `floor` -- chrono's template,
+   `template_argument_free('_Rep')` -- and `std::format` of a duration a failed static assertion. The first chain's C++
+   gate failed `stdabs.cpp`, `fmtchrono.cpp` and `fmtchrono2.cpp`; over a copy of its warm HOME, 1.6.30's and 1.6.33's
+   trees built `stdabs.cpp`, 1.6.34's to 1.6.38's did not, and a copy of 1.6.38 without `cpp_global_callee/2`'s rewrite
+   built it; a trace of the rewrite named the frame's `floor`. No chain had run since 1.6.30's, and no pool of 1.6.34 to
+   1.6.37 held the three. The local is an object now -- a pointer or a reference to a function, as 1.6.34's fixtures
+   hold --, and the five fixtures, `qualglobal.cpp` and `qualshadow.cpp` among them, print their expectations over the
+   warm HOME.
+
+`test/cpp/run/varoverload.cpp` holds items 1 to 4 -- free functions and members, in and out of their class, static and
+const, pointers and member pointers of both types, prototypes before their definitions, static overloads as values, a
+variadic static member before its twin, a const member beside a variadic one --, and clang++ 23 and this step print it
+alike; the C++ gate's `va_ambiguous.cpp`, `va_ambiguous_member.cpp`, `va_few_qualified.cpp` and `va_static_value.cpp`
+hold the refusals, the first three at clang++'s lines and in its words.
+
+THE NETS, BEFORE THE PORT. Over the copy: the flow gate GREEN in 488 s; the pool of 50 C++ run fixtures that reach an
+ellipsis, a member pointer, a static member function or an overload set, each built as the C++ gate builds it over a
+HOME of its own, 50 the same as their expectations, in 84 s -- each build a second or two, the probe's first sample of
+its memory after its end, and a build by hand over a fresh HOME 0.84 s, which wrote its summaries there. Every probe of
+the step built by clang++ 23 and by this step. Cocolog's master is its pin, b645756.
+
+THE BROKEN COPIES: eighteen, each run from a copy of the copy over a fresh HOME. Seventeen are caught. Three were caught
+by nothing at first and led to changes: VO7 took the target's road's test of an entry's ellipsis away, and the name
+comes from the target's ellipsis whichever entry gives the parameters, so the test held nothing and is out (VO7 breaks
+the ellipsis itself now, caught); VO6 took `cpp_one_function/3` back to the keys alone, which `va_few_qualified.cpp`
+catches; VM7 took the qualifiers out of a twin's key, which the fixture's const member beside a variadic one catches.
+PD2, a definition of any origin for a prototype, is caught by none over `varoverload.cpp` and seven fixtures of
+libc++'s: it guards a header's declaration, whose symbol is the shipped library's, against a definition of the header's
+own.
+
+THE FIRST CHAIN, over the tree of items 1 to 5, the toolchain check strict, over LLVM 23 and a fresh HOME, in 3906 s:
+toolchain, flow (487 s), reader, compile (34 s), driver (282 s), objects, proof, cross (320 s), libcxx (214 s) and
+ccllib (1351 s) GREEN; THE C++ GATE RED in 1206 s, its three failures item 6's. THE CHAIN, OVER THE TREE OF THE COMMIT,
+in the same form, in 3891 s: the toolchain check strict, flow (473 s), reader (5 s), compile (33 s, 478 ok), driver (271
+s, 179 ok), objects, proof, cross (296 s, 290 ok), libcxx (200 s), cpp (1183 s, 1272 ok -- item 6's three and the step's
+five among them) and ccllib (1423 s; thirty-six programs in three runs, 189 refused, 21 alone) GREEN. No CI job ran, by
+the owner's rule of 0.271.
+
+- `library/ccl_cpp.pl` (`cpp_fn_put/4`, `cpp_fn_same_ellipsis/2`, `cpp_fn_name_va/5`, `cpp_fn_va_twin/2`, `cpp_item/2`'s
+  definitions); `library/ccl_cpp_mangle.pl` (`cpp_fn_overloaded/1`); `library/ccl_cpp_library.pl` (`cpp_free_call_/5`,
+  `cpp_register_/1`, `cpp_fn_defined/3`, `cpp_fn_own_def_of/2`); `library/ccl_cpp_class.pl` (`cpp_register_class_/5`,
+  `cpp_mark_va_twins/2` and its helpers, `cpp_member_va_quals/6`); `library/ccl_cpp_overload.pl` (`cpp_mangle_q/5`,
+  `cpp_method/5`, `cpp_member_va_ambiguous/3`); `library/ccl_cpp_stmt.pl` (`cpp_conv_to/4`, `cpp_fn_of_target/5`,
+  `cpp_va_eq/2`, `cpp_static_of_target/7`); `library/ccl_cpp_expr.pl` (`cpp_one_function/3`, `cpp_expr/3`'s scoped
+  statics, `cpp_static_set/2`, `cpp_static_thunk/4`, `cpp_global_callee/2`, `cpp_local_object/1`);
+  `library/ccl_driver.pl` (the two ambiguities' words); `library/ccl_ir.pl` (the lowering 207); `test/cpp.sh` (four
+  refusals); the step's fixtures; the module's version.
+- RULES.md (the rules in their topics, 1.6.34's rule mended; Not done: one record narrowed, two new), HISTORY.md,
+  CLAUDE.md (the versions and the fixtures).
+
+The module 1.6.38, the reader 218 and the lowering 207.

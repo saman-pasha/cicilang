@@ -4764,16 +4764,21 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   emitted twice, a redefinition LLVM refused at every `std::any a = 5;`. `staticfn.cpp`, `stdstringfind.cpp`,
   `staticaddr.cpp`. (0.100, 0.191)
 - A STATIC MEMBER FUNCTION NAMED BARE AS A VALUE is that thunk too (`cpp_static_fn_value/3`, the identifier road of
-  `cpp_expr`): `fn = prep;` in a member's body, `Buf{16, prep}` in a base's initializer, the name found in the class being
-  walked, its bases (`cpp_static_fn_owner/3`) and the classes enclosing it, a closure's included. The static functions of a
-  class are `'$cpp_sfn'(Class, Name)` facts written beside the light record (`cpp_class_put`), so a name that is no static
-  function's costs one failed lookup per class. Only a STATIC function is a candidate for a name used as a value
-  ([over.over]; a non-static member needs `&C::f`): libc++ 21's `__allocating_buffer` declares a member `__prepare_write(size_t)`
-  beside the static `__prepare_write(__output_buffer &, size_t)` and hands the name to the base's constructor -- one static
-  function, the thunk. SEVERAL static functions of the name are an overload set that waits for its target
-  (`'$staticfn'(C, N)`, like `'$memaddr'`): `cpp_conv_to` chooses by the target's parameter keys, and the assignment, a
-  member initialized from one and an argument all convert (`cpp_overload_marker/1`); a marker no target chose reaches the
-  lowering and is refused by name (`expr('$staticfn'(...))`). It was `undeclared(prep)`. `staticfnval.cpp`. (0.100, 0.126)
+  `cpp_expr`): `fn = prep;` in a member's body, `Buf{16, prep}` in a base's initializer, the name found in the class
+  being walked, its bases (`cpp_static_fn_owner/3`) and the classes enclosing it, a closure's included. The static
+  functions of a class are `'$cpp_sfn'(Class, Name)` facts written beside the light record (`cpp_class_put`), so a name
+  that is no static function's costs one failed lookup per class. Only a STATIC function is a candidate for a name used
+  as a value ([over.over]; a non-static member needs `&C::f`): libc++ 21's `__allocating_buffer` declares a member
+  `__prepare_write(size_t)` beside the static `__prepare_write(__output_buffer &, size_t)` and hands the name to the
+  base's constructor -- one static function, the thunk. SEVERAL static functions of the name are an overload set that
+  waits for its target (`'$staticfn'(C, N)`, like `'$memaddr'`): `cpp_conv_to` chooses by the target's parameter keys,
+  and the assignment, a member initialized from one and an argument all convert (`cpp_overload_marker/1`); a marker no
+  target chose reaches the lowering and is refused by name (`expr('$staticfn'(...))`). It was `undeclared(prep)`.
+  `staticfnval.cpp`. SEVERAL STATIC FUNCTIONS OF THE NAME NAMED WITH THEIR CLASS, `T::s` and `&T::s`, WAIT FOR THE
+  TARGET AS THE BARE NAME DOES (1.6.38; `cpp_static_set/2` in `cpp_expr/3`): they took the first of the name, the wrong
+  function with no word -- `int (*pd)(double) = T::s` beside `static int s(int)` called `s(int)`, 31 where clang++
+  prints 71; the target takes the one of its own ellipsis first (`cpp_static_of_target/7`). `varoverload.cpp`. (0.100,
+  0.126, 1.6.38)
 - A bare call of a static member, a static method or a static member TEMPLATE, passes no object (`cpp_static_bare`).
   Why: a friend template walked in its class called `cur(i)` with an undeclared `this`. `friendtmpl.cpp`. (0.115)
 - The CHOSEN function decides whether a bare call passes the object, never the name (`cpp_static_bare/3`, asked with the
@@ -7598,12 +7603,17 @@ is in `test/cpp/run/`.
   `ir_lval_/4`): the flattened bare name was the local's to the lowering, so `int (*k)(int) = dbl; return ::k(6);`
   called `dbl`, where clang++ calls the file's `k`; where a frame holds a local of the name and the file declares a
   function of it, the call is the node `global_fn(k)`, which the lowering calls by its symbol, and `::k` as a value is
-  the function's address. A LOCAL POINTER TO A FUNCTION IS CALLED THROUGH BESIDE THE FILE'S OVERLOADS OF ITS NAME
-  (1.6.34; [basic.lookup.unqual]/1: the local hides them; `cpp_local_fn_pointer/1`): `int (*ov)(int) = dbl; ov(3)`
-  beside `ov(int)` and `ov(double)` was the overloads' choice. `test/cpp/run/qualglobal.cpp`, which clang++ 23 prints
-  alike: a class's static member and a namespace's function of the name stay theirs, and a closure's capture of the
-  local stands beside `::k`. The driver gate's twenty-four bodies against clang++ 23; `test/cpp/run/castcalls.cpp`
-  holds the counts, the defaults and the ellipses that C++ takes. (0.302, 1.6.26, 1.6.27, 1.6.28, 1.6.34)
+  the function's address. THE LOCAL IS AN OBJECT, NEVER A FUNCTION THAT A FRAME HOLDS (1.6.38; `cpp_local_object/1`):
+  `ccl_declare/2` puts a declaration into the innermost open frame, and a header's function declared while a body is
+  walked stands there as `fn(...)` -- with `<chrono>`, `std::floor(2.7)` went to the file's `floor`, chrono's template,
+  and the C++ gate's `stdabs.cpp`, `fmtchrono.cpp` and `fmtchrono2.cpp` failed from 1.6.34 on, which no chain ran until
+  1.6.38's; a block's declaration of a function names the file's function itself. A LOCAL POINTER TO A FUNCTION IS
+  CALLED THROUGH BESIDE THE FILE'S OVERLOADS OF ITS NAME (1.6.34; [basic.lookup.unqual]/1: the local hides them;
+  `cpp_local_fn_pointer/1`): `int (*ov)(int) = dbl; ov(3)` beside `ov(int)` and `ov(double)` was the overloads' choice.
+  `test/cpp/run/qualglobal.cpp`, which clang++ 23 prints alike: a class's static member and a namespace's function of
+  the name stay theirs, and a closure's capture of the local stands beside `::k`. The driver gate's twenty-four bodies
+  against clang++ 23; `test/cpp/run/castcalls.cpp` holds the counts, the defaults and the ellipses that C++ takes.
+  (0.302, 1.6.26, 1.6.27, 1.6.28, 1.6.34)
 
 ### Constness, value category and reference binding
 
@@ -7798,6 +7808,29 @@ is in `test/cpp/run/`.
   registered at the first call of `std::swap`, and the program's `void swap(Box &, Box &)` was emitted as `swap` before
   its body made that call, while `main`'s call named `swap.Box_r.Box_r`, declared nowhere (`noexceptlib.cpp`,
   `nslibglobal.cpp` and `stdnames.cpp` over 22). (0.56, 0.61, 0.181, 0.227)
+- A FUNCTION WITH AN ELLIPSIS BESIDE ONE OF THE SAME PARAMETERS WITHOUT IT IS AN OVERLOAD OF ITS OWN (1.6.38;
+  [dcl.fct]/4, [over.load]; `cpp_fn_same_ellipsis/2` in `cpp_fn_put/4`, `cpp_fn_name_va/5`, `cpp_fn_overloaded/1`): the
+  parameters' key has no ellipsis, and the note kept the first of the two -- `int f(int)` and `int f(int, ...)` were
+  both emitted as `f`, LLVM's `invalid redefinition of function 'f'`, and `f(1, 2)` beside them was `no matching
+  function for call to 'f'`. The one with the ellipsis is `F.<keys>.z`, `z` the Itanium ABI's code of an ellipsis. A
+  call that passes more arguments than the named parameters takes it (`cpp_free_call_/5`); one that passes as many or
+  fewer fits both alike ([over.ics.rank]) and is clang++'s `call to 'f' is ambiguous`. A pointer's target takes the one
+  of its own ellipsis (`cpp_fn_of_target/5` in `cpp_conv_to/4`), and `cpp_one_function/3` counts the two as two, so that
+  `::f()` beside them is clang++'s `no matching function for call to 'f'`, where it was `too few arguments to function
+  call`. A MEMBER is marked `ellipsis_twin` among its qualifiers in the class's record at its registration
+  (`cpp_mark_va_twins/2` in `cpp_register_class_/5`), which every road that names a member reads, and is
+  `C.<name>.<keys>.z` (`cpp_mangle_q/5`); a twin has the same name, key, constness, reference qualifier and staticness,
+  and a member template is not marked. An out-of-class definition takes its declaration's mark
+  (`cpp_member_va_quals/6`), a member pointer's target its ellipsis, and a call that both fit is `call to member
+  function 'm' is ambiguous` (`cpp_member_va_ambiguous/3` in `cpp_method/5`). A static member with an ellipsis taken as
+  a value is refused by name (Not done). `test/cpp/run/varoverload.cpp`; the C++ gate's `va_ambiguous.cpp`,
+  `va_ambiguous_member.cpp`, `va_few_qualified.cpp` and `va_static_value.cpp`. (1.6.38)
+- A PROTOTYPE OF THE PROGRAM'S OWN IS ITS DEFINITION'S FUNCTION, BY THE PARAMETERS' KEY (1.6.38; `cpp_fn_own_def_of/2`
+  in `cpp_fn_defined/3`): overloads declared before `main` and defined after it -- `int g(int); int g(double);` -- named
+  the bare `g` at the call, which took the prototype's parameters, which name nothing and which no definition has whole,
+  so that the call was no definition's; the definitions were `g.int` and `g.double`, and the link failed, `undefined
+  reference to 'g'`. Only a definition of the program's own (`own(_)`) answers: a header's declaration keeps its Itanium
+  symbol. `varoverload.cpp`. (1.6.38)
 - An EXACT overload has as many parameters as arguments, each one, resolved (`cpp_type_or_self/2`), unreffed and bare,
   equal to its argument's type (`cpp_arg_exact/2`); a function is exact for a function pointer of its type. (0.56, 0.78)
 - A header's templates and functions of a name join the program's on the first ask (`cpp_hdr_join/1` in
@@ -17159,11 +17192,16 @@ Declarations topic of the C++ reader).
   the first one's -- ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two
   macro files of one predicate that a process loaded (the bullet below) still make one function two times with no word.
   IN C++ the walk is the desugaring's since 1.6.24, over the file's own items: a namespace's two definitions, and a
-  header's, are LLVM's to meet; a variadic overload, `int f(int, ...)` beside `int f(int)`, is LLVM's `invalid
-  redefinition of function 'f'`, where clang++ takes both -- the two are mangled as one (an older fault, found at
-  1.6.24).
+  header's, are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own since 1.6.38.)
 ### C++ language
 
+- C++: A STATIC MEMBER FUNCTION WITH AN ELLIPSIS TAKEN AS A VALUE IS REFUSED BY NAME (found at 1.6.38): `not lowered
+  yet: static_member_ellipsis_value(s)`, where clang++ takes it. The value of a static member is a thunk over its named
+  parameters that passes the null `this` (the topic of classes), and a thunk passes no argument past the named ones. In
+  a library's body the thunk is made as before, over the named parameters alone.
+- C++: A NAMESPACE'S OVERLOAD SET NAMED AS A VALUE, `int (*p)(int) = n::h` beside `n::h(double)`, is `use of undeclared
+  identifier 'h'`, where clang++ takes it (found at 1.6.38, an older fault: 1.6.37 gives the same words): the target's
+  road takes a bare name and its keys (`cpp_conv_to/4` on `id(F)`), and the qualified name reaches it as neither.
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only
   the names that collide in it; 0.218, 0.219 and 0.221 take a qualified and an unqualified CLASS name to its own
   namespace's items -- the class's own namespace among them where a function or an object of the name stands in another

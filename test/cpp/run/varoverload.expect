@@ -1,0 +1,8 @@
+free: 2 106 103 107
+declared first: 8 12 9 14 14
+keys apart: 2 1002 5
+members: 11 21 21 61 61 31 41
+defined out of the class: 71 81 41
+static overloads as values: 2 3 4 10 11 91
+a const member beside a variadic one: 3 2 3
+exit 0

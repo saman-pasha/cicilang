@@ -482,19 +482,26 @@ cpp_conv_to(How, E, T0, E1) :- cpp_conv_target(T0, T), ( cpp_class_of_type(T, TC
 %% right and the argument went raw: `by_ref(f)' read Feet's bytes as Yards, and `std::string_view v = s;'
 %% took string_view's COPY constructor over the string's own. Stripping HERE, at the emitter's one door,
 %% leaves every SCORE where it was and only makes the emission agree with the choice.
-cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_using_key(F, KF), cpp_fn_ready(KF), cpp_fn_overloaded(KF), cpp_fn_target(T0, fn(_, Ps1, _)),   % ... A KEYED SET THROUGH A USING OF ITS NAMESPACE (0.161): the key's overloads first, then the bare name's (below), the set C++ joins
-    cpp_params_key(Ps1, K), '$cpp_fn'(KF, K, Ps, yes, _), !, cpp_fn_name(KF, Ps, yes, Name), cpp_use_fn(KF, Ps, Name).
-cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_fn_target(T0, fn(_, Ps1, _)),   % AN OVERLOAD SET NAMED AS A VALUE IS CHOSEN BY ITS TARGET ([over.over]; 0.99): `int (*pi)(int) = twice' beside `double twice(double)'
-    cpp_params_key(Ps1, K), '$cpp_fn'(F, K, Ps, yes, _), !, cpp_fn_name(F, Ps, yes, Name), cpp_use_fn(F, Ps, Name).
+cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_using_key(F, KF), cpp_fn_ready(KF), cpp_fn_overloaded(KF), cpp_fn_target(T0, fn(_, Ps1, V1)),   % ... A KEYED SET THROUGH A USING OF ITS NAMESPACE (0.161): the key's overloads first, then the bare name's (below), the set C++ joins
+    cpp_params_key(Ps1, K), cpp_fn_of_target(KF, K, V1, Ps, Vt), !, cpp_fn_name_va(KF, Ps, Vt, yes, Name), cpp_use_fn(KF, Ps, Name).
+cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_fn_target(T0, fn(_, Ps1, V1)),   % AN OVERLOAD SET NAMED AS A VALUE IS CHOSEN BY ITS TARGET ([over.over]; 0.99): `int (*pi)(int) = twice' beside `double twice(double)'
+    cpp_params_key(Ps1, K), cpp_fn_of_target(F, K, V1, Ps, Vt), !, cpp_fn_name_va(F, Ps, Vt, yes, Name), cpp_use_fn(F, Ps, Name).   % ... and by its ellipsis (1.6.38)
 cpp_conv_to(How, addr(id(F)), T0, addr(E)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_conv_to(How, id(F), T0, E), E \== id(F), !.   % ... AND ITS ADDRESS, `&m' ([over.over]/1; 0.181): it was `undeclared(m)', the set's own name no function's
-cpp_conv_to(_, '$memaddr'(C, N), T0, E) :- cpp_type_or_self(T0, T1), ccl_resolve_type(T1, memptr(_, _, F0)), ccl_resolve_type(F0, fn(_, Ps1, V1)), cpp_params_key(Ps1, K), cpp_fn_q(V1, _, TQs),   % AN OVERLOADED MEMBER'S ADDRESS IS CHOSEN BY ITS TARGET ([over.over]; 0.112): the overload whose parameters are the pointer's
-    (   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_method_mfq(Qs, MQs), cpp_mfq_fits(MQs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose qualifiers are the target's (0.181): `int (A::*pc)() const = &A::get' is the const `get'
+cpp_conv_to(_, '$memaddr'(C, N), T0, E) :- cpp_type_or_self(T0, T1), ccl_resolve_type(T1, memptr(_, _, F0)), ccl_resolve_type(F0, fn(_, Ps1, V1)), cpp_params_key(Ps1, K), cpp_fn_q(V1, Vt, TQs),   % AN OVERLOADED MEMBER'S ADDRESS IS CHOSEN BY ITS TARGET ([over.over]; 0.112): the overload whose parameters are the pointer's
+    (   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_va_eq(V0, Vt), cpp_method_mfq(Qs, MQs), cpp_mfq_fits(MQs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose ellipsis is the target's (1.6.38)
+    ;   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_method_mfq(Qs, MQs), cpp_mfq_fits(MQs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose qualifiers are the target's (0.181): `int (A::*pc)() const = &A::get' is the const `get'
     ;   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) ), !, cpp_method_address(C, N, m(Qs, R0, Ps0, V0), E).
-cpp_conv_to(_, '$staticfn'(C, N), T0, id(Thunk)) :- cpp_fn_target(T0, fn(_, Ps1, _)), cpp_params_key(Ps1, K),   % SEVERAL STATIC FUNCTIONS OF ONE NAME NAMED AS A VALUE: the target's parameters choose ([over.over]; 0.126, cpp_static_fn_value)
-    cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, N, Ps0, _, _), Ms), memberchk(static, Qs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K), !,
+cpp_conv_to(_, '$staticfn'(C, N), T0, id(Thunk)) :- cpp_fn_target(T0, fn(_, Ps1, V1)), cpp_params_key(Ps1, K), cpp_fn_q(V1, Vt, _),   % SEVERAL STATIC FUNCTIONS OF ONE NAME NAMED AS A VALUE: the target's parameters choose ([over.over]; 0.126, cpp_static_fn_value)
+    cpp_class(C, cls(_, _, Ms, _, _, _)), cpp_static_of_target(C, Ms, N, K, Vt, Qs, Ps0), !,
     cpp_mangle_q(C, N, Qs, Ps0, Name), cpp_static_thunk(C, N, Name, Thunk).
 cpp_conv_to(_, E, T0, addr(id(Inv))) :- cpp_class_of_type_of(E, C), cpp_generic_closure(C), cpp_fn_target(T0, fn(R, Ps1, V)), !, cpp_generic_invoker(C, R, Ps1, V, Inv).
 cpp_conv_to(_, E, _, E).
+%% the overload of a set of one key that a pointer's target takes is named by the target's ellipsis (1.6.38, cpp_fn_name_va/5),
+%% whichever definition of the key gives the parameters: `int (*q)(int, ...) = f' beside `int f(int)' took the plain one
+cpp_fn_of_target(F, K, V1, Ps, Vt) :- cpp_fn_q(V1, V2, _), ( V2 == true -> Vt = true ; Vt = false ), '$cpp_fn'(F, K, Ps, yes, _).
+cpp_va_eq(V0, Vt) :- ( V0 == true -> Vt == true ; Vt \== true ).
+cpp_static_of_target(C, Ms, N, K, Vt, Qs, Ps0) :- member(method(_, Qs, _, N, Ps0, V0, _), Ms), memberchk(static, Qs), cpp_va_eq(V0, Vt), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K), !.
+cpp_static_of_target(C, Ms, N, K, _, Qs, Ps0) :- member(method(_, Qs, _, N, Ps0, _, _), Ms), memberchk(static, Qs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K), !.
 %% A CLASS PRVALUE CONVERTED THROUGH ITS CONVERSION FUNCTION IS A TEMPORARY OF THE STATEMENT ([class.temporary]/2 and /4; 0.206):
 %% the function is called on it, and it is destroyed at the end of the full-expression. `c_api_make(std::out_ptr(up))' called
 %% `operator int **' on a copy of the `out_ptr_t' the call returned and destroyed none, so the pointer the C function wrote into

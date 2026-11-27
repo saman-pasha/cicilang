@@ -560,7 +560,8 @@ cpp_nested_class(L, C, N, NMs, M) :-
 %% which class holds a nested one: its typedefs are in scope inside, INCLUDING the ones it inherits, so the lookup
 %% goes to the enclosing class itself (which walks its own bases) rather than a copy of its direct entries
 cpp_encloses(Nested, C) :- ( '$cpp_encl'(Nested, _) -> true ; asserta('$cpp_encl'(Nested, C)) ).
-cpp_register_class_(K, L, C, Bases0, Ms) :-
+cpp_register_class_(K, L, C, Bases0, Ms0) :-
+    cpp_mark_va_twins(Ms0, Ms),   % a member with an ellipsis beside its plain twin is marked (1.6.38, below)
     forall(( member(method(_, Qs, _, N, _, _, _), Ms), memberchk(static, Qs), atom(N), \+ '$cpp_sfn_pre'(C, N) ), assertz('$cpp_sfn_pre'(C, N))),   % its static functions' names before its record: a member's type may call one (cpp_type_names_call/2, 0.201)
     cpp_primary_first(C, Bases0, Bases),
     ( Bases = [base(virtual(_), _)|_] -> ( '$cpp_vbase'(C) -> true ; assertz('$cpp_vbase'(C)) ) ; true ),
@@ -589,3 +590,20 @@ cpp_register_class_(K, L, C, Bases0, Ms) :-
     ( '$cpp_union'(C) -> Tagged = [union_tag|Data2] ; Tagged = Data2 ), ccl_note_tag(C, Tagged),
     ( cpp_nv_form(C, Data2, NVData) -> cpp_nv_tag(C, NV), ccl_note_tag(NV, NVData) ; true ),   % the struct (or UNION) it becomes, in the table at once: its members have types while its methods are walked
     cpp_in_class(C, ( cpp_with_sigdecl(C, cpp_declare_members(Ms, C)), cpp_declare_statics(Statics, C) )).   % its signatures name instances of its own template as names only (cpp_sig_waits, 0.136)
+%% A MEMBER WITH AN ELLIPSIS BESIDE ONE OF THE SAME PARAMETERS AND QUALIFIERS WITHOUT IT IS AN OVERLOAD OF ITS OWN (1.6.38;
+%% [dcl.fct]/4, [over.load]), as a free function's is (cpp_fn_name_va/5): `int m(int)' and `int m(int, ...)' were both
+%% `T.m.int', LLVM's `invalid redefinition of function'. The one with the ellipsis is marked `ellipsis_twin' among its
+%% qualifiers in the class's record, which every road that names a member reads, and its name ends `.z', the Itanium ABI's
+%% code of an ellipsis (cpp_mangle_q/5); a member template is not marked
+cpp_mark_va_twins(Ms0, Ms) :- findall(M-K-Q, ( member(method(_, Qs, _, M, Ps, V, _), Ms0), V \== true, cpp_params_key(Ps, K), cpp_va_quals_key(Qs, Q) ), Plain),
+    ( Plain == [] -> Ms = Ms0 ; cpp_mark_va_list(Ms0, Plain, Ms) ).
+cpp_mark_va_list([], _, []).
+cpp_mark_va_list([M0|Ms0], Plain, [M|Ms]) :- cpp_mark_va_one(M0, Plain, M), cpp_mark_va_list(Ms0, Plain, Ms).
+cpp_mark_va_one(method(L, Qs, R, M, Ps, true, B), Plain, method(L, [ellipsis_twin|Qs], R, M, Ps, true, B)) :- \+ memberchk(ellipsis_twin, Qs),
+    cpp_params_key(Ps, K), cpp_va_quals_key(Qs, Q), memberchk(M-K-Q, Plain), !.
+cpp_mark_va_one(X, _, X).
+cpp_va_quals_key(Qs, k(S, C, R)) :- ( memberchk(static, Qs) -> S = s ; S = n ), ( memberchk(const, Qs) -> C = c ; C = n ), ( memberchk(refq(Q), Qs) -> R = Q ; R = none ).
+%% an out-of-class definition with the ellipsis takes its declaration's mark (cpp_item/2's member definition)
+cpp_member_va_quals(C, M, Ps, V, Qs0, [ellipsis_twin|Qs0]) :- V == true, catch(cpp_class(C, cls(_, _, Ms, _, _, _)), _, fail), cpp_params_key(Ps, K),
+    member(method(_, MQs, _, M, MPs, true, _), Ms), memberchk(ellipsis_twin, MQs), cpp_params_key(MPs, K), !.
+cpp_member_va_quals(_, _, _, _, Qs, Qs).
