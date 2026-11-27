@@ -172,7 +172,7 @@ ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$i
 %% ---- state: frames of Key-State, innermost first; with each frame its defers ----------
 ck_function(L, Ret, Name, Params0, Body) :-
     ck_ref_params(Params0, Params),                                      % C++: a reference parameter is a borrow, as a pointer is
-    nb_setval('$ck_fn', Name), nb_setval('$ck_reallocs', []), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
+    nb_setval('$ck_fn', Name), nb_setval('$ck_reallocs', []), nb_setval('$ck_static_copies', []), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
     nb_setval('$ck_arrlocals', []), nb_setval('$ck_ref_binds', []), nb_setval('$ck_holders', []), ck_note_arrparams(Params),
     ccl_scope_push, ccl_declare_params(Params),
     ck_param_names(Params, Names), nb_setval('$ck_params', Names),
@@ -669,8 +669,10 @@ ck_static_value(ccast(_, _, E)) :- !, ck_static_value(E).
 ck_static_value(addr(deref(E))) :- ck_static_value(E), !.   % `&*X' is X: a static compound literal's address (1.6.31)
 ck_static_value(addr(E)) :- !, ck_storage_base(E, N), ck_is_global(N).
 ck_static_value(global_fn(_)) :- !.   % the file's function that a qualified name gives beside a local (1.6.34)
+ck_static_value(id(N)) :- atom(N), nb_current('$ck_static_copies', L), memberchk(N, L), !.   % a local record copied from static storage (1.6.35, ck_note_static_copy/3)
 ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_type(T, T1), ( T1 = arr(_, _) ; T1 = fn(_, _, _) ), !.
 ck_static_value(index(E, I)) :- !, ck_static_array_place(index(E, I)).   % a row of a static array, used as a pointer (0.297, ck_static_array_place/1)
+ck_static_value(member(id(N), F)) :- atom(N), nb_current('$ck_static_copies', L), memberchk(N, L), catch(ccl_type_of(member(id(N), F), MT), _, fail), catch(ck_is_pointer_type(MT), _, fail), !.   % a pointer member of a local record copied from static storage (1.6.35, ck_note_static_copy/3)   % a function of the program whose every return is static storage (0.294, ck_static_results/1)
 ck_static_value(member(E, F)) :- !, ck_static_array_place(member(E, F)).   % an array member of a static object (0.297)
 ck_static_value(deref(E)) :- !, ck_array_typed(deref(E)), ck_static_value(E).   % `*table', the first row (0.297)
 ck_static_value(bin(Op, A, _)) :- memberchk(Op, ['+', '-']), !, ck_static_value(A).
@@ -678,7 +680,7 @@ ck_static_value(cond(_, A, B)) :- !, ck_static_value(A), ck_static_value(B).
 ck_static_value(comma(_, B)) :- !, ck_static_value(B).
 ck_static_value(call(id(F), _)) :- atom(F), ck_library_static(F), !.   % the C library's own static storage, and a source-location builtin's literal (0.201, ck_library_static/1)
 ck_static_value(call(id(F), [A|_])) :- atom(F), ck_library_borrow(F), !, ck_static_value(A).   % a place in its first argument's object (0.206, ck_library_borrow/1): static where that is
-ck_static_value(call(id(F), _)) :- atom(F), nb_current('$ck_static_fns', Fs), Fs \== [], memberchk(F, Fs), !.   % a function of the program whose every return is static storage (0.294, ck_static_results/1)
+ck_static_value(call(id(F), _)) :- atom(F), nb_current('$ck_static_fns', Fs), Fs \== [], memberchk(F, Fs), !.
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
@@ -725,24 +727,56 @@ ck_library_static(F) :- memberchk(F, [getenv, setlocale, localeconv, strerror, a
 %% another local's, `malloc''s, or a static one on one road and new memory on another, stays fresh: its result is the
 %% caller's to give back, or the function's to tie
 ck_static_results(Units) :- nb_setval('$ck_static_fns', []),
-    findall(r(F, Ps, Es, Vs), ( ck_unit_item(Units, function(_, _, Ret, F, Ps, _, B)), atom(F), \+ ck_library_fn(F),
-        \+ ccl_tie_of(Ret, _), catch(ck_is_pointer_type(Ret), _, fail), \+ ck_own_type(Ret),
+    findall(r(F, Ps, Es, Vs-B), ( ck_unit_item(Units, function(_, _, Ret, F, Ps, _, B)), atom(F), \+ ck_library_fn(F),
+        \+ ccl_tie_of(Ret, _), ck_static_result_type(Ret),
         findall(E, ( ck_sub_term(return(L, E), B), integer(L) ), Es), Es \== [], ck_body_vars(B, Vs) ), Cs),
     Cs = [_|_], !, findall(F, member(r(F, _, _, _), Cs), Fs0), sort(Fs0, Fs), nb_setval('$ck_static_fns', Fs), ck_static_results_close(Cs).
 ck_static_results(_).
+%% the results that 0.294's rule asks: a plain pointer, AND A RECORD THAT CARRIES ONE (1.6.35): `struct tok pick(int i)
+%% { return toks[i]; }' over a static table of records with a `const char *' each, and a function that returns a global
+%% record, answered a value with no owner behind, `no owner behind: 't'' at `struct tok t = pick(1);'. A record with an
+%% own member takes its own members' road at the caller (ck_fill/6), whatever its call answers
+ck_static_result_type(Ret) :- catch(ck_is_pointer_type(Ret), _, fail), !, \+ ck_own_type(Ret).
+ck_static_result_type(Ret) :- catch(ck_carries_type(Ret), _, fail).
+%% A LOCAL RECORD COPIED FROM STATIC STORAGE HOLDS STATIC POINTERS (1.6.35; ck_note_static_copy/3): a record that
+%% carries a pointer and has no own member (one with an own member takes ck_fill/6's road), declared or assigned from a global's object, an element or a member of one (a
+%% static local's too), from a call of a function whose every return is such (ck_static_results/1), or from another such
+%% local, holds in its pointer members what the static object holds -- `struct tok t = toks[1]; free((char *) t.s);' was
+%% built, a pointer read out of a plain slot, and aborted in free; it is `a borrow consumed' now. A pointer member alone:
+%% an array member is the local's own storage. Any other value assigned to the local takes it off
+ck_note_static_copy(N, T, V) :- atom(N), catch(ck_carries_type(T), _, fail), \+ catch(ck_is_pointer_type(T), _, fail), nb_current('$ck_static_copies', L0), !,
+    delete(L0, N, L1), ( ck_static_record_value(V) -> L = [N|L1] ; L = L1 ), nb_setval('$ck_static_copies', L).
+ck_note_static_copy(_, _, _).
+ck_static_record_value(V) :- ck_strip_casts(V, V1),
+    (   V1 = call(id(F), _) -> atom(F), nb_current('$ck_static_fns', Fs), memberchk(F, Fs)
+    ;   V1 = id(M), atom(M), nb_current('$ck_static_copies', L), memberchk(M, L) -> true
+    ;   catch(ck_storage_base(V1, G), _, fail), ck_is_global(G) ), !.
 ck_static_results_close(Cs) :- nb_getval('$ck_static_fns', S0),
-    findall(F, ( member(r(F, Ps, Es, Vs), Cs), memberchk(F, S0), \+ ck_returns_static(Ps, Es, Vs) ), Out),
+    findall(F, ( member(r(F, Ps, Es, Vs-B), Cs), memberchk(F, S0), \+ ck_returns_static(Ps, Es, Vs, B) ), Out),
     ( Out == [] -> true ; findall(F, ( member(F, S0), \+ memberchk(F, Out) ), S1), nb_setval('$ck_static_fns', S1), ck_static_results_close(Cs) ).
 %% the names a body declares, each with its storage class and its type: a for's own declaration too
 ck_body_vars(B, Vs) :- findall(v(N, Sto, T), ( ck_sub_term(declaration(_, Sto, _, Ds), B), member(var(N, T, _), Ds), atom(N)
                                              ; ck_sub_term(decl(_, Ds), B), is_list(Ds), Sto = none, member(var(N, T, _), Ds), atom(N) ), Vs).
-ck_returns_static(Ps, Es, Vs) :-
+ck_returns_static(Ps, Es, Vs, B) :-
     findall(N, ( member(v(N, Sto, _), Vs), memberchk(Sto, [static, extern]), \+ ( member(v(N, Sp, _), Vs), \+ memberchk(Sp, [static, extern]) ) ), SNs0),
     sort(SNs0, SNs), ( nb_current('$ck_statics', S0) -> true ; S0 = [] ),
     ccl_scope_push, ( catch(ccl_declare_params(Ps), _, fail) -> true ; true ), forall(member(v(N, _, T), Vs), ccl_declare(N, T)), nb_setval('$ck_statics', SNs),
-    ( forall(member(E, Es), ck_return_static(E)) -> R = yes ; R = no ),
+    nb_setval('$ck_sr_body', B), ( forall(member(E, Es), ck_return_static(E)) -> R = yes ; R = no ), nb_setval('$ck_sr_body', none),
     nb_setval('$ck_statics', S0), ccl_scope_pop, R == yes.
 ck_return_static(E) :- catch(( ck_null(E) ; ck_static_value(E) ; ck_loaded_value(E) ), _, fail), !.
+ck_return_static(id(L)) :- atom(L), nb_current('$ck_sr_body', B), B \== none, ck_static_filled(L, B).
+%% A LOCAL RECORD THAT ITS FUNCTION FILLS WITH STATIC VALUES AND RETURNS (1.6.35): `struct tok t = { "lit", n }; return
+%% t;' answered a value with no owner behind at its caller. The local is declared once, plain, with braces whose every
+%% value that carries a pointer is such a return (a literal, a null, a static place). A later store into it is the store
+%% rules': a plain record's pointer member takes no new memory and no borrow (`no owner behind', `a borrow stored where it
+%% cannot be followed'), and a static value keeps it static
+ck_static_filled(L, B) :-
+    findall(T-I, ( ck_sub_term(declaration(_, Sto, _, Ds), B), member(var(L, T, I), Ds), Sto \== static, Sto \== extern ), [T-init(Items)]),
+    catch(ck_carries_type(T), _, fail), ck_static_items(Items), !.
+ck_static_items([]).
+ck_static_items([item(_, V)|Is]) :- ( V = init(Js) -> ck_static_items(Js) ; ck_static_leaf(V) ), ck_static_items(Is).
+ck_static_leaf(V) :- ck_return_static(V), !.
+ck_static_leaf(V) :- catch(ccl_type_of(V, T), _, fail), T \== unknown, \+ catch(ck_carries_type(T), _, fail).
 %% A POINTER READ OUT OF A PLAIN SLOT OF THE PROGRAM'S OWN GLOBAL OBJECT IS STATIC STORAGE (1.6.31): `names[1]' over `static
 %% char *names[]', `gp' over `static char *gp', `g.name' over a global struct -- the slot itself in static storage, reached
 %% through no pointer. Such a slot holds static storage alone, since a store of new memory or of a local's address into it
@@ -916,6 +950,9 @@ ck_anchor_addrs(index(A, I), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anc
 ck_anchor_addrs(arrow(E, _), St0, St) :- !, ck_anchor_addrs(E, St0, St).
 ck_anchor_addrs(member(E, F), St0, St) :- !, ( ck_storage_base(E, N), ck_is_local(N), \+ ck_is_ref(N), ck_array_member(E, F) -> ck_anchor_local(N, St0, St1) ; St1 = St0 ), ck_anchor_addrs(E, St1, St).   % an ARRAY member of a local struct used as a pointer anchors the struct (0.108)
 ck_anchor_addrs(assign(_, L, R), St0, St) :- !, ck_anchor_addrs(L, St0, St1), ck_anchor_addrs(R, St1, St).
+ck_anchor_addrs(call(id(F), As), St0, St) :- ck_out_writer(F, I), ccl_nth(I, As, addr(id(N))), atom(N), ck_state(St0, N, S),
+    memberchk(S, [freed, loose, maybe_freed]), !,
+    ( S == freed -> ck_set(St0, N, anchor, St1) ; ck_fail(unconsumed, N, call(id(F), As)) ), ck_anchor_addrs_list(As, St1, St).
 ck_anchor_addrs(call(F, As), St0, St) :- !, ck_anchor_addrs(F, St0, St1), ck_anchor_addrs_list(As, St1, St).
 ck_anchor_addrs(E, St0, St) :- E =.. [_|As], ck_anchor_addrs_list(As, St0, St).
 %% the names declared with an array type in this function, so the walk over
@@ -926,6 +963,14 @@ ck_note_arrparams([]).
 ck_note_arrparams([P|Ps]) :- ( ( P = param(T, N) ; P = param(T, N, _) ), N \== anon -> ck_note_arrlocal(N, T) ; true ), ck_note_arrparams(Ps).
 ck_arrlocal(N) :- nb_getval('$ck_arrlocals', As), memberchk(N, As).
 ck_array_member(E, F) :- ccl_type_of(member(E, F), MT), ccl_resolve_type(MT, arr(_, _)).
+%% A LIBRARY FUNCTION THAT WRITES A NEW BLOCK THROUGH AN ARGUMENT AND NEVER READS IT (1.6.35; POSIX: asprintf and
+%% vasprintf store a pointer to the string they allocate in *strp, posix_memalign one to its block in *memptr): a freed
+%% pointer's address handed to one is anchored, as a pointer that holds nothing is (ck_anchor_local/3), where it stayed
+%% freed and its next read was `use after free' -- `free(p); asprintf(&p, "%d", n); puts(p);'; and the address of one
+%% that holds new memory, or may, is `plain pointer not consumed' at the call, its block thrown away -- it was built
+ck_out_writer(asprintf, 1).
+ck_out_writer(vasprintf, 1).
+ck_out_writer(posix_memalign, 1).
 ck_anchor_addrs_list([], St, St).
 ck_anchor_addrs_list([A|As], St0, St) :- ck_anchor_addrs(A, St0, St1), ck_anchor_addrs_list(As, St1, St).
 ck_anchor_local(N, St0, St) :- ( ck_state(St0, N, S) -> ( S == none -> ck_set(St0, N, anchor, St) ; St = St0 ) ; ck_is_local(N) -> ck_anchor(St0, N, St) ; St = St0 ).   % A LOCAL THAT HOLDS NOTHING THE CHECK FOLLOWS (none) IS ANCHORED BY ITS ADDRESS, as one with no state is (1.6.18): its copy is null, and getline's memory, given through `&line' after `free(line)', went unfollowed into an own pointer
@@ -1596,6 +1641,7 @@ ck_no_escape(E, St) :-
     ;   ck_owner_path(St, E, K) -> ( ck_tied_to(K, R) -> ck_ret_tied(St, R, RT, K, E) ; true )
     ;   E = id(N), ck_state(St, N, dangling(P)) -> ck_fail_dangling(N, P)
     ;   E = id(N), ck_state(St, N, borrow(P)) -> ( ck_local_type(N, T), ck_borrowing_type(T) -> ck_ret_borrow(St, P, RT, N, borrowed_from(P)) ; true )
+    ;   ck_array_typed(E), catch(ck_storage_base(E, B), _, fail), ck_is_local(B), \+ ck_is_param(B), \+ ck_is_static(B) -> ck_fail(borrow_escapes, B, E)   % A LOCAL'S ARRAY RETURNED DECAYS TO A POINTER INTO IT (1.6.35; C17 6.3.2.1/3): `char buf[8]; return buf;' and a local record's array member were built, the caller reading a dead frame
     ;   ck_ref_view(E, EV), ccl_type_of(EV, T), ck_borrowing_type(T), ck_borrows_from(E, St, P) -> ck_ret_borrow(St, P, RT, P, E)   % the value's type with each reference its referent (1.6.23): `return cr + 1;' over `const int &cr = x;' is an int
     ;   true ).
 ck_ret_borrow(St, P, RT, N, Form) :-
@@ -1705,9 +1751,9 @@ ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L),
     ( Catches = [catch(terminate, _)] -> ck_stmt(Body, St0, StB), StH = St0 ; ck_try_body(Body, St0, StB, StH) ),
     ck_catches(Catches, StH, StB, St).
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
-    ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
+    ck_cond_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
-ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, C, Ends, St1, St).
+ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_sj_loop(while(L, C, S)), ck_cond_expr(C, St0, St1), ck_loop_ends(C, Ends), ck_loop_with_step(S, none, C, Ends, St1, St).
 ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_sj_loop(do(L, S, C)), ck_loop_ends(C, Ends), ck_do_loop(S, C, Ends, St0, St).
 ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        % C++: a range-for over an array is the for it stands for
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
@@ -1716,7 +1762,7 @@ ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L), ck_sj_loop(for(L, n
     ( member(X, [Init, Step]), X \= decl(_, _), X \== none, ck_dropped_memory(X, D) -> ck_dropped_name(D, N), ck_fail(dropped_memory, N, D) ; true ),
     ccl_scope_push, ck_bpath_push, ck_push(St0, St1),
     ( Init = decl(_, Vs) -> ck_decls(Vs, St1, St2) ; Init == none -> St2 = St1 ; ck_anchor_addrs(Init, St1, St1a), ck_expr(Init, St1a, St2) ),
-    ( C == none -> St3 = St2 ; ck_expr(C, St2, St3) ),
+    ( C == none -> St3 = St2 ; ck_cond_expr(C, St2, St3) ),
     ck_loop_ends(C, Ends), ck_loop_with_step(S, Step, C, Ends, St3, St4),
     ck_scope_end(St4, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt(return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
@@ -1735,7 +1781,7 @@ ck_stmt(continue(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, continue)
 ck_stmt(goto(Ln, L), St, dead) :- !, ck_line(Ln), ck_goto(L, Ln, St).
 ck_stmt(label(Ln, L, S), St0, St) :- !, ck_label_in(L, Ln, St0, StL), ck_stmt(S, StL, St).
 ck_stmt(switch(L, E, S), St0, St) :- !, ck_line(L),
-    ck_expr(E, St0, St1),
+    ck_cond_expr(E, St0, St1),
     ( S = block(Is) -> true ; Is = [S] ),
     ck_switch_defers(Is, no),
     ccl_scope_push, ck_bpath_push, ck_push(St1, St2), ck_loop_enter(St2, switch), ck_switch_items(Is, St2, St2, St3), ck_loop_leave(Brk),
@@ -1978,7 +2024,7 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6), ck_note_realloc(N, Init)
             ;   ck_is_pointer_type(T), ck_null(Init), \+ ck_is_static(N) -> ck_declare(St5a, N, none, St6)   % A PLAIN POINTER DECLARED NULL IS A KEY OF ITS FRAME (1.6.20), a static local's kept as it was, one that holds nothing the check follows: in no frame, a label's join took it for a declaration that a goto jumped over
-            ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
+            ;   ck_no_owner_behind(N, T, Init, var(N, Init)), ck_note_static_copy(N, T, Init), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
 %% C++: A REFERENCE BOUND TO A VALUE -- the temporary C++ makes for it, no place to borrow -- has its initializer walked
 %% for what it does (1.6.13): until 1.6.13 the walk was left out with the borrow, so `const int &r = consume(move(p));'
@@ -2207,7 +2253,7 @@ ck_loop_passes(S, Step, C, At, In, N, [End|Ends], Exits) :-
 %% pass ends where it does: `while ((q = malloc(n)) != NULL) { free(q); }' was refused, its next pass entered with the
 %% body's end and no assignment, and the loop's last state evaluated the assignment again after the test that refined it
 ck_loop_cond_again(C, End0, End) :- ( C == none ; End0 == dead ), !, End = End0.
-ck_loop_cond_again(C, End0, End) :- ck_expr(C, End0, End).
+ck_loop_cond_again(C, End0, End) :- ck_cond_expr(C, End0, End).
 ck_loop_more(N, _) :- N < 8, !.
 ck_loop_more(_, at(Ln, _)) :- nb_getval('$ck_fn', Fn), throw(error(not_lowered(loop_state_unsettled), where(Fn, line(Ln)))).
 %% where a loop is: its line, for the refusal of a loop that does not settle, and the labels noted at its start
@@ -2237,13 +2283,17 @@ ck_do_loop(S, C, Ends, St0, St) :-
     ;   append(Fs, Exits, All), ck_merge_all(All, St) ).
 ck_do_passes(S, C, Ends, At, In, N, [F|Fs], Exits) :-
     ck_loop_pass(S, none, At, In, StEnd, Exits1),
-    ( StEnd == dead -> StC = dead ; ck_expr(C, StEnd, StC) ),
+    ( StEnd == dead -> StC = dead ; ck_cond_expr(C, StEnd, StC) ),
     ck_refine_cond(C, StC, StT, StF),
     (   Ends == once -> F = StC, Fs = [], Exits = Exits1
     ;   F = StF, ( N == 1 -> ck_no_moves_across(In, StT, S) ; true ),
         (   ck_merge(In, StT, J), J \== In
         ->  ck_loop_more(N, At), N1 is N + 1, ck_do_passes(S, C, Ends, At, J, N1, Fs, Exits2), append(Exits1, Exits2, Exits)
         ;   Fs = [], Exits = Exits1 ) ).
+%% A CONDITION ANCHORS THE ADDRESSES THAT IT HANDS TO A CALL, AS AN EXPRESSION STATEMENT DOES (1.6.35;
+%% ck_anchor_addrs/3): `if (asprintf(&p, "%d", n) < 0)' and `while (getline(&line, &n, f) != -1)' anchored nothing, so
+%% what the call wrote through the address was the state before it
+ck_cond_expr(C, St0, St) :- ck_anchor_addrs(C, St0, St1), ck_expr(C, St1, St).
 ck_refine_cond(none, St, St, St) :- !.
 ck_refine_cond(C, St, StT, StF) :- ck_refine(C, St, StT, StF).
 ck_loop_ends(none, never) :- !.
@@ -2391,8 +2441,20 @@ ck_walk_restore(snap(Ti, Sa, Ar, Al, Rf)) :- nb_setval('$ck_ties', Ti), nb_setva
 ck_scope_end(dead, dead) :- !.
 ck_scope_end(st([fr(Os, Ds)|Frs]), St) :-
     ck_run_defers(Ds, st([fr(Os, [])|Frs]), St1),
-    ( St1 == dead -> St = dead ; st([fr(Os1, _)|Frs1]) = St1, ck_leaks(Os1, scope_end), ck_ending_keys(Os1, Frs1, Ks), ck_dangle_all(st(Frs1), Ks, St2),
+    ( St1 == dead -> St = dead ; st([fr(Os0, _)|Frs0]) = St1, ck_hand_out(Os0, Frs0, Os1, Frs1), ck_leaks(Os1, scope_end), ck_ending_keys(Os1, Frs1, Ks), ck_dangle_all(st(Frs1), Ks, St2),
       ck_shadowed_keys(Os1, Frs1, Sh), ( Sh == [] -> St = St2 ; ck_sh_borrows(unwrap, Sh, St2, St) ) ).   % the outer object's borrows its own again (1.6.33, ck_sh_borrows/4)
+%% NEW MEMORY THAT ONE COPY OF AN OUTER SCOPE HOLDS GOES TO THE COPY AT THE END OF ITS POINTER'S SCOPE (1.6.35; C17
+%% 6.2.4/2: the allocated object outlives the pointer's lifetime; ck_hand_out/4): `char *p; { char *q = malloc(4); p = q;
+%% } free(p);' was `plain pointer not consumed: 'q'' at the block's end, and so was realloc's idiom in a loop's body,
+%% `char *q = realloc(p, n); if (!q) { ... } p = q;'. The copy is a borrow of the ending pointer; where it is the one
+%% borrow of it in the outer frames, it holds the memory as new memory, and the ending pointer holds none. Two copies,
+%% or none, leave it as before: refused at the end
+ck_hand_out([], Frs, [], Frs).
+ck_hand_out([K-S|Os], Frs0, [K-S1|Os1], Frs) :-
+    (   S == loose, atom(K), findall(N, ( member(fr(Os2, _), Frs0), member(N-B, Os2), B == borrow(K) ), [N]), atom(N)
+    ->  S1 = none, ck_set(st(Frs0), N, loose, st(Frs1))
+    ;   S1 = S, Frs1 = Frs0 ),
+    ck_hand_out(Os, Frs1, Os1, Frs).
 ck_shadowed_keys(Os, Frs, Sh) :- findall(K, ( member(K-_, Os), atom(K), member(fr(Os2, _), Frs), memberchk(K-_, Os2) ), Sh0), sort(Sh0, Sh).
 %% THE KEYS WHOSE BORROWS DANGLE AT A FRAME'S END: the frame's own -- but a mask of an outer key (0.297,
 %% ck_shadow_outer/3), and a key of a name that an outer frame holds too, where the frame's state of it is a borrow or
@@ -2597,7 +2659,7 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ;   T \== unknown, ck_is_pointer_type(T), ck_plain_value(St1, R, _) -> ( ck_state(St2, N, anchor) -> St = St2 ; ck_rebind(St2, N, null, St) )   % a pointer that holds no memory the check follows (0.299, ck_plain_value/3); an anchored local stays one
     ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St), ck_note_realloc(N, R)
     ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ; S == realloced ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )   % a freed one given a null or another value of nothing that the check follows (1.6.32)
-    ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2
+    ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), ck_note_static_copy(N, T, R), St = St2
     ;   St = St2 ).
 %% A STORE THROUGH A LIBRARY MEMBER (0.216): `m[k] = &x' and `v[0] = &y' write what a library object holds, through the
 %% reference its member answers; the object holds the borrow as its own member calls do (ck_lib_store/4)

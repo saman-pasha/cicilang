@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.34 the versions are: the module 1.6.34 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 203 (`ccl_lowering_version/1`,
+At 1.6.35 the versions are: the module 1.6.35 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 218 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 204 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -640,7 +640,10 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             freed and that the program gives new memory again (1.6.32); shadowborrow.c, borrows of an
                             object whose name a block declares again, built as C and as C++ (1.6.33); reallocs.c,
                             realloc's old block by its result's null test, the null tests of an assignment and loops
-                            whose condition assigns, built as C and as C++ (1.6.34)
+                            whose condition assigns, built as C and as C++ (1.6.34); handout.c, new memory handed out
+                            of a block and the library's out-writers, staticrecords.c, records from static storage,
+                            and arrayreturns.c, arrays that a return may hand out, each built as C and as C++
+                            (1.6.35)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -690,7 +693,10 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             after its free (1.6.32); freed_one_path_twice.c, a free on one path, then a second;
                             realloc_*.c, realloc's old block freed, kept, read or freed with no test of the result, and
                             joined with new memory or a free; loop_cond_leak.c, a pass that keeps the memory that the
-                            next pass's condition replaces (1.6.34)
+                            next pass's condition replaces (1.6.34); handout_leak.c, outwriter_leak.c,
+                            outwriter_maybe.c, static_record_free.c, static_filled_free.c, static_copy_free.c,
+                            static_copy_assign_free.c, static_copy_copy_free.c, static_copy_array_out.c,
+                            local_array_out.c and local_member_array_out.c, what 1.6.35's rules refuse (1.6.35)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

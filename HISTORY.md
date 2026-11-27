@@ -351,6 +351,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.32 | a freed plain pointer, 1.6.28's broken copies carried | a plain pointer that a free consumed is freed, its read, second free and write refused, where a double free built and aborted; of 1.6.28's seventeen uncaught copies seven caught, five guards out, five tests that no program reaches recorded (lowering 201) |
 | 1.6.33 | an outer object's borrows under a hiding name, attributes in their scope, a holder's base statics | a borrow of an object whose name a block declares again is its own, where the block's end refused it; a bracketed error and unavailable read in their own scope alone, where clang ignores the others; a base's static member called from a lambda; 1.6.29's nets and broken copies carried (reader 218, lowering 202) |
 | 1.6.34 | a qualified call beside a callable local, a free on one path, realloc's old block, a loop's condition | `::k(6)` beside a local pointer named k calls the file's function, and a local pointer beside the file's overloads of its name is called through; a join of freed and new memory is maybe freed, realloc's old block freed or live by its result's null test, the null test of an assignment refines its left operand, and a loop's condition is evaluated again after each pass (reader 218, lowering 203) |
+| 1.6.35 | new memory handed out of a block, a library's out-writers, records from static storage, a returned array | one copy of an outer scope takes new memory at its pointer's end; a freed pointer's address to asprintf, vasprintf or posix_memalign is anchored and a held one's a leak, and a condition anchors its addresses; a record from static storage or filled with static values is a static result, and a local copied from static storage holds static pointers, so their free is refused; a local's array returned is a borrow that leaves; 1.6.30's chain carried; one chain over the newest tree (reader 218, lowering 204) |
 
 ## M5 — the C++ mode
 
@@ -26237,3 +26238,85 @@ other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's ru
   versions and the fixtures).
 
 The module 1.6.34, the reader 218 and the lowering 203.
+
+## 1.6.35 — new memory handed out of a block, a library's out-writers, records from static storage, a returned array
+
+**1.6.35: at the user's word "Next", after "try to run less chain and do more tasks before every chain" and "To prevent
+code lost, first commit and push": two records of Not done narrowed, and five false refusals and three holes of the safe
+part that the step's probes found closed; 1.6.30's chain and 1.6.34's nets carried. The queue runs one chain over the
+newest tree since this step, at the user's word, where it ran one a step. The step was committed while its broken copies
+and the queue ran: it claims nothing GREEN of them, and the next step's commit carries them.**
+
+1. C AND C++: NEW MEMORY THAT ONE COPY OF AN OUTER SCOPE HOLDS GOES TO THE COPY AT THE END OF ITS POINTER'S SCOPE
+   (`ck_hand_out/4` in `ck_scope_end/2`; C17 6.2.4/2): `char *p; { char *q = malloc(4); p = q; } free(p);` was `plain
+   pointer not consumed: 'q'` at the block's end, where clang builds it, and so were realloc's idiom in a `do`'s body,
+   `char *q = realloc(p, n); if (!q) { free(p); return 1; } p = q;`, and a `for` whose pass frees the last pass's block
+   and keeps its own. The copy is a borrow of the ending pointer; where it is the one borrow of it in the outer frames,
+   it holds the memory as new memory, and the ending pointer holds none. A copy that never gives it back is refused at
+   its own end, in its own name (`test/c/safe/handout_leak.c`). 1.6.34's record of Not done narrows to two copies.
+2. C AND C++: A LIBRARY FUNCTION THAT WRITES A NEW BLOCK THROUGH AN ARGUMENT AND NEVER READS IT (`ck_out_writer/2` in
+   `ck_anchor_addrs/3`; POSIX's `asprintf`, `vasprintf` and `posix_memalign`): a freed pointer's address handed to one
+   is anchored, as a pointer that holds nothing is -- `free(p); asprintf(&p, "%d", n); puts(p);` was `use after free of
+   'p'` --, and the address of one that holds new memory, or may, is `plain pointer not consumed` at the call, its block
+   thrown away (`outwriter_leak.c`, `outwriter_maybe.c`; each was refused before at a later line, in other words).
+3. C AND C++: A CONDITION ANCHORS THE ADDRESSES THAT IT HANDS TO A CALL (`ck_cond_expr/3`, in `if`, `while`, `for`, `do`
+   and `switch`, and in a loop's condition evaluated again): item 2's probes found that `if (asprintf(&p, ...) < 0)`
+   anchored nothing where `int r = asprintf(&p, ...);` did, since the anchor walk ran before an expression statement, an
+   initializer and a return alone.
+4. C AND C++: A RECORD THAT CARRIES A POINTER IS A STATIC RESULT, AND SO IS A LOCAL RECORD FILLED WITH STATIC VALUES
+   (`ck_static_result_type/1`, `ck_static_filled/2`, `ck_static_items/1`; 0.294's rule): `struct tok t = pick(1);` over
+   `struct tok pick(int i) { return toks[i]; }`, over a function that returns a global record or a static local's, and
+   over `struct tok made(int n) { struct tok t = { "made", n }; return t; }` was `no owner behind: 't'`, where clang
+   builds it -- Not done's record of a function that gives back a record, probed at 0.290, narrows to a record that
+   holds a borrow. A record with an own member takes its own members' road at the caller, as before: a test that kept it
+   out of the static results changed no verdict of the step's probes, and is out.
+5. C AND C++: A LOCAL RECORD COPIED FROM STATIC STORAGE HOLDS STATIC POINTERS (`ck_note_static_copy/3`,
+   `ck_static_record_value/1`, two clauses of `ck_static_value/1`): item 4 let `struct tok t = pick(1); free((char *)
+   t.s);` be built, and its probes found the older form beside it: `struct tok t = toks[1]; free((char *) t.s);` and `t
+   = toks[1]; char *q = (char *) t.s; free(q);` were built and aborted in `free`, `invalid pointer`, a pointer read out
+   of a plain slot taken as one that its owner stands behind. Such a local's pointer members and its name are static
+   values: each free is `a borrow consumed`, and `struct tok g = f;` over such an f, `no owner behind: 'g'` before, is
+   taken. A pointer member alone: an array member is the local's own storage. The first clause stood after
+   `ck_static_value/1`'s clause of a member, whose cut answered first; it stands before it.
+6. C AND C++: A LOCAL'S ARRAY RETURNED DECAYS TO A POINTER INTO IT (`ck_no_escape/2`; C17 6.3.2.1/3): item 5's probes
+   found that `char buf[8]; return buf;` and a local record's array member, `return h.name;`, were built and the caller
+   read a dead frame, where a pointer local that held either was `a borrow leaves the function`: the test read the
+   array's own type, which carries no pointer. A static local's array, a static local record's member, a parameter
+   declared as an array and a global's array stay taken (`test/c/run/arrayreturns.c`).
+
+`test/c/run/handout.c`, `staticrecords.c` and `arrayreturns.c`, each in C and as C++, hold what items 1 to 6 take, and
+clang 23, clang++ 23 and this step print each alike; `test/c/safe/handout_leak.c`, `outwriter_leak.c`,
+`outwriter_maybe.c`, `static_record_free.c`, `static_filled_free.c`, `static_copy_free.c`, `static_copy_assign_free.c`,
+`static_copy_copy_free.c`, `static_copy_array_out.c`, `local_array_out.c` and `local_member_array_out.c` what they
+refuse.
+
+1.6.34'S NETS, CARRIED. Over its copy: the ccllib gate GREEN in 1466 s (thirty-six programs in three runs, 189 refused,
+21 alone) -- item 6 of 1.6.34 is a rule of each loop of ccllib's texts --, and the pool of thirty C++ run fixtures the
+same, each as the C++ gate runs it; the pool's script compared the standard error too, where the gate compares the
+output alone, and `noreturncpp.cpp`, whose child's `libc++abi: terminating` is its standard error, read as a difference
+-- the script compares the output alone since. 1.6.30'S CHAIN, CARRIED, over a copy of its tree, LLVM 23 and a fresh
+HOME, the toolchain check strict: the flow gate 1053 s, reader 5 s, compile 36 s, driver 281 s, objects 5 s, the proof,
+the cross gate 312 s and the library read 213 s GREEN; the C++ gate RED in 1502 s at `alignnew.cpp` and `genericfp.cpp`
+alone, 1.6.28's two misfits that 1.6.31 mended; its ccllib gate ran at this commit.
+
+THE QUEUE, CHANGED at the user's word "try to run less chain": the chains of 1.6.31, 1.6.32 and 1.6.33, which waited
+behind 1.6.30's, are not run; the broken copies of 1.6.30 to 1.6.35 run, each over its own copy, and then ONE chain over
+1.6.35's tree, which holds the code of each of them. The next step's commit carries them.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the compile gate GREEN in 34 s (470 ok), the flow gate GREEN in
+748 s, the driver gate GREEN in 218 s (172 ok), every probe of the step built by clang 23 or clang++ 23 and by this
+step, the run outputs alike, and the three run fixtures as C++ as the C++ gate builds them; five ccllib programs --
+vector, map, string, variant, shared_ptr -- the same as their twins'. Its ccllib gate and a pool of twenty-six C++ run
+fixtures ran at the commit, with its broken copies queued: the next step's commit carries them. Over the work tree after
+the port: the toolchain check strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the
+owner's rule of 0.271.
+
+- `library/ccl_check.pl` (`ck_hand_out/4`, `ck_scope_end/2`, `ck_out_writer/2`, `ck_anchor_addrs/3`, `ck_cond_expr/3`
+  and the statements that evaluate a condition, `ck_static_results/1` and its helpers, `ck_static_result_type/1`,
+  `ck_static_filled/2`, `ck_static_items/1`, `ck_static_leaf/1`, `ck_note_static_copy/3`, `ck_static_record_value/1`,
+  `ck_static_value/1`, `ck_no_escape/2`, `ck_function`'s notes); `library/ccl_ir.pl` (the lowering 204); `test/cpp.sh`
+  (`handout.c`, `staticrecords.c` and `arrayreturns.c` as C++); the step's fixtures; the module's version.
+- RULES.md (the rules in their topics; Not done: two records narrowed), HISTORY.md, CLAUDE.md (the versions and the
+  fixtures).
+
+The module 1.6.35, the reader 218 and the lowering 204.

@@ -12374,7 +12374,12 @@ in the first topic (The ccllib gate).
   pointer or reference parameter's referent or of a global. A PARAMETER BY VALUE IS THE CALLEE'S OWN STORAGE (0.217;
   `ck_param_storage/1` in `ck_short_lived/1` and `ck_ret_borrow/5`): its address returned is `borrow_escapes` -- `int
   *f(int n) { return &n; }` was accepted, the parameter counted as the caller's (`test/c/safe/param_addr_escapes.c`).
-  Any other borrow is `borrow_escapes`. A conditional returns either arm, a comma its right side. (M3, 0.44, 0.217)
+  Any other borrow is `borrow_escapes`. A conditional returns either arm, a comma its right side. A LOCAL'S ARRAY
+  RETURNED DECAYS TO A POINTER INTO IT (1.6.35; C17 6.3.2.1/3): `char buf[8]; return buf;` and a local record's array
+  member, `return h.name;`, were built -- the test read the array's own type, which carries no pointer -- where a
+  pointer local that held either was refused; a static local's array and a parameter declared as an array, a pointer,
+  stay taken (`test/c/run/arrayreturns.c`, in C and as C++; `test/c/safe/local_array_out.c`,
+  `local_member_array_out.c`). (M3, 0.44, 0.217, 1.6.35)
 - THE ADDRESS OF A POINTER OR ARRAY PARAMETER IS A BORROW OF THE PARAMETER'S OWN STORAGE (0.219; `ck_borrows_from/3`'s
   clause for `addr(id(N))`, `ck_param_self/1` in `ck_short_lived/1`), keyed `&p` apart from p, which keys what p points
   to, the caller's, and anchored in the function's outer frame (`ck_param_selves/2`): a return of it is `borrow_escapes`
@@ -12421,8 +12426,22 @@ in the first topic (The ccllib gate).
   pointer not consumed: 'p'`, where clang builds it. A function that returns a parameter's pointer (`return s + 1;` --
   the caller's to give back, or the function's to tie, `tie s`), new memory, or a static pointer on one road and new
   memory on another answers new memory still, and one that returns a local's address is refused in itself.
-  `test/c/run/statret.c` (thirteen functions, in C and as C++), `test/c/safe/statret_param.c` and `statret_mixed.c`.
-  (0.294)
+  `test/c/run/statret.c` (thirteen functions, in C and as C++), `test/c/safe/statret_param.c` and `statret_mixed.c`. A
+  RECORD THAT CARRIES A POINTER IS SUCH A RESULT TOO (1.6.35; `ck_static_result_type/1`), and a return of a local record
+  that its function declares once, plain, with braces whose every value that carries a pointer is such a return
+  (`ck_static_filled/2`): `struct tok t = pick(1);` over `struct tok pick(int i) { return toks[i]; }`, over a function
+  that returns a global record or a static local's, and over `struct tok made(int n) { struct tok t = { "made", n };
+  return t; }` was `no owner behind: 't'`, where clang builds it. A record with an own member takes its own members'
+  road at the caller (`ck_fill/6`), whatever its call answers. A LOCAL RECORD COPIED FROM STATIC STORAGE HOLDS STATIC
+  POINTERS (1.6.35; `ck_note_static_copy/3`, `ck_static_value/1`): a record that carries a pointer and has no own
+  member, declared or assigned from a global's object, an element or a member of one, from a static local's, from a call
+  of such a function or from another such local, holds in its pointer members what the static object holds, and its name
+  is a static value -- `struct tok t = toks[1]; free((char *) t.s);` was built, a pointer read out of a plain slot, and
+  aborted in `free`; it is `a borrow consumed` now, and `struct tok g = f;` over such an f, `no owner behind: 'g'`
+  before, is taken. A pointer member alone: an array member is the local's own storage. Any other value assigned to the
+  local takes it off. `test/c/run/staticrecords.c`, in C and as C++; `test/c/safe/static_record_free.c`,
+  `static_filled_free.c`, `static_copy_free.c`, `static_copy_assign_free.c`, `static_copy_copy_free.c` and
+  `static_copy_array_out.c`. (0.294, 1.6.35)
 - STATIC STORAGE IS A BORROW THAT NOTHING ENDS (0.294; `ck_kind/3` over `ck_static_value/1`, and a plain local given it
   by its declaration or an assignment, `borrow(static(N))`): its free, and its hand-over to an own parameter, are
   `borrow_consumed`, and its store into an owner `borrow_stored`, named by its global, the function that answers it, or
@@ -12649,15 +12668,17 @@ in the first topic (The ccllib gate).
   `static own thing *slot[2];` is the array's key, which a store into the array and a call that may store into it end
   (the own arrays' topic). (M3, 0.307)
 - A tie to a plain local, `&x` of one, or a local array used as a pointer ANCHORS the local (`ck_anchor/3`;
-  `ck_anchor_addrs/3` runs before an expression statement, an initializer and a return). The anchor is `Y-anchor` in the
-  state frame of Y's symbol frame (`ck_declare_at/4`). Nothing consumes it, it ends with its scope, and its borrows may
-  sit in plain slots, as C has them. A static local is never anchored (`'$ck_statics'`). An array member of a local
-  struct anchors the struct. `test/c/run/tie.c`, `clone.c`, the eight `test/c/safe/tie_*.c`. A LOCAL THAT HOLDS NOTHING
-  THE CHECK FOLLOWS -- `none`, after a free or a null test that found it null -- IS ANCHORED BY ITS ADDRESS TOO, its key
-  set in place (1.6.18, `ck_anchor_local/3`), as a local with no state is: new memory that a call gives through the
-  address, getline's, is the anchor's, and its copy into an own pointer is new memory (0.299); with no anchor its copy
-  was null (`ck_plain_copy/3`), and `free(line); line = NULL; getline(&line, &n, f); own char *c = line;` with no free
-  was taken. `test/c/run/refilled.c`; refused, `test/c/safe/anchor_freed.c`, `anchor_nulltest.c`. (M3, 0.108, 1.6.18)
+  `ck_anchor_addrs/3` runs before an expression statement, an initializer, a return and -- since 1.6.35,
+  `ck_cond_expr/3` -- a condition of an `if`, a loop or a `switch`: `if (asprintf(&p, "%d", n) < 0)` anchored nothing,
+  where `int r = asprintf(&p, ...);` did). The anchor is `Y-anchor` in the state frame of Y's symbol frame
+  (`ck_declare_at/4`). Nothing consumes it, it ends with its scope, and its borrows may sit in plain slots, as C has
+  them. A static local is never anchored (`'$ck_statics'`). An array member of a local struct anchors the struct.
+  `test/c/run/tie.c`, `clone.c`, the eight `test/c/safe/tie_*.c`. A LOCAL THAT HOLDS NOTHING THE CHECK FOLLOWS --
+  `none`, after a free or a null test that found it null -- IS ANCHORED BY ITS ADDRESS TOO, its key set in place
+  (1.6.18, `ck_anchor_local/3`), as a local with no state is: new memory that a call gives through the address,
+  getline's, is the anchor's, and its copy into an own pointer is new memory (0.299); with no anchor its copy was null
+  (`ck_plain_copy/3`), and `free(line); line = NULL; getline(&line, &n, f); own char *c = line;` with no free was taken.
+  `test/c/run/refilled.c`; refused, `test/c/safe/anchor_freed.c`, `anchor_nulltest.c`. (M3, 0.108, 1.6.18)
 
 ### Views
 
@@ -12717,11 +12738,23 @@ in the first topic (The ccllib gate).
   dangle. A `return` takes it (`ck_loose_taken/3`) -- NOT BY AN ARITHMETIC VALUE (0.238; `ck_carries_none/1`: `return
   p[0] - 1` hands the caller an int, and the block was taken and its leak unseen; `test/c/safe/loose_arith.c`) --, and
   an own slot takes it over (`ck_retarget/4`). Left at a scope's end or a return, or overwritten, it is `unconsumed`. A
-  rebind lands in the variable's own frame (`ck_declare_at/4`). `test/c/safe/unconsumed.c`. A PLAIN POINTER THAT `free`,
+  rebind lands in the variable's own frame (`ck_declare_at/4`). `test/c/safe/unconsumed.c`. NEW MEMORY THAT ONE COPY OF
+  AN OUTER SCOPE HOLDS GOES TO THE COPY AT THE END OF ITS POINTER'S SCOPE (1.6.35; C17 6.2.4/2: an allocated object
+  outlives the pointer that held it; `ck_hand_out/4` in `ck_scope_end/2`): the copy is a borrow of the ending pointer,
+  and where it is the one borrow of it in the outer frames it holds the memory as new memory, and the ending pointer
+  holds none. `char *p; { char *q = malloc(4); p = q; } free(p);` was `plain pointer not consumed: 'q'` at the block's
+  end, and so were realloc's idiom in a loop's body, `char *q = realloc(p, n); if (!q) { ... } p = q;`, and a pass that
+  frees the last pass's block and keeps its own (`test/c/run/handout.c`, in C and as C++); a copy that never gives it
+  back is `plain pointer not consumed` at its own end (`test/c/safe/handout_leak.c`). A PLAIN POINTER THAT `free`,
   `fclose` OR A DEALLOCATOR CONSUMED IS FREED (1.6.32; C17 7.22.3.3/2, 6.2.4/2: its value is indeterminate;
   `ck_free_loose/3`), a state of no owner: a read of it, a second free, a write through it, a copy, a stream closed
   again and its address handed to getline, which reads `*lineptr` and reallocs it, are `use after free of 'p'`
-  (`ck_read/2`), and in C++ a second `delete` and a read after one; an assignment gives it new memory, a borrow or a
+  (`ck_read/2`), and in C++ a second `delete` and a read after one. A LIBRARY FUNCTION THAT WRITES A NEW BLOCK THROUGH
+  AN ARGUMENT AND NEVER READS IT ANCHORS A FREED POINTER'S ADDRESS (1.6.35; POSIX: `asprintf` and `vasprintf` store the
+  string that they allocate in `*strp`, `posix_memalign` its block in `*memptr`; `ck_out_writer/2` in
+  `ck_anchor_addrs/3`): `free(p); asprintf(&p, "%d", n); puts(p);` was `use after free of 'p'`; the address of one that
+  holds new memory, or may, is `plain pointer not consumed` at the call, its block thrown away (`test/c/run/handout.c`;
+  `test/c/safe/outwriter_leak.c`, `outwriter_maybe.c`). An assignment gives a freed pointer new memory, a borrow or a
   null (`ck_rebind/4`), and a join keeps new memory or its own state (`ck_merge_state/3`). An own parameter leaves it
   `none`. It was `none`, a pointer that holds nothing that the check follows, and each was built -- the first aborted
   in `free`, `double free detected`. A JOIN OF FREED AND NEW MEMORY IS `maybe_freed` (1.6.34): its read, its free and a
@@ -17311,15 +17344,14 @@ Declarations topic of the C++ reader).
   a loop's body again until its state settles; the safe part's topic): the function is walked again from the label's
   join, as the gotos' walk has it, and a write in the goto's cycle after the jump is not noted for its next pass.
 - A FREED PLAIN POINTER, WHAT 1.6.34 LEAVES (found at 1.6.18, narrowed at 1.6.34; the safe part's topic): a freed
-  pointer's address handed to a call keeps it freed, so `free(p); init(&p);` with no null between is refused at p's next
-  read; and realloc's old block is refined by the null test of the local that took the result alone, so a test of a
-  copy of that local leaves it `realloced`, and a free of it on the null path is `use after free`.
-- A COPY OF NEW MEMORY INTO A POINTER OF AN OUTER SCOPE IS THE INNER POINTER'S (found at 1.6.34; the safe part's
-  topic): `char *p; { char *q = malloc(4); p = q; } free(p);` is `plain pointer not consumed: 'q'` at the block's end,
-  where clang builds it, and so is realloc's idiom in a loop's body, `do { char *q = realloc(p, n); if (!q) { free(p);
-  return 1; } p = q; } while (...);`: the copy borrows the inner pointer's memory, and the inner pointer's scope ends
-  with it loose. A state that gives the memory to the outer pointer at the end of the inner scope, where a live copy
-  holds it, would close it.
+  pointer's address handed to a call keeps it freed -- but `asprintf`'s, `vasprintf`'s and `posix_memalign`'s since
+  1.6.35 --, so `free(p); init(&p);` with no null between is refused at p's next read; and realloc's old block is
+  refined by the null test of the local that took the result alone, so a test of a copy of that local leaves it
+  `realloced`, and a free of it on the null path is `use after free`.
+- NEW MEMORY THAT TWO COPIES OF AN OUTER SCOPE HOLD IS THE INNER POINTER'S (found at 1.6.34, narrowed at 1.6.35; the
+  safe part's topic): one copy takes it at the inner pointer's end since 1.6.35, but with two, `char *p, *r; { char *q =
+  malloc(4); p = q; r = q; } free(p);`, it is `plain pointer not consumed: 'q'` at the block's end, where clang builds
+  it: which copy gives it back is the program's, and a state that the two share would tell it.
 - FOUR TESTS OF 1.6.28'S MISFITS AND ONE OF ITS KINDS THAT NO PROGRAM REACHES (found at 1.6.32 by 1.6.28's broken
   copies): an argument of a class or of an enumeration takes its namespace's road first, a qualified call's too, where
   `cpp_type_misfit_pair/2` is not asked -- the tests of the same enumeration, of a class's parameter, of a pointer to a
@@ -17420,12 +17452,12 @@ Declarations topic of the C++ reader).
   block that the store freed (valgrind: `Invalid read of size 4`); over 0.306 the borrow was `plain pointer not
   consumed` at the first unit's function's end. A rule for them is what each function of the program writes, across its
   units: a summary of a unit that the others read.
-- A FUNCTION THAT GIVES BACK A RECORD WITH A POINTER IN IT GIVES A VALUE WITH NO OWNER BEHIND (probed at 0.290, as it
-  was before): `struct tok t = pick(i);` over `static struct tok pick(int i) { return toks[i]; }` is `no owner behind:
-  't'`. A call's result is new memory to the check, as a pointer result with no tie is -- but one of a function whose
-  every return is static storage (0.294, which takes pointer results alone) --, and a record cannot be consumed. The
-  program hands the record out through a pointer parameter (`*out = toks[i];`, taken since 0.290) or reads the table
-  where it needs the record.
+- A FUNCTION THAT GIVES BACK A RECORD WITH A BORROW IN IT GIVES A VALUE WITH NO OWNER BEHIND (probed at 0.290, narrowed
+  at 1.6.35, whose static results take records): a record whose every return is static storage, or a local filled with
+  static values, is a static result since 1.6.35; one that holds a parameter's pointer is refused in its function, `a
+  borrow stored where it cannot be followed: 's'` at `struct tok t = { s, n };`, and a copy of a local record that is no
+  static copy, `struct tok u = { "x", 1 }; struct tok v = u;`, is `no owner behind: 'v'`, where clang builds each. A
+  record's borrow has no state of its own: a state of each pointer member would follow it.
 - A CONDITIONAL OF STATIC STORAGE AND NEW MEMORY IS A BORROW TO THE CHECK (0.294): `char *p = c ? "a" : malloc(4);` --
   its free is refused, `borrow_consumed`, as a free of static storage on one road must be, and the new memory's leak on
   the other road is not seen, as one of a local's address and new memory was not before. A pointer whose roads differ so
