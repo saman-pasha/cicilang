@@ -631,6 +631,7 @@ dr_value_text(this_not_captured, ['''this'' cannot be implicitly captured in thi
 dr_value_text(no_subscript(T), ['type ''', T, ''' does not provide a subscript operator']).   % C++'s subscript over a plain struct (1.6.26)
 dr_value_text(no_viable_subscript(T), ['no viable overloaded operator[] for type ''', T, '''']).
 dr_value_text(fp_to_pointer(A, B), ['cannot cast from type ''', A, ''' to pointer type ''', B, '''']).   % C++'s casts of a floating value and a pointer (1.6.26)
+dr_value_text(address_of_temporary(B), ['taking the address of a temporary object of type ''', B, '''']).   % C++'s address of a compound literal of a class or an array (1.6.31)
 dr_value_text(fp_ptr_cast(K, A, B), [S, ' from ''', A, ''' to ''', B, ''' is not allowed']) :- dr_cast_spelled(K, S).
 dr_value_text(void_cast_memptr(B), ['cannot cast from type ''void'' to member pointer type ''', B, '''']).
 dr_value_text(void_cast_rvalue_ref(K, B), [S, ' from rvalue to reference type ''', B, '''']) :- dr_cast_spelled(K, S).

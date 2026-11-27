@@ -6743,12 +6743,15 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   TO A decltype TYPE, `decltype(mm)(5)` (1.6.22; [expr.type.conv]), is the type's call, as a name's (`cpp_type_call/3`):
   it was `not lowered yet: expr(decltype_expr(...))`. `test/cpp/run/refplaces.cpp`. A VOID VALUE CAST SO names the type
   as written (1.6.30; `cpp_decltype_void_cast/3`): `decltype(mm)(f())` is clang++'s `no matching conversion for
-  functional-style cast from 'void' to 'decltype(mm)' (aka 'M')`, where it named `'M'`; the driver gate's five bodies.
-  THE PARENTHESES ARE KEPT AROUND A MEMBER ACCESS OVER ANY OBJECT, and a member of an rvalue is an xvalue, `T &&`
-  ([expr.ref]/6.2, [basic.lval]/4; reader 210; 1.6.21; `cpp_rvalue_object/1`, `cpp_decltype_paren_src/3`): a member of
-  `std::move(x)`, of a call whose result is an rvalue reference or no reference, of `T{...}` and of `T(...)`, and of
-  `std::move` over a const object, which the desugaring has made the object itself by then -- so the operand as written
-  says it -- unless the member is itself a reference. The parentheses were kept only over a chain from a name:
+  functional-style cast from 'void' to 'decltype(mm)' (aka 'M')`, where it named `'M'`; the driver gate's five bodies. A
+  BRACED ONE, `decltype(v){7, 8}` (1.6.31, reader 217; [expr.type.conv]/2; `ccl_postfix_p//3` over `decltype_expr`), is
+  a class's braced temporary by its own name, an initializer_list constructor first, and a scalar's the parenthesized
+  cast: it was `syntax error: could not read this item`. `test/cpp/run/decltypebraced.cpp`. THE PARENTHESES ARE KEPT
+  AROUND A MEMBER ACCESS OVER ANY OBJECT, and a member of an rvalue is an xvalue, `T &&` ([expr.ref]/6.2,
+  [basic.lval]/4; reader 210; 1.6.21; `cpp_rvalue_object/1`, `cpp_decltype_paren_src/3`): a member of `std::move(x)`, of
+  a call whose result is an rvalue reference or no reference, of `T{...}` and of `T(...)`, and of `std::move` over a
+  const object, which the desugaring has made the object itself by then -- so the operand as written says it -- unless
+  the member is itself a reference. The parentheses were kept only over a chain from a name:
   `decltype((std::forward<A>(a).val))` was the member's declared type, `double` where clang++ gives `double &`, and
   libc++ 23's `__value_visitor`, whose result is `invoke_result_t<_Visitor &&,
   decltype((std::forward<_Alts>(__alts).__value))...>`, asked a generic lambda's `auto &` parameter to take a prvalue:
@@ -7507,7 +7510,12 @@ is in `test/cpp/run/`.
   struct, or a class with no conversion function, for a scalar, a floating value and a pointer for each other, a pointer
   to another object type, its qualifiers aside, and an integer or another enumeration for an enumeration -- `f(c)` of
   `int f(int *)` over a char array built and read four characters as one int, `f(1)` of `int f(E)` built, and the rest
-  were the lowering's `no conversion from 'S' to 'int'`; the driver gate's twelve bodies. ANOTHER MISFIT GOES ON TO THAT
+  were the lowering's `no conversion from 'S' to 'int'`; the driver gate's twelve bodies. A CAPTURELESS GENERIC LAMBDA'S
+  CLOSURE converts out (1.6.31; `cpp_converts_out/1` over `cpp_generic_closure/1`), and THE DESUGARING'S OWN CALL OF AN
+  ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is no program's call (1.6.31; `cpp_alloc_sym/3` in
+  `cpp_no_overload_fits/2`): 1.6.28's nets found `genericfp.cpp`'s `apply([](auto v) { return v * 3; }, 5)` and
+  `alignnew.cpp`'s `delete[] w` over the program's aligned `operator delete[]`, which hands its alignment as an integer,
+  refused, `no matching function for call to 'apply'` and `'_ZdaPvmSt11align_val_t'`. ANOTHER MISFIT GOES ON TO THAT
   ROAD, as it went: it converts a generic lambda to a function pointer (`genericfp.cpp`), which the candidates' filter
   finds no conversion operator for, and refuses a struct for a scalar in its own words, `no conversion from
   'optional_int' to 'double'`. The rule's first form refused every call that no candidate fitted, and the C++ pool and
@@ -7600,6 +7608,13 @@ is in `test/cpp/run/`.
   `expression is not assignable`; the assignment and the step ran on a temporary, and the address was the safe part's
   `plain pointer not consumed`. A call whose result is a reference is a place, and a class's prvalue takes its own
   operators. The driver gate's eight C++ bodies. (1.6.22)
+- C++: A COMPOUND LITERAL IS A PRVALUE, AND ITS ADDRESS IS NOT TAKEN (1.6.31; GNU's compound literal as clang++ takes
+  it, [expr.unary.op]/3; `cpp_complit_addr_words/2`): `&(p){ 3, 4 }` of a class, a struct, a union or an array is
+  clang++'s `taking the address of a temporary object of type 'p'`, the type as written with its `(aka ...)` and a tag
+  written so as C spells it (`cpp_written_tag/1`), and `&(int){ 7 }` of a scalar or an enumeration `cannot take the
+  address of an rvalue of type 'int'`; each built, its pointer past the object's end. An array's value that decays and a
+  member's value stay. C's compound literal is an lvalue of its block (the safe part's topic). The driver gate's
+  fourteen bodies. (1.6.31)
 
 ### Ranking the template candidates: Conversions-Demerits
 
@@ -8019,7 +8034,14 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   others of 1.6.28), where they were `use of undeclared identifier 'm'`, the words of a call with no object and the
   lowering's `no_member(a, ...)`. The mark is the call operator's own signature in the program's code, evaluated: the
   closure's other members, which the desugaring writes, keep their `this`, a static member is called, and sizeof's
-  operand is unevaluated. A lambda made in another lambda is not asked. The driver gate's sixteen bodies. (1.6.29)
+  operand is unevaluated. A lambda made in another lambda is not asked. The driver gate's sixteen bodies. ITS
+  UNEVALUATED OPERANDS NAME THEM (1.6.31; [expr.prim.id.general]/4, [expr.prim.this]/2; `cpp_closure_unthis/3`,
+  `cpp_null_object/2`): `sizeof(a)`, `decltype(a)`, `alignof(decltype(c))`, `sizeof(S::a)`, `sizeof(this->a)` and a
+  base's member are typed through a null object of the class, in a static member function's lambda too, and
+  `sizeof(S::a)` of a data member anywhere is walked unevaluated; they were `use of undeclared identifier 'a'`,
+  `decltype_unknown`, `undeclared('S.a')` and the lowering's `sizeof(arrow(id(this),a))`.
+  `test/cpp/run/lambdauneval.cpp`; the driver gate's four bodies, `this` in a static member function's lambda refused
+  still. (1.6.29, 1.6.31)
 - A LAMBDA INSIDE A LAMBDA captures what the outer closure holds ([expr.prim.lambda.capture]/9; 0.117): a name is
   capturable when it is a local or, inside a closure's `operator()`, a capture of that closure
   (`cpp_capturable/3`, read as the body reads it, `this->a`, its type unreferenced), so `[a] { return [a] { return a +
@@ -12365,6 +12387,24 @@ in the first topic (The ccllib gate).
   memory, freed, then given a global array and freed again were each built, and each run aborted in `free`.
   `test/c/safe/free_lit.c`, `free_glob.c`, `free_direct.c`, `statret_free.c`, `own_static.c`, `own_lit.c`, `take_own.c`
   and `assign_static.c`, in C and as C++. (0.294)
+- A COMPOUND LITERAL OF A BLOCK IS AN OBJECT OF THE BLOCK (1.6.31; C17 6.5.2.5/5; `ck_borrows_from/3`): its address, and
+  an array's value, which decays to its first element's, are a borrow of `a compound literal`, which no owner takes, no
+  free consumes and no return gives out, as a local's -- `free(&(int){ 7 })`, `own int *o = (int[]){ 1, 2 }; free(o);`
+  and `int *o = &(int){ 7 }; free(o);` were built and each run aborted in `free`, `return &(struct p){ 1 };` was built
+  and its caller read a dead frame, and `struct p *q = &(struct p){ 3, 4 };` was `plain pointer not consumed`. C23's
+  STATIC compound literal is static storage (`ck_static_complit/1` over the reader's form, below). The lowering's IR is
+  the same. `test/c/run/complits.c`; `test/c/safe/complit_free.c`, `complit_ptr_free.c`, `complit_own.c`,
+  `complit_return.c`, `complit_global.c` and `complit_static_free.c`. (1.6.31)
+- A POINTER READ OUT OF A PLAIN SLOT OF THE PROGRAM'S OWN GLOBAL OBJECT IS STATIC STORAGE (1.6.31; `ck_global_slot/1` in
+  `ck_static_value/1`, `ck_program_globals/1`): `names[1]` over `static char *names[]`, `gp` over `static char *gp`,
+  `cfg.name` over a global struct -- the slot itself in static storage, reached through no pointer, of a global that a
+  file-scope declaration of the units defines with no `extern`. Such a slot holds static storage alone, since a store of
+  new memory or of a local's address into it is refused (`untied`, `borrow_stored`), so its value is freed by no `free`
+  and taken by no owner, as a literal's: `char *p = names[1]; free(p);`, `free(names[1])`, `free(gp)`, `char *p =
+  cfg.name; free(p);` and `own char *o = names[0];` were each built, and each run aborted in `free`. An own slot is its
+  owner's; a slot reached through a pointer -- scandir's `namelist[i]`, `r->name` -- and a C library's `extern` object
+  -- `stdin`, `optarg` -- are 0.290's reads still (`ck_loaded_value/1`). `test/c/safe/slot_free.c`,
+  `slot_free_direct.c`, `slot_free_global.c`, `slot_free_member.c` and `slot_own.c`, in C and as C++. (1.6.31)
 - A ROW OF A STATIC ARRAY, AND AN ARRAY MEMBER OF A STATIC OBJECT, ARE STATIC STORAGE (0.297; `ck_static_array_place/1`
   in `ck_static_value/1`): an lvalue of an array type, used as a pointer, is the address of its first element (C17
   6.3.2.1/3) in the storage of the object it is part of -- `table[i]` of `static unsigned char table[2][3]`,
@@ -12643,8 +12683,8 @@ in the first topic (The ccllib gate).
   was taken. A conditional with new memory on one side is `untied` still (`test/c/safe/loaded_or_new_store.c`), and so
   is a record with an own field out of a table into a plain slot (`loaded_own_record.c`). (M3, 0.290)
 - `ck_va_value/1` lists what is never fresh: a value read by `va_arg` (the caller's), a C99 compound literal (the
-  block's object), a `dynamic_cast`'s result, an exception's storage, a coroutine's frame, promise or noop handle.
-  (0.108)
+  block's object) and since 1.6.31 its address, a `dynamic_cast`'s result, an exception's storage, a coroutine's frame,
+  promise or noop handle. (0.108)
 - **NEW MEMORY THROWN AWAY IS REFUSED** (0.309; found by the probes of `<memory.pl>`, whose `release(p);` leaked its
   object; `ck_dropped_memory/2`): a call that gives new memory for certain -- an allocator of the C library by its name
   (`malloc`, `calloc`, `realloc`, `aligned_alloc`, `strdup`, `strndup`, `ck_allocator/1`), C++'s new-expression through
@@ -16002,54 +16042,55 @@ in the first topic (The ccllib gate).
   identifiers past ASCII and universal character names in them (`identutf8.c`), a plain character literal's value past
   127 a char's (`chrsign.c`). Since 0.197: an assignment's right operand first (`evalorder.c`), C17's and C11's forms
   with a variably modified parameter (`c17forms.c`), C23's smaller core forms, a compound literal's storage class among
-  them (`c23forms.c`, `-std=c23`; gcc's output: clang 18 and 21 read no such storage class). Since 0.201: integer
-  literals of the first type that holds them, a switch over a long and an unsigned long long, a hex literal in `#if`
-  (`littype.c`); `setjmp` and `longjmp` over a volatile local, `signal` and `raise`, the floating environment over
-  volatile operands, the locale, `<inttypes.h>` and `<uchar.h>` (`cwrap.c`), clang's source-location builtins
-  (`srcbuiltins.c`), the digraphs (`digraphs.c`), an attribute after `enum` (`enumattr.c`, `-std=c23`). Since 0.203:
-  GCC's `packed` and `aligned` on structs, unions, members, variables, typedefs and enums, glibc's `struct epoll_event`,
-  an unaligned read through a typedef aligned at one, `_Alignas` on a pointer object, an attribute before a struct's key
-  and among a declaration's specifiers, `typeof` of a packed member (`packed.c`, `packattr.c`, `packunion.c`,
-  `aligntd.c`, `packenum.c`, `packlead.c`), a volatile object's members across a `longjmp` (`volmember.c`), unions in
-  global constants, a static table of tagged unions among them (`gunion.c`). Since 0.205: GNU's alignment of an
-  expression and GCC's `aligned` on an enum (`alignexpr.c`), a static assertion among a struct's members
-  (`memassert.c`), GCC's `packed` and `aligned` in C23's standard spelling (`gnuattrc.c`, `-std=c23`). Since 0.206:
-  C23's `nullptr_t` (`nullptrtype.c`, `-std=c23`), C23's library over glibc -- `strdup` and `strndup`, `memccpy`, the
-  searches, `timegm`, `strfromd` and `strfromf`, `mbrtoc8`, `printf`'s `%b` and `%wN` (`stdc23.c`, `-std=c23`), an
-  `_Atomic` floating object's steps and compound assignments, one `atomicrmw` each (`atomicfp.c`). Since 0.208: every
-  compound assignment and step of an `_Atomic` integer, floating object and pointer one read-modify-write (`atomrmw.c`),
-  an x86 `long double`'s through libatomic (`atomldbl.c`), an `_Atomic` struct of a size that is no lock-free width
-  through libatomic's routines, a failed compare-exchange's `*expected` (`atomodd.c`; gcc's output), and address
-  constants at file scope and in a static local (`addrconst.c`). Since 0.209: `#x` with a space only where white space
-  stood, a comment and a newline in the argument one space, a literal's escapes spelled once (`stringize.c`), over
-  expansions and arguments, empty ones and a variadic one's commas (`stringize2.c`), C23's `__VA_OPT__` in a stringized
-  argument and `#__VA_OPT__` (`stringizeva.c`, `stringizevo.c`, `-std=c23`). Since 0.210: the standard's macro examples,
-  each expansion stringized -- rescanning, names their own expansions left unexpanded, placemarkers, `##` in an
-  object-like macro and from an argument, the variadic forms (`ppexample.c`), its EXAMPLE 4 with a character that begins
-  no token (`ppexample4.c`), C23's `__VA_OPT__` examples (`ppvaopt.c`, `-std=c23`) -- and `$` in names (`dollar.c`).
-  Since 0.211: a token's spelling in `#x` -- a literal's escapes and prefix, a digraph, a name past ASCII in UTF-8, a
-  body's `%:` and `%:%:` operators, a `#line` name past ASCII in `__FILE__` (`spelling.c`) -- and a computed `#include`,
-  `__has_include`, `__has_embed` and `#embed` over a macro (`ppinclude.c`, `-std=c23`). Since 0.212: the definitions a
-  header makes -- the program's own header's static and static inline functions, a static object, an external definition
-  and an object, C99's inline definition made external by the unit's declaration, the C library's static inline
-  functions behind `bswap_32`, `bswap_16`, `bswap_64` and `htobe32` (`hdrdefs.c`). Since 0.213: a macro's name spelled
-  with a universal character name (`ucnmacro.c`). Since 0.214: an ISO mode's `__STRICT_ANSI__` and the names it leaves
-  to the program (`strictansi.c`), a GNU mode's own names and its `asm` label (`gnumode.c`), C23's `true` after
-  `<stdbool.h>` (`c23bool.c`), the program's feature-test macros (`ftmacro.c`) and `NDEBUG` at each inclusion of
-  `<assert.h>` (`ndebug.c`). Since 0.215: GNU's inline assembly, a file-scope asm and the statement's forms with a
-  register variable among them, on x86-64 and on aarch64 (`gnuasm.c`), and a feature-test macro defined after the file's
-  first system `#include` where clang's headers read it (`ftlate.c`, `-std=c17`). Since 0.217: what the safe part lets C
-  keep in a struct's member and an array, a pointer read from a member among it (`fieldsok.c`). Since 0.231: GNU's `asm
-  goto`, a jump by a label's number and by its name, with an output, out of a block (`asmgoto.c`). Since 0.293: the
-  program's own headers over a type macro's instance -- a header's macros and C17's `bool` beside an instance's
-  operator, a header that includes another, and one with no `#include` -- (`hdrvec.c`, `-std=c17`), and parameters named
-  as the lowering's names (`regnames.c`; `regnames23.c`, `-std=c23`). Since 0.294: conditionals whose arms are arrays
-  (`condarr.c`), and functions whose every return is static storage (`statret.c`). Since 0.297: rows of static arrays
-  used as pointers (`staticrows.c`), and names that a block declares again (`shadowed.c`). Since 0.298: the macros of
-  the program's own headers and of their includer (`ownmacros.c`), own headers over a type macro's instance with no
-  macro file of their own (`hdrinst.c`), names declared again that C takes (`samenames.c`), arrays of wide characters
-  made of wide literals (`widearr.c`), long literals in pieces (`longlit.c`), and the directives of the program's own
-  headers in the file's run (`ownundef.c`).
+  them (`c23forms.c`, `-std=c23`; gcc's output: clang 18, 21 and 23 read no such storage class), and since 1.6.31 a
+  static one is a static object of its block (`complits23.c`). Since 0.201: integer literals of the first type that
+  holds them, a switch over a long and an unsigned long long, a hex literal in `#if` (`littype.c`); `setjmp` and
+  `longjmp` over a volatile local, `signal` and `raise`, the floating environment over volatile operands, the locale,
+  `<inttypes.h>` and `<uchar.h>` (`cwrap.c`), clang's source-location builtins (`srcbuiltins.c`), the digraphs
+  (`digraphs.c`), an attribute after `enum` (`enumattr.c`, `-std=c23`). Since 0.203: GCC's `packed` and `aligned` on
+  structs, unions, members, variables, typedefs and enums, glibc's `struct epoll_event`, an unaligned read through a
+  typedef aligned at one, `_Alignas` on a pointer object, an attribute before a struct's key and among a declaration's
+  specifiers, `typeof` of a packed member (`packed.c`, `packattr.c`, `packunion.c`, `aligntd.c`, `packenum.c`,
+  `packlead.c`), a volatile object's members across a `longjmp` (`volmember.c`), unions in global constants, a static
+  table of tagged unions among them (`gunion.c`). Since 0.205: GNU's alignment of an expression and GCC's `aligned` on
+  an enum (`alignexpr.c`), a static assertion among a struct's members (`memassert.c`), GCC's `packed` and `aligned` in
+  C23's standard spelling (`gnuattrc.c`, `-std=c23`). Since 0.206: C23's `nullptr_t` (`nullptrtype.c`, `-std=c23`),
+  C23's library over glibc -- `strdup` and `strndup`, `memccpy`, the searches, `timegm`, `strfromd` and `strfromf`,
+  `mbrtoc8`, `printf`'s `%b` and `%wN` (`stdc23.c`, `-std=c23`), an `_Atomic` floating object's steps and compound
+  assignments, one `atomicrmw` each (`atomicfp.c`). Since 0.208: every compound assignment and step of an `_Atomic`
+  integer, floating object and pointer one read-modify-write (`atomrmw.c`), an x86 `long double`'s through libatomic
+  (`atomldbl.c`), an `_Atomic` struct of a size that is no lock-free width through libatomic's routines, a failed
+  compare-exchange's `*expected` (`atomodd.c`; gcc's output), and address constants at file scope and in a static local
+  (`addrconst.c`). Since 0.209: `#x` with a space only where white space stood, a comment and a newline in the argument
+  one space, a literal's escapes spelled once (`stringize.c`), over expansions and arguments, empty ones and a variadic
+  one's commas (`stringize2.c`), C23's `__VA_OPT__` in a stringized argument and `#__VA_OPT__` (`stringizeva.c`,
+  `stringizevo.c`, `-std=c23`). Since 0.210: the standard's macro examples, each expansion stringized -- rescanning,
+  names their own expansions left unexpanded, placemarkers, `##` in an object-like macro and from an argument, the
+  variadic forms (`ppexample.c`), its EXAMPLE 4 with a character that begins no token (`ppexample4.c`), C23's
+  `__VA_OPT__` examples (`ppvaopt.c`, `-std=c23`) -- and `$` in names (`dollar.c`). Since 0.211: a token's spelling in
+  `#x` -- a literal's escapes and prefix, a digraph, a name past ASCII in UTF-8, a body's `%:` and `%:%:` operators, a
+  `#line` name past ASCII in `__FILE__` (`spelling.c`) -- and a computed `#include`, `__has_include`, `__has_embed` and
+  `#embed` over a macro (`ppinclude.c`, `-std=c23`). Since 0.212: the definitions a header makes -- the program's own
+  header's static and static inline functions, a static object, an external definition and an object, C99's inline
+  definition made external by the unit's declaration, the C library's static inline functions behind `bswap_32`,
+  `bswap_16`, `bswap_64` and `htobe32` (`hdrdefs.c`). Since 0.213: a macro's name spelled with a universal character
+  name (`ucnmacro.c`). Since 0.214: an ISO mode's `__STRICT_ANSI__` and the names it leaves to the program
+  (`strictansi.c`), a GNU mode's own names and its `asm` label (`gnumode.c`), C23's `true` after `<stdbool.h>`
+  (`c23bool.c`), the program's feature-test macros (`ftmacro.c`) and `NDEBUG` at each inclusion of `<assert.h>`
+  (`ndebug.c`). Since 0.215: GNU's inline assembly, a file-scope asm and the statement's forms with a register variable
+  among them, on x86-64 and on aarch64 (`gnuasm.c`), and a feature-test macro defined after the file's first system
+  `#include` where clang's headers read it (`ftlate.c`, `-std=c17`). Since 0.217: what the safe part lets C keep in a
+  struct's member and an array, a pointer read from a member among it (`fieldsok.c`). Since 0.231: GNU's `asm goto`, a
+  jump by a label's number and by its name, with an output, out of a block (`asmgoto.c`). Since 0.293: the program's own
+  headers over a type macro's instance -- a header's macros and C17's `bool` beside an instance's operator, a header
+  that includes another, and one with no `#include` -- (`hdrvec.c`, `-std=c17`), and parameters named as the lowering's
+  names (`regnames.c`; `regnames23.c`, `-std=c23`). Since 0.294: conditionals whose arms are arrays (`condarr.c`), and
+  functions whose every return is static storage (`statret.c`). Since 0.297: rows of static arrays used as pointers
+  (`staticrows.c`), and names that a block declares again (`shadowed.c`). Since 0.298: the macros of the program's own
+  headers and of their includer (`ownmacros.c`), own headers over a type macro's instance with no macro file of their
+  own (`hdrinst.c`), names declared again that C takes (`samenames.c`), arrays of wide characters made of wide literals
+  (`widearr.c`), long literals in pieces (`longlit.c`), and the directives of the program's own headers in the file's
+  run (`ownundef.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -17163,12 +17204,13 @@ Declarations topic of the C++ reader).
   1.6.22 (`cpp_builtin_op_words/4`, `cpp_cond_bool/2`, the topic of C++'s operators), and a cast of a floating value to
   a pointer and back since 1.6.26 (the lowering's topic of a record for another type); a library's body keeps the terms
   its substitution failures read, `no conversion from 'const double' to 'int *'` of a cast among them.
-- C++: A LAMBDA THAT CAPTURED NO `this`, WHAT 1.6.29 LEAVES (the lambdas' topic): `sizeof(a)` of a member in its body is
-  `use of undeclared identifier 'a'`, where clang++ takes the unevaluated operand; a generic lambda's refusal is `not
+- C++: A LAMBDA THAT CAPTURED NO `this`, WHAT 1.6.29 LEAVES (the lambdas' topic): a generic lambda's refusal is `not
   lowered yet: auto_result(...)`, the deduction's; and a lambda made in another lambda is not asked, its member's use
   the words of before.
-- C++: A BRACED FUNCTIONAL CAST TO A `decltype` TYPE IS NOT READ (found at 1.6.30): `auto x = decltype(mm){2};` is
-  `syntax error: could not read this item`, where clang++ takes it; the parenthesized cast is read since 1.6.22.
+- A COMPOUND LITERAL'S BLOCK IS NOT FOLLOWED (found at 1.6.31; the safe part's topic): its borrow, `a compound literal`,
+  has no state of its own, so a pointer to one made in an inner block or in a loop's pass, used after it -- `int *p; { p
+  = &(int){ 1 }; } return *p;` -- is not refused as a dead object's, which clang leaves undefined. In C++ `(static int){
+  7 }` is read as an automatic literal, as clang++ reads no storage class there.
 - C++: A VOID POINTER FOR ANOTHER AND A POINTER THAT DROPS A QUALIFIER BUILD (found at 1.6.28): `int *p = malloc(4);`,
   `f(&cx)` of `int f(int *)` over a `const int`, where clang++ says `cannot initialize a variable of type 'int *' with an
   rvalue of type 'void *'` and `no matching function for call to 'f'`. They are C's, and ccllib's programs, C, are built
@@ -17319,13 +17361,11 @@ Declarations topic of the C++ reader).
   every return is static storage (0.294, which takes pointer results alone) --, and a record cannot be consumed. The
   program hands the record out through a pointer parameter (`*out = toks[i];`, taken since 0.290) or reads the table
   where it needs the record.
-- A POINTER READ OUT OF A PLAIN SLOT, FREED, IS BUILT (found at 0.294): `char *p = names[1]; free(p);` over a global
-  table of literals runs into `free(): invalid pointer`. 0.290 made such a read no new memory, and a plain slot holds no
-  memory of nobody's, so its free is a borrow's -- but the check keeps no state of what the slot holds, and the local
-  has none. A CONDITIONAL OF STATIC STORAGE AND NEW MEMORY IS A BORROW TO THE CHECK (0.294): `char *p = c ? "a" :
-  malloc(4);` -- its free is refused, `borrow_consumed`, as a free of static storage on one road must be, and the new
-  memory's leak on the other road is not seen, as one of a local's address and new memory was not before. A pointer
-  whose roads differ so is a decision of the language: refused as neither, the owner's.
+- A CONDITIONAL OF STATIC STORAGE AND NEW MEMORY IS A BORROW TO THE CHECK (0.294): `char *p = c ? "a" : malloc(4);` --
+  its free is refused, `borrow_consumed`, as a free of static storage on one road must be, and the new memory's leak on
+  the other road is not seen, as one of a local's address and new memory was not before. A pointer whose roads differ so
+  is a decision of the language: refused as neither, the owner's. (A POINTER READ OUT OF A PLAIN SLOT of the program's
+  global object, freed, is refused since 1.6.31; one through a pointer is not followed.)
 - MEMORY THAT A LIBRARY FUNCTION WRITES THROUGH AN OUT-PARAMETER IS NOT FOLLOWED (probed at 0.299, as on 0.298):
   `getline(&line, &n, f)` gives new memory through the address of a plain local, which is an anchor
   (`ck_anchor_addrs/3`), and a program that never frees `line` is built. Until 0.299 a copy of such a pointer into a

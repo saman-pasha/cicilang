@@ -139,8 +139,8 @@
 
 :- use_module(library(ccl_infer)).
 
-ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_noreturn_fns(Units), ck_longjmp_fns(Units), ck_units(Units).   % no lowering's library functions (0.212)
-ccl_check_noted(Units) :- ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_noreturn_fns(Units), ck_longjmp_fns(Units), ck_units(Units).   % on the table the caller built
+ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_program_globals(Units), ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_noreturn_fns(Units), ck_longjmp_fns(Units), ck_units(Units).   % no lowering's library functions (0.212)
+ccl_check_noted(Units) :- ck_program_globals(Units), ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_noreturn_fns(Units), ck_longjmp_fns(Units), ck_units(Units).   % on the table the caller built
 ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note_program(Is), ck_note_units(Us).
 ck_units([]).
@@ -162,6 +162,9 @@ ck_item_container(extern_c(_, Js), Js).
 %% each item of the units, a container's at any depth
 ck_unit_item(Units, I) :- member(unit(Is), Units), ck_item_in(Is, I).
 ck_item_in(Is, I) :- member(I0, Is), ( ck_item_container(I0, Js) -> ck_item_in(Js, I) ; I = I0 ).
+%% THE PROGRAM'S OWN GLOBAL OBJECTS (1.6.31, for ck_global_slot/1): the names that a file-scope declaration of the units
+%% defines, with no `extern' -- a C library's `stdin' and `optarg' are no part of them
+ck_program_globals(Units) :- findall(N, ( ck_unit_item(Units, declaration(_, Sto, _, Vs)), Sto \== extern, Sto \== typedef, member(var(N, _, _), Vs), atom(N) ), Ns0), sort(Ns0, Ns), nb_setval('$ck_own_globals', Ns).
 %% a library's function, its code not the program's: C++'s (cpp_library_function/1), and in C one that a library's header
 %% defines and the unit uses, lowered with it (ir_header_defs/2, '$ir_hlib'/1; 0.212)
 ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$ir_hlib'(Name), _, fail) ).
@@ -660,8 +663,10 @@ ck_static_value(wstr(_)) :- !.
 ck_static_value(u16str(_)) :- !.
 ck_static_value(u32str(_)) :- !.
 ck_static_value(u8str(_)) :- !.   % C23's and C++20's u8 literal (0.196)
+ck_static_value(E) :- ck_global_slot(E), !.   % a pointer read out of a plain slot of the program's global object (1.6.31, ck_global_slot/1)
 ck_static_value(cast(_, E)) :- !, ck_static_value(E).
 ck_static_value(ccast(_, _, E)) :- !, ck_static_value(E).
+ck_static_value(addr(deref(E))) :- ck_static_value(E), !.   % `&*X' is X: a static compound literal's address (1.6.31)
 ck_static_value(addr(E)) :- !, ck_storage_base(E, N), ck_is_global(N).
 ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_type(T, T1), ( T1 = arr(_, _) ; T1 = fn(_, _, _) ), !.
 ck_static_value(index(E, I)) :- !, ck_static_array_place(index(E, I)).   % a row of a static array, used as a pointer (0.297, ck_static_array_place/1)
@@ -676,6 +681,7 @@ ck_static_value(call(id(F), _)) :- atom(F), nb_current('$ck_static_fns', Fs), Fs
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
+ck_static_value(stmt_expr(block(Is))) :- ck_static_complit(Is), !.   % A STATIC COMPOUND LITERAL, the reader's static local of an unnamed object (1.6.31, ck_static_complit/1)
 ck_static_value(stmt_expr(B)) :- ck_block_value(B, E), !, ck_static_value(E).   % a block of declarations alone, then its value (1.6.22, ck_block_value/2)
 ck_pointer_arg(addr(_)) :- !.
 ck_pointer_arg(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; T1 = arr(_, _) ), !.
@@ -736,6 +742,18 @@ ck_returns_static(Ps, Es, Vs) :-
     ( forall(member(E, Es), ck_return_static(E)) -> R = yes ; R = no ),
     nb_setval('$ck_statics', S0), ccl_scope_pop, R == yes.
 ck_return_static(E) :- catch(( ck_null(E) ; ck_static_value(E) ; ck_loaded_value(E) ), _, fail), !.
+%% A POINTER READ OUT OF A PLAIN SLOT OF THE PROGRAM'S OWN GLOBAL OBJECT IS STATIC STORAGE (1.6.31): `names[1]' over `static
+%% char *names[]', `gp' over `static char *gp', `g.name' over a global struct -- the slot itself in static storage, reached
+%% through no pointer. Such a slot holds static storage alone, since a store of new memory or of a local's address into it
+%% is refused (`untied', `borrow_stored'), so its value is freed by no `free' and taken by no owner, as a literal's: `char
+%% *p = names[1]; free(p);', `free(gp)' and `own char *o = names[0];' were each built, and the run aborted in free. An own
+%% slot is its owner's (ck_owner_in_type/1); a slot reached through a pointer -- scandir's `namelist[i]', `r->name' -- is
+%% no static storage, and stays a read (ck_loaded_value/1)
+ck_global_slot(E) :- ck_slot_root(E, N), nb_current('$ck_own_globals', Gs), memberchk(N, Gs), \+ ck_is_local(N),
+    catch(ccl_type_of(E, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, ptr(_, _)), _, fail), \+ ck_owner_in_type(T).
+ck_slot_root(id(N), N) :- atom(N).
+ck_slot_root(index(A, _), N) :- catch(ccl_type_of(A, T), _, fail), catch(ccl_resolve_type(T, arr(_, _)), _, fail), ck_slot_root(A, N).
+ck_slot_root(member(E, _), N) :- ck_slot_root(E, N).
 %% STATIC STORAGE IS A BORROW THAT NOTHING ENDS (0.294; ck_kind/3, and a plain local given it): a free of it, its hand-over
 %% to an own parameter and its store into an owner are refused, `borrow_consumed' and `borrow_stored', as a borrow's are.
 %% It was a fresh value to them: `free("abc")', `free(table)', `int *p = table + 1; free(p);', `free(row(1))' and `own int
@@ -747,12 +765,16 @@ ck_static_root(ccast(_, _, E), N) :- !, ck_static_root(E, N).
 ck_static_root(bin(_, A, _), N) :- !, ck_static_root(A, N).
 ck_static_root(cond(_, A, B), N) :- !, ( ck_static_root(A, N) -> true ; ck_static_root(B, N) ).
 ck_static_root(comma(_, B), N) :- !, ck_static_root(B, N).
+ck_static_root(addr(deref(E)), N) :- ck_static_root(E, N), !.
 ck_static_root(addr(E), N) :- !, ck_storage_base(E, N).
 ck_static_root(index(E, _), N) :- !, ck_static_root(E, N).   % a row of a static array: the array's name (0.297)
 ck_static_root(member(E, _), N) :- !, ck_static_root(E, N).
 ck_static_root(deref(E), N) :- !, ck_static_root(E, N).
 ck_static_root(id(N), N) :- atom(N), !.
 ck_static_root(call(id(F), _), F) :- atom(F).
+ck_static_root(stmt_expr(block(Is)), 'a compound literal') :- ck_static_complit(Is).
+%% C23's static compound literal as the reader gives it (1.6.31, ccl_complit_stored/5): `*({ static T $clN = I; &$clN; })'
+ck_static_complit([declaration(_, static, _, [var(N, _, _)]), expr(_, addr(id(N)))]) :- atom(N), atom_concat('$cl', _, N).
 
 ck_line(L) :- ( integer(L), L > 0 -> nb_setval('$ck_line', L) ; true ).
 ck_fail(Kind, Name, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
@@ -966,6 +988,7 @@ ck_owner_in_type_(base(Q, [struct(N, B)])) :- catch(ccl_members_of(base(Q, [stru
 %% a value read by `va_arg' is the CALLER's argument, handed on and never this function's to consume (0.108)
 ck_va_value(va_arg(_, _)).
 ck_va_value(compound_lit(_, _)).   % C99's compound literal is an object of the enclosing block, never a fresh value to consume (0.108)
+ck_va_value(addr(compound_lit(_, _))).   % ... and so is its address (1.6.31): `struct p *q = &(struct p){ 3, 4 };' was `plain pointer not consumed: 'q''
 ck_va_value(dyncast(_, _, _, _)).
 ck_va_value(eh_alloc(_)).
 ck_va_value(call(id(B), _)) :- memberchk(B, ['__builtin_coro_frame', '__builtin_coro_promise', '__builtin_coro_noop']).   % a coroutine's frame: the lowering's (0.108)
@@ -1073,6 +1096,13 @@ ck_borrows_from(alloc(_, _, Call), St, P) :- !, ck_borrows_from(Call, St, P).   
 %% captures' values, `&x' for a reference capture and `this' for the object, so a closure local is a borrow of the
 %% captured local (an anchor) or of the parameter, and `return f' of one that holds `&x' is borrow_escapes where a
 %% dangling reference had compiled and run -- the hole 0.59 named. A by-value capture of a plain value borrows nothing.
+%% A COMPOUND LITERAL OF A BLOCK IS AN OBJECT OF THE BLOCK (1.6.31; C17 6.5.2.5/5): its address, and an array's value, which
+%% decays to its first element's, are a borrow of `a compound literal', which no owner takes, no free consumes and no
+%% return gives out, as a local's -- `free(&(int){ 7 })', `own int *o = (int[]){ 1, 2 }; free(o);' and `return &(struct p){
+%% 1 };' each built, the first two aborted in free and the last read a dead frame. A static one is static storage
+%% (ck_static_complit/1), and C++ takes no address of one (cpp_complit_addr_words/2)
+ck_borrows_from(addr(compound_lit(_, _)), _, 'a compound literal') :- !.
+ck_borrows_from(compound_lit(T, _), _, 'a compound literal') :- catch(ccl_resolve_type(T, arr(_, _)), _, fail), !.
 ck_borrows_from(compound_lit(_, init(Items)), St, P) :- member(item(_, V), Items), ck_borrows_from(V, St, P), !.
 ck_borrows_from(compound_lit(T, init(Items)), _, static(N)) :- ck_view_type(T), member(item(_, V), Items), ck_static_value(V), !, ck_static_name(V, N).   % a view of static storage (0.295)
 %% a call whose result is tied to a parameter borrows from that argument (an

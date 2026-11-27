@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.30 the versions are: the module 1.6.30 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 216 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 199 (`ccl_lowering_version/1`,
+At 1.6.31 the versions are: the module 1.6.31 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 217 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 200 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -634,7 +634,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             floatsat.c, floating constants that their integer types do not hold, saturated (1.6.23);
                             nanconst.c, a NaN converted to an integer type in a constant (1.6.24); flexinit.c, flexible
                             array members given their items at file scope and in a static local (1.6.25);
-                            blockenums.c, a block's enumerators, which shadow the file's and another block's (1.6.30)
+                            blockenums.c, a block's enumerators, which shadow the file's and another block's (1.6.30);
+                            complits.c, compound literals and global slots that the safe part keeps, and complits23.c,
+                            C23's static compound literals (1.6.31)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -678,7 +680,8 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             loop_pass_continue.c, loop_pass_do.c, loop_pass_goto.c, lj_loop_back.c and move_loop_do.c,
                             what a later pass of a loop meets (1.6.19); skipped_null_decl.c, static_null_lazy.c,
                             lj_volatile_held.c and lj_volatile_typedef.c, what a pointer declared null and a volatile
-                            local refuse still (1.6.20)
+                            local refuse still (1.6.20); complit_*.c and slot_*.c, a compound literal's address and a
+                            global plain slot's pointer freed, given to an owner or returned (1.6.31)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -754,7 +757,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             lambdas that captured this (1.6.26); qualshadow.cpp, qualified calls beside locals of
                             their names, qualnames.cpp, qualified calls that name something, ljlocals.cpp, longjmps out
                             of frames with C++ locals that run nothing, and staticmt.cpp, static member templates
-                            (1.6.27)
+                            (1.6.27); decltypebraced.cpp, a braced cast to a decltype type, and lambdauneval.cpp,
+                            unevaluated operands that name a member with no object (1.6.31)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

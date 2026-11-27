@@ -612,6 +612,40 @@ libfn5.c:1: error: call to undeclared library function 'abs' with type 'int (int
 libfn6.c:1: error: call to undeclared library function 'toupper' with type 'int (int)'; ISO C99 and later do not support implicit function declarations
 libfn7.c:1: error: call to undeclared library function 'floorf' with type 'float (float)'; ISO C99 and later do not support implicit function declarations
 libfn8.c:1: error: call to undeclared library function 'exit' with type 'void (int) __attribute__((noreturn))'; ISO C99 and later do not support implicit function declarations"
+check "C++: the address of a compound literal is refused in clang++'s words (1.6.31): a struct's, a scalar's, an array's, a const one's, a typedef's and an alias's with their (aka ...), a struct's written so, an argument's, a union's and an enumeration's -- each built -- after an array's that decays and a member's value, first" "$(n=0; for src in 'struct p { int x, y; };
+int main() { int *a = (int[]){ 1, 2 }; return a[0] + ((p){ 1, 2 }).x - 2; }' 'struct p { int x, y; };
+int main() { p *q = &(p){ 3, 4 }; return q->x; }' 'int main() { int *e = &(int){ 7 }; return *e; }' 'int main() { int (*a)[2] = &(int[2]){ 1, 2 }; return (*a)[0]; }' 'struct p { int x, y; };
+int main() { const p *r = &(const p){ 5, 6 }; return r->y; }' 'struct p { int x, y; };
+typedef struct p P;
+int main() { P *q = &(P){ 3, 4 }; return q->x; }' 'struct p { int x, y; };
+using U = p;
+int main() { U *q = &(U){ 3, 4 }; return q->x; }' 'struct p { int x, y; };
+int main() { struct p *q = &(struct p){ 3, 4 }; return q->x; }' 'int main() { long *l = &(long){ 9 }; return (int) *l; }' 'struct p { int x, y; };
+static int s(const p *a) { return a->x; }
+int main() { return s(&(p){ 1, 2 }); }' 'union u { int i; float f; };
+int main() { u *q = &(u){ 3 }; return q->i; }' 'enum E { A, B };
+int main() { E *e = &(E){ B }; return *e; }' 'struct p { int x, y; };
+int main() { const struct p *q = &(const struct p){ 3, 4 }; return q->x; }' 'union u { int i; float f; };
+int main() { union u *q = &(union u){ 3 }; return q->i; }'; do n=$((n + 1)); printf "$src\n" > caddr$n.cpp; "$ROOT/bin/cicilang++" -c caddr$n.cpp -o caddr$n.o 2>&1 | head -1; done)" "caddr2.cpp:2: error: taking the address of a temporary object of type 'p'
+caddr3.cpp:1: error: cannot take the address of an rvalue of type 'int'
+caddr4.cpp:1: error: taking the address of a temporary object of type 'int[2]'
+caddr5.cpp:2: error: taking the address of a temporary object of type 'const p'
+caddr6.cpp:3: error: taking the address of a temporary object of type 'P' (aka 'struct p')
+caddr7.cpp:3: error: taking the address of a temporary object of type 'U' (aka 'p')
+caddr8.cpp:2: error: taking the address of a temporary object of type 'struct p'
+caddr9.cpp:1: error: cannot take the address of an rvalue of type 'long'
+caddr10.cpp:3: error: taking the address of a temporary object of type 'p'
+caddr11.cpp:2: error: taking the address of a temporary object of type 'u'
+caddr12.cpp:2: error: cannot take the address of an rvalue of type 'E'
+caddr13.cpp:2: error: taking the address of a temporary object of type 'const struct p'
+caddr14.cpp:2: error: taking the address of a temporary object of type 'union u'"
+check "C++: an unevaluated operand of a lambda that captured no this names a member, and this in a static member function's lambda stays refused (1.6.31): sizeof(this->a) there, an evaluated member, a decltype beside an evaluated one -- after sizeof(a) in a static member function's lambda, first" "$(n=0; for src in 'struct S { long a; static int f() { auto g = [] { return (int) sizeof(a); }; return g(); } };
+int main() { return S::f() - 8; }' 'struct S { long a; static int f() { auto g = [] { return (int) sizeof(this->a); }; return g(); } };
+int main() { return S::f() - 8; }' 'struct S { long a; int f() { auto g = [] { return (int) a; }; return g(); } };
+int main() { S s{}; return s.f(); }' 'struct S { long a; int f() { auto g = [] { decltype(a) z = a; return (int) z; }; return g(); } };
+int main() { S s{}; return s.f(); }'; do n=$((n + 1)); printf "$src\n" > luneval$n.cpp; "$ROOT/bin/cicilang++" -c luneval$n.cpp -o luneval$n.o 2>&1 | head -1; done)" "luneval2.cpp:1: error: invalid use of 'this' outside of a non-static member function
+luneval3.cpp:1: error: 'this' cannot be implicitly captured in this context
+luneval4.cpp:1: error: 'this' cannot be implicitly captured in this context"
 check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
 static int g(int a) { return a; }
 int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}

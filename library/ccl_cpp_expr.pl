@@ -36,7 +36,8 @@ cpp_expr(Ctx, '$member_init'(E), E1) :- !, cpp_expr(Ctx, E, E1).                
 cpp_expr(Ctx, udl(Sfx, Lit), E) :- memberchk(Sfx, [i, if, il]), \+ cpp_cplxlit_visible(Sfx), !, cpp_udl_imag(Sfx, Lit, G), cpp_expr(Ctx, G, E).   % `3i', `2.0i': GNU's imaginary literal where no literal operator of <complex> is visible (0.179, cpp_cplxlit_visible/1)
 cpp_expr(Ctx, udl(Sfx, Lit), E) :- !, cpp_udl_args(Lit, As), length(As, K), length(Qs, K), cpp_free_operator(literal(Sfx), Qs, Name), cpp_expr(Ctx, call(id(Name), As), E).
 cpp_expr(Ctx, this, _) :- cpp_static_body_now(Ctx), !, cpp_refuse_prog(static_this).   % `this' IN A STATIC MEMBER FUNCTION (1.6.28; [expr.prim.this]/3), below
-cpp_expr(Ctx, this, _) :- cpp_closure_uncaptured(Ctx, _, K), !, cpp_unthis_words(K, this, W), cpp_refuse_prog(W).   % ... AND IN A LAMBDA THAT CAPTURED NO `this' (1.6.29), below
+cpp_expr(Ctx, this, _) :- cpp_closure_uncaptured(Ctx, _, K), !, cpp_unthis_words(K, this, W), cpp_refuse_prog(W).
+cpp_expr(Ctx, this, E) :- nb_current('$cpp_uneval', yes), cpp_closure_unthis(Ctx, EC, K), !, ( K == member -> cpp_null_object(EC, E) ; cpp_unthis_words(K, this, W), cpp_refuse_prog(W) ).   % ... unevaluated, typed (1.6.31)   % ... AND IN A LAMBDA THAT CAPTURED NO `this' (1.6.29), below
 cpp_expr(_, this, id(this)) :- !.
 cpp_expr(_, E, E) :- \+ compound(E), !.
 cpp_expr(Ctx, id(N), E) :- !,
@@ -52,6 +53,7 @@ cpp_expr(Ctx, id(N), E) :- !,
     ;   cpp_closure_this(Ctx, EC), cpp_data_member(EC, N, Hops) -> cpp_closure_member(N, Hops, E)   % a lambda's captured this: the enclosing object's member
     ;   cpp_closure_this(Ctx, EC), cpp_static_use(EC, N, Name) -> E = id(Name)
     ;   cpp_closure_uncaptured(Ctx, EC, K), cpp_data_member(EC, N, _) -> cpp_unthis_words(K, use(N), W), cpp_refuse_prog(W)   % ... a member of the enclosing class in a lambda that captured no `this' (1.6.29), below
+    ;   nb_current('$cpp_uneval', yes), cpp_closure_unthis(Ctx, EC, _), cpp_data_member(EC, N, Hops) -> cpp_null_object(EC, P), cpp_access(P, N, Hops, E)   % ... unevaluated, typed (1.6.31)
     ;   cpp_lconsts_now(LCf), memberchk('$cvf'(N)-flt(FK, FX), LCf) -> ( FK == float -> E = cast(base([], [float]), float(FX)) ; E = float(FX) )   % ... a floating one's too
     ;   ccl_body_constant(N, V0), V0 \= agg(_, _) -> E = int(V0)                              % A CONSTANT OF THE FUNCTION A CLOSURE OR A LOCAL CLASS IS MADE IN, read with no capture (0.258; [expr.prim.lambda.capture]/7): its value -- `undeclared(n)' in the body's function
     ;   cpp_static_fn_value(Ctx, N, E0) -> E = E0                                           % A STATIC MEMBER FUNCTION NAMED BARE AS A VALUE (0.126), below
@@ -105,6 +107,7 @@ cpp_expr(_, type(T0), type(T)) :- !, cpp_type(T0, T).
 cpp_expr(Ctx, sizeof(X), E) :- ( cpp_static_body_now(Ctx) ; cpp_closure_uncaptured(Ctx, _, _) ), !, cpp_unevaluated(cpp_expr(Ctx, sizeof(X), E)).   % ... sizeof's operand unevaluated there and in a lambda that captured no `this' (1.6.29), a member that is not static named in it ([expr.prim.id.general]/4)
 cpp_expr(_, sizeof(scoped(Path, N)), sizeof_type(T)) :- atom(N), \+ memberchk(nonclass(_), Path), catch(cpp_scope_class(Path, C), _, fail), catch(cpp_class_typedef(C, N, _), _, fail), !,   % `sizeof(C::type)' OF A MEMBER TYPE IS A TYPE'S SIZE ([expr.sizeof]/1; 0.201): `sizeof(decltype(v)::value_type)' was the size of a static `vector.int.allocator.int.value_type' that is no object
     cpp_type(base([], [typedef(scoped(Path, N))]), T).
+cpp_expr(Ctx, sizeof(scoped(Path, N)), sizeof(X)) :- atom(N), \+ memberchk(nonclass(_), Path), catch(cpp_scope_class(Path, C), _, fail), atom(C), catch(cpp_data_member(C, N, _), _, fail), !, cpp_unevaluated(cpp_expr(Ctx, scoped(Path, N), X)).   % `sizeof(S::a)' OF A DATA MEMBER, unevaluated (1.6.31; [expr.prim.id.general]/4): typed through a null S where no object is at hand -- it was `undeclared('S.a')'
 cpp_expr(_, scoped(Path, N), _) :- memberchk(nonclass(A), Path), !, cpp_refuse(0, no_member(A, N)).   % `_Tp::value' with _Tp a scalar: no members (cpp_subst_path)
 cpp_expr(_, scoped(Path, N), id(K)) :- atom(N), cpp_ns_key(Path, N, K), K \== N, ccl_enum_value(K, _), !.   % `n2::x', an enumerator two namespaces declare: its key (cpp_qualify_enum, 0.127)
 cpp_expr(Ctx, scoped(Path, N), E) :- atom(N), cpp_enumerator(Ctx, Path, N, V), !, ( ( cpp_enum_path_tag(Ctx, Path, Tag) -> true ; cpp_ns_enum_tag(Path, N, _, Tag) -> true ; cpp_hdr_enum_tag(Path, N, Tag) ) -> E = cast(base([], [typedef(Tag)]), int(V)) ; E = int(V) ).   % ... OF ITS ENUM'S TYPE (0.127): a bare `int(V)', `k(Fruit::Pear)' chose `k(long)' over `k(Fruit)', and a template deduced an int   % A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (0.94): `Kind::ptr' asks the enumerators' table directly, since flattened to `id(ptr)' it would meet the local that now shadows the bare name
@@ -119,6 +122,7 @@ cpp_expr(Ctx, scoped(Path, N), E) :- cpp_scope_class(Path, C), !,
     ;   cpp_static_method(C, N, Name) -> cpp_static_thunk(C, N, Name, Thunk), E = id(Thunk)   % `_Traits::eq' NAMED AS A VALUE: a plain function (below)
     ;   cpp_static_body_now(Ctx), cpp_data_member(C, N, _) -> cpp_refuse_prog(static_member_use(N))   % ... and `S::a' so (1.6.28)
     ;   cpp_qualified_data_member(Ctx, C, N, E) -> true
+    ;   nb_current('$cpp_uneval', yes), atom(C), cpp_data_member(C, N, Hops) -> cpp_null_object(C, P), cpp_access(P, N, Hops, E)   % AN UNEVALUATED OPERAND'S `S::a' with no object (1.6.31; [expr.prim.id.general]/4): typed through a null S -- in a lambda that captured no `this' it was `undeclared('S.a')'
     ;   atomic_list_concat([C, '.', N], Name), E = id(Name) ).
 cpp_expr(_, base(_, [typedef(X)]), E) :- cpp_template_id(X, N, Args0), cpp_variable_template(N), !,   % a variable template READ AS A TYPE in an expression: `!__has_max_size_v<const _Ap>' -- the reader cannot tell, and unevaluated it made the negation false
     cpp_targ_values(Args0, Args), cpp_instantiate_variable(N, Args, E).
@@ -133,6 +137,11 @@ cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_braced_ctad(F, TN, Args, F1), 
 cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_braced_class(F, T, C), findall(item([], V), member(V, Vs), Items), cpp_il_braced(C, Items, ET), !,
     cpp_init_list(Ctx, ET, Items, IL), cpp_temporary(T, C, [IL], E).
 cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_vector_named(F, T), !, findall(item([], V), member(V, Vs), Items), cpp_expr(Ctx, compound_lit(T, init(Items)), E).   % A BRACED VECTOR, `_VecT{x...}' (0.162): its lanes, the rest zero, as a C compound literal is
+%% A BRACED FUNCTIONAL CAST TO A decltype TYPE, `decltype(v){7, 8}' (1.6.31; [expr.type.conv]/2): a class's braced temporary by
+%% its own name, so that an initializer_list constructor comes first ([over.match.list]); a scalar's the parenthesized
+%% cast's (cpp_call/4). The reader refused it, `syntax error: could not read this item'
+cpp_expr(Ctx, braced_temp(call(decltype_expr(D), Vs)), E) :- !, cpp_type(base([], [decltype(D)]), T),
+    ( cpp_class_of_type(T, C) -> cpp_expr(Ctx, braced_temp(call(id(C), Vs)), E) ; cpp_expr(Ctx, call(decltype_expr(D), Vs), E) ).
 cpp_expr(Ctx, braced_temp(X), E) :- !, cpp_expr(Ctx, X, E).
 cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_void_args(F, As1), cpp_undeclared_args(F, As1), cpp_where(call(F), cpp_call_adl(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
 %% A MEMBER NAMED THROUGH AN OBJECT BY ITS QUALIFIED NAME ([expr.ref]/7, [class.qual]; 0.112): `b.A::v' is the member
@@ -265,8 +274,18 @@ cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_c
 %% own operators. C's are the check's and the lowering's (ccl_c_no_lvalue/1)
 cpp_expr(Ctx, addr(X), E) :- X = call(_, _), !, cpp_expr(Ctx, X, X1),
     ( cpp_scalar_prvalue_call(X1, T) -> ( catch(ir_type_text(T, A), _, fail) -> true ; A = '?' ), cpp_refuse_stmt(address_of_rvalue(A)) ; E = addr(X1) ).
+%% C++: A COMPOUND LITERAL IS A PRVALUE, AND ITS ADDRESS IS NOT TAKEN (1.6.31; GNU's compound literal as clang++ takes it,
+%% [expr.unary.op]/3, cpp_complit_addr_words/2): `&(p){ 3, 4 }' of a class, a struct or an array is clang++'s `taking the
+%% address of a temporary object of type 'p'', the type as written with its (aka ...), and `&(int){ 7 }' of a scalar
+%% `cannot take the address of an rvalue of type 'int''; each built, the pointer past its object's end. C's compound
+%% literal is an lvalue of its block, and its address C's (ck_va_value/1); an array's that decays and a member's value stay
+cpp_expr(Ctx, addr(X), E) :- X = compound_lit(T, _), \+ nb_current('$cpp_in_lib', yes), catch(cpp_complit_addr_words(T, W), _, fail), !, cpp_expr(Ctx, X, X1), cpp_refuse_stmt(W), E = addr(X1).
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
 cpp_assignable(A) :- ( cpp_scalar_prvalue_call(A, _) -> cpp_refuse_stmt(not_assignable) ; cpp_const_assign(A, W) -> cpp_refuse_stmt(W) ; true ).
+cpp_complit_addr_words(T, W) :- once(ccl_resolve_type(T, R)),
+    (   ( R = arr(_, _) ; cpp_record_type(R) ) -> ( cpp_written_tag(T) -> ck_c_type_text(T, B) ; ir_type_aka(T, B) ), W = address_of_temporary(B)
+    ;   ( catch(ir_type_text(T, A), _, fail) -> true ; A = '?' ), W = address_of_rvalue(A) ).
+cpp_written_tag(base(_, [K])) :- ( K = struct(N, _) ; K = union(N, _) ), atom(N), N \== anon.   % `(struct p){ ... }' as written: `'struct p'', where a class's name is `'p''
 %% A CONST PLACE THAT A CALL GIVES (1.6.28; [expr.ass]/1): `c[0] = 7' over a `span<const int>' and `v.at(0) = 7' over a
 %% const reference's result are clang++'s `cannot assign to return value because function 'operator[]' returns a const
 %% value', the function by its name as the program wrote the call, where they were C's `read-only variable is not
@@ -1161,8 +1180,12 @@ cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> 
 %% f(int, int)' went on as C takes a call, its third argument a variadic tail, and `g(5)' of `int g(char *)' passed the pointer
 %% 5 -- the C beside it refuses both (ir_arg_count/4, ir_int_ptr_check/4). ANOTHER MISFIT GOES ON TO THE ROAD AFTER IT, which
 %% converts a generic lambda to a function pointer (`genericfp.cpp') and refuses a struct for a scalar in its own words, `no
-%% conversion from'; a library body's call goes on as it went
-cpp_no_overload_fits(F, As) :- nb_getval('$cpp_in_lib', no), atom(F), \+ cpp_local(F), catch('$cpp_fn'(F, _, _, _, _), _, fail), length(As, N),
+%% conversion from'; a library body's call goes on as it went. THE DESUGARING'S OWN CALL OF AN ALLOCATION OR A DEALLOCATION
+%% FUNCTION BY ITS SYMBOL is no program's call (1.6.31; cpp_alloc_sym/3): a delete-expression of a type of new-extended
+%% alignment hands its alignment as the integer that it is, and since 1.6.28 asked its test after the best overload's
+%% choice, `delete[] w' over the program's `operator delete[](void *, std::size_t, std::align_val_t)' was `no matching
+%% function for call to '_ZdaPvmSt11align_val_t'' (`alignnew.cpp', found by 1.6.28's nets)
+cpp_no_overload_fits(F, As) :- nb_getval('$cpp_in_lib', no), atom(F), \+ cpp_local(F), \+ cpp_alloc_sym(_, _, F), catch('$cpp_fn'(F, _, _, _, _), _, fail), length(As, N),
     \+ ( catch('$cpp_fn'(F, _, Ps, _, O), _, fail), \+ cpp_fn_hidden(F, O, As), cpp_fn_arity_fits(Ps, O, N), \+ cpp_int_ptr_misfit(Ps, As) ), !.
 %% A VOID ARGUMENT FITS NO PARAMETER (1.6.14; [expr.call]/7, [over.match.viable]/3): a call of a function by its name, an
 %% overload or a template, whose argument is a void value is `no matching function for call to 'g'', clang++'s words, and a
@@ -1271,6 +1294,7 @@ cpp_plain_pointee(ptr(_, X)) :- cpp_plain_pointee(X).
 cpp_enum_type(base(_, S), E) :- member(X, S), compound(X), X = enum(E, _), !.
 cpp_converts_out(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(M, Ms), ( M = method(_, _, _, operator(conv(_)), _, _, _) ; M = template(_, _, method(_, _, _, operator(conv(_)), _, _, _)) ), !.
 cpp_converts_out(C) :- cpp_base_scope(C, B), cpp_converts_out(B), !.
+cpp_converts_out(C) :- cpp_generic_closure(C), !.   % A CAPTURELESS GENERIC LAMBDA'S CLOSURE converts to a pointer to function by its conversion template (1.6.31; [expr.prim.lambda.closure]/9, cpp_generic_closure/1): `apply([](auto v) { return v * 3; }, 5)' of `int apply(int (*)(int), int)' was 1.6.28's misfit, `no matching function for call to 'apply'' (`genericfp.cpp', found by 1.6.28's nets)
 %% A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION OF ANOTHER COUNT OF ARGUMENTS THAN ITS TYPE'S (0.302; [expr.call]/7) is
 %% refused in the program's code in clang++'s words, which are C's (ir_arg_count/4): `g(1)' of `int (*g)(int, int)' passed
 %% nothing for the second, and a struct's pointer member called with one too many passed it on
@@ -1528,9 +1552,14 @@ cpp_static_held(C, M, Name) :- cpp_base_scope(C, B), cpp_static_held(B, M, Name)
 %% (cpp_static_body_now/1). They were `use of undeclared identifier 'm'', the words of a call with no object and the
 %% lowering's `no_member(a, ...)'. The mark is the call operator's own signature, in the program's code and evaluated: the
 %% closure's other members, which the desugaring writes, keep their `this'; a lambda made in another lambda is not asked
-cpp_closure_uncaptured(Ctx, EC, K) :- atom(Ctx), nb_getval('$cpp_in_lib', no), \+ nb_current('$cpp_uneval', yes), cpp_fsig_now(fsig(member, C, operator('()'), _, _, _, _, _)), C == Ctx,
+cpp_closure_uncaptured(Ctx, EC, K) :- \+ nb_current('$cpp_uneval', yes), cpp_closure_unthis(Ctx, EC, K).
+%% ... AND IN ITS UNEVALUATED OPERANDS (1.6.31; [expr.prim.id.general]/4, [expr.prim.this]/2): `sizeof(a)', `decltype(a)' and
+%% `sizeof(this->a)' of a member are typed through a null object of the class (cpp_null_object/2), as clang++ takes them;
+%% they were `use of undeclared identifier 'a'', `decltype_unknown' and the lowering's `sizeof(arrow(id(this),a))'
+cpp_closure_unthis(Ctx, EC, K) :- atom(Ctx), nb_getval('$cpp_in_lib', no), cpp_fsig_now(fsig(member, C, operator('()'), _, _, _, _, _)), C == Ctx,
     \+ cpp_closure_this(Ctx, _), catch('$cpp_pf_closure'(Ctx, Encl, _), _, fail), cpp_fsig_unwrap(Encl, fsig(member, EC, _, _, _, _, FQs, _)), atom(EC),
     \+ catch('$cpp_pf_closure'(EC, _, _), _, fail), ( memberchk(static, FQs) -> K = static ; K = member ).
+cpp_null_object(EC, cast(ptr([], base([], [typedef(EC)])), int(0))).
 cpp_unthis_words(member, _, this_not_captured).
 cpp_unthis_words(static, this, static_this).
 cpp_unthis_words(static, use(N), static_member_use(N)).

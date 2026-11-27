@@ -347,6 +347,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.28 | C++'s arguments and places that fit no type, operand pairs, kinds, static member functions' bodies | a C++ call whose argument fits no candidate by its type in the overloads' words, where some built; a pointer to another type and a floating value for a pointer at an initializer, an assignment and a return; the operand pairs of a built-in operator that no guess of the reader's makes; a const place that a call gives; a name declared again as another kind of symbol through the program's own header and in a namespace's blocks; a static member function's body that names this or a member that is not static; 1.6.27's broken copies carried, seven guards and mends out (lowering 197) |
 | 1.6.29 | C++'s lambdas with no this, enumerations and members' initializers, a base's mutable member, GCC's error | a lambda that captured no this names no member of its class, in clang++'s words; an enumeration given a pointer and a scalar member's initializer; a const member function's write of a member of a base that is not the primary one; a void value of an overloaded function held; a builtin named as an auto's initializer; GCC's error attribute in C (reader 215, lowering 198) |
 | 1.6.30 | C's block enumerators, a hundred and three library functions' words, C++'s decltype casts' words | a C block's enumerator is its block's, where one table gave wrong values and a use after the block built; 103 library functions that nothing declares in clang's words and header notes; a void value cast to a decltype type named as written (reader 216, lowering 199) |
+| 1.6.31 | compound literals in the safe part and in C++, global plain slots, 1.6.28's two misfits, decltype braced | a block's compound literal a borrow of its object and C23's static one static storage, where frees aborted and a dead frame was read; a global plain slot's pointer static storage; C++'s address of one in clang++'s words; a generic closure and an aligned delete no misfit; decltype(v){...} read; unevaluated members in a lambda with no this (reader 217, lowering 200) |
 
 ## M5 — the C++ mode
 
@@ -25936,3 +25937,89 @@ gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.27
   versions, the fixture).
 
 The module 1.6.30, the reader 216 and the lowering 199.
+
+## 1.6.31 — compound literals in the safe part and in C++, global plain slots, 1.6.28's two misfits, decltype braced
+
+**1.6.31: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": two faults that 1.6.28's nets found mended, three holes of the safe part closed -- each a
+program that built and aborted in `free` or read a dead frame --, two records of Not done closed and two narrowed, and
+one found, each form held to clang's, clang++'s or gcc's answer. The step was committed while its nets and its broken
+copies, and 1.6.29's and 1.6.30's, ran: it claims nothing GREEN of them, and the next step's commit carries them.**
+
+1. 1.6.28'S MISFITS, TWO PROGRAMS REFUSED (found by its nets): its rule of an argument that fits no candidate by its
+   type, asked after the best overload's choice, refused `genericfp.cpp`'s `apply([](auto v) { return v * 3; }, 5)` -- a
+   captureless generic lambda converts to the function pointer by its conversion template, which the class's members do
+   not list (`cpp_converts_out/1` over `cpp_generic_closure/1` now) -- and `alignnew.cpp`'s `delete[] w` over the
+   program's `operator delete[](void *, std::size_t, std::align_val_t)`, the desugaring's own call by its symbol, which
+   hands the alignment as the integer that it is (`cpp_alloc_sym/3` in `cpp_no_overload_fits/2` now): `no matching
+   function for call to 'apply'` and `'_ZdaPvmSt11align_val_t'`. Both print as they did.
+2. C: A COMPOUND LITERAL OF A BLOCK IS AN OBJECT OF THE BLOCK (C17 6.5.2.5/5; `ck_borrows_from/3`): its address and an
+   array's value were no borrow to the safe part -- `free(&(int){ 7 })`, `int *o = &(int){ 7 }; free(o);` and `own int
+   *o = (int[]){ 1, 2 }; free(o);` BUILT and aborted in `free`, `return &(struct p){ 1 };` BUILT and its caller read a
+   dead frame, and `struct p *q = &(struct p){ 3, 4 };` was `plain pointer not consumed` --; each is a borrow of `a
+   compound literal` now, refused or taken as a local's address is. A pointer to one made in an inner block, used after
+   it, is not followed (a record found).
+3. C23: A STATIC COMPOUND LITERAL IS A STATIC OBJECT OF ITS BLOCK (C23 6.5.2.5/5; `ccl_complit_stored/5`, the reader
+   217; `ck_static_complit/1`): the reader dropped the storage class, and `(static int){ 7 }` was the block's `alloca`
+   -- `c23forms.c`'s `return &(static int){ 7 };` returned a dead frame's address and read 7 back by chance --; it is
+   `*({ static int $cl1 = 7; &$cl1; })` now, a static local, and static storage to the safe part. Held to gcc's output
+   (`complits23.c`): clang 23 reads no storage class there.
+4. C: A POINTER READ OUT OF A PLAIN SLOT OF THE PROGRAM'S OWN GLOBAL OBJECT IS STATIC STORAGE (`ck_global_slot/1`,
+   `ck_program_globals/1`): `char *p = names[1]; free(p);`, `free(names[1])`, `free(gp)`, `char *p = cfg.name; free(p);`
+   and `own char *o = names[0];` BUILT and aborted in `free`. Such a slot holds static storage alone -- a store of new
+   memory or of a local's address into it is refused --, so its value is static storage now. A slot reached through a
+   pointer, scandir's `namelist[i]`, and a C library's `extern` object, `stdin`, are 0.290's reads still. The five
+   refusals hold as C++ too. The record of 0.294, narrowed: its conditional of static storage and new memory stays. The
+   first form asked `ck_is_param/1`, which throws before any function's walk, and the pass of the static results took a
+   function that returns a static array's row for none: `statret.c` and `staticrows.c` were refused, and the test is
+   out.
+5. C++: A COMPOUND LITERAL'S ADDRESS (`cpp_complit_addr_words/2`): `&(p){ 3, 4 }` of a class, a struct, a union or an
+   array, and `&(int){ 7 }` of a scalar or an enumeration, BUILT; they are clang++'s `taking the address of a temporary
+   object of type 'p'`, with its `(aka ...)` and a tag written so as C spells it, and `cannot take the address of an
+   rvalue of type 'int'` now.
+6. C++: A BRACED FUNCTIONAL CAST TO A `decltype` TYPE (the reader 217; [expr.type.conv]/2): `decltype(v){7, 8}` was
+   `syntax error: could not read this item`; it is a class's braced temporary by its own name, an initializer_list
+   constructor first, and a scalar's the parenthesized cast (`decltypebraced.cpp`). The record, closed.
+7. C++: UNEVALUATED OPERANDS THAT NAME A MEMBER WITH NO OBJECT ([expr.prim.id.general]/4; `cpp_closure_unthis/3`,
+   `cpp_null_object/2`): in a lambda that captured no `this`, `sizeof(a)`, `decltype(a)`, `sizeof(S::a)`,
+   `sizeof(this->a)` and a base's member were `use of undeclared identifier 'a'`, `decltype_unknown`,
+   `undeclared('S.a')` and the lowering's `sizeof(arrow(id(this),a))`, and `sizeof(S::a)` in `main` was
+   `undeclared('S.a')` too; each is typed through a null object of the class now (`lambdauneval.cpp`); `this` in a
+   static member function's lambda stays refused. 1.6.29's record, narrowed: a generic lambda's and a nested lambda's
+   words stay.
+8. A QUALIFIED CALL BESIDE A LOCAL POINTER TO A FUNCTION OF ITS NAME, 1.6.28's record, probed: `::k(6)` beside `int
+   (*k)(int) = dbl;` calls `dbl`, and the lowering has no node for the file's function beside such a local; it stays.
+
+1.6.28'S NETS, CARRIED. Over a copy of its tree, LLVM 23 and a fresh HOME, the toolchain check strict: the flow gate 476
+s with no finding, reader 4 s, compile 32 s, driver 250 s, objects 6 s, the proof, the cross gate 294 s and the library
+read 293 s GREEN; the C++ gate RED in 1676 s, sixteen failures -- 1.6.27's fourteen, which 1.6.29's item 7 mended, and
+item 1's two --; the ccllib gate RED in 1325 s, twelve failures, the ten wants and the two words that 1.6.29's items 7
+and 8 mended. 4357 s in all. ITS BROKEN COPIES, running at this commit: of the first eighteen of seventy-eight, seven
+that nothing caught -- an enumeration's own enumerator, the null pointer constant and the unknown type in the misfit's
+test, its scalar kind, a base's conversion function, a pointer to a function and the plain pointee in the pointees' test
+--; the next step's commit carries them all.
+
+1.6.29'S NETS AND BROKEN COPIES, AND 1.6.30'S, queued behind them, one guarded run at a time.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the flow gate GREEN in 576 s, the compile gate GREEN in 32 s --
+its two run fixtures and its eleven refusals of the step among them --, the driver gate's two checks of the step, their
+bodies each against clang++ 23 -- fourteen of the compound literals' addresses and four of the unevaluated members --,
+the copy's whole driver gate over a fresh HOME, GREEN in 203 s (169 ok), the reader gate GREEN in 4 s, and a pool of ten
+C++ run fixtures -- the step's four and six beside its rules, `capturethis.cpp`, `qualthis.cpp`, `castcalls.cpp`,
+`refplaces.cpp`, `staticbase.cpp` and `nsfunctions.cpp` --, each built and run as the C++ gate runs it, the same. THE
+BROKEN COPIES, queued behind 1.6.30's: the next step's commit carries them. Over the work tree after the port: the
+toolchain check strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of
+0.271.
+
+- `library/ccl_cpp_expr.pl` (`cpp_no_overload_fits/2`, `cpp_converts_out/1`, `cpp_complit_addr_words/2`,
+  `cpp_written_tag/1`, the braced decltype cast, `cpp_closure_unthis/3`, `cpp_null_object/2`, `sizeof` of a qualified
+  data member); `library/ccl_check.pl` (`ck_va_value/1`, `ck_borrows_from/3`, `ck_static_value/1`,
+  `ck_static_complit/1`, `ck_static_root/2`, `ck_global_slot/1`, `ck_slot_root/2`, `ck_program_globals/1`);
+  `library/ccl_syntax.pl` (`ccl_type_name_sto//3`, `ccl_cast_rest//3`, `ccl_complit_stored/5`, `ccl_postfix_p//3`; the
+  reader 217); `library/ccl_driver.pl` (the new words); `library/ccl_ir.pl` (the lowering 200); `test/driver.sh` (two
+  checks); `test/cpp.sh` (five refusals of item 4 as C++); `test/c/run/complits.c`, `complits23.c`; eleven refusals of
+  `test/c/safe/`; `test/cpp/run/decltypebraced.cpp`, `lambdauneval.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: two records closed, two narrowed, one found), HISTORY.md, CLAUDE.md
+  (the versions and the fixtures).
+
+The module 1.6.31, the reader 217 and the lowering 200.
