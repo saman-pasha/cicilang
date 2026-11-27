@@ -343,6 +343,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.24 | Clang's (aka ...), redeclarations in C and C++, const member functions, C++'s integers and pointers | a typedef's type with clang's (aka ...) where the words are clang's; an object declared again with another type refused in C, a second definition and another kind of symbol in C++; a const member function's writes refused, `mutable` marked; a constexpr pointer a const pointer; C++'s integers and pointers refused at an assignment and an initializer; a NaN converted to an integer 0; `-E` stops at its own missing include; a library function's words and header note; the three words that 1.6.23's net found changed mended; cocolog's master taken (reader 212, lowering 193) |
 | 1.6.25 | Jumps past cleanups, destructors and initializations, unavailable functions, K&R at C23, flexible members | a jump into a cleanup's or a destructor's scope or past a C++ initialization in clang's words, a nested block's case label seen; a function marked unavailable refused at its use; a block's extern of another type refused; a K&R definition at C23 and an implicit int refused; a flexible array member's items laid as clang lays them; C++'s return of an integer for a pointer refused; the old check that 1.6.24's net found RED mended; two dead guards taken out (reader 213, lowering 194) |
 | 1.6.26 | C's sites of a value of no conversion, C++'s casts, qualified calls and members, unavailable members | C's assignments, arguments, initializers and returns of no conversion in clang's words; C++'s casts of a floating value and a pointer by the cast's spelling; a member's and an overload's unavailable refused; a qualified call's count in clang++'s words by its defaults and ellipsis; a member named with its class that none takes, or with no object, which ran over a null this; a qualified member call in a lambda passes the closure's object, where it crashed; 1.6.25's net RED at four fixtures, mended (reader 214, lowering 195) |
+| 1.6.27 | C++'s names that nothing declares, qualified calls beside locals, void values through pointers and formats | a C++ name that nothing declares in clang++'s words, a qualified one `no member named`; a void value through a pointer to a function as an argument, and through printf's ellipsis with its format's type; a qualified call beside a local of its name, which was refused or named the function; a set with a member template named with its class; the checks and the fixtures that seven of 1.6.26's broken copies needed (lowering 196) |
 
 ## M5 — the C++ mode
 
@@ -25593,3 +25594,90 @@ GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the
   the fixtures).
 
 The module 1.6.26, the reader 214 and the lowering 195.
+
+## 1.6.27 — C++'s names that nothing declares, qualified calls beside locals, void values through pointers and formats
+
+**1.6.27: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": two records of Not done closed and four narrowed, each form held to clang's or clang++'s answer
+at its line, two faults that refused valid programs mended, 1.6.26's nets and broken copies carried and the four
+fixtures that they found RED mended, with the checks and the fixtures that six of its copies needed. The step was
+committed while its nets and its broken copies ran: it claims nothing GREEN of them, and the next step's commit carries
+them.**
+
+1. C++: A NAME THAT NOTHING DECLARES (`ir_undeclared/1`, `cpp_undeclared_args/1`): a call, a value, an operand, a
+   member's body, a place and an argument were `not lowered yet: undeclared(nowhere)`, `sizeof` of one `not lowered yet:
+   sizeof(id(nowhere))` in C and C++, and a template's argument `cannot_deduce('T')` at no line; each is clang++'s `use
+   of undeclared identifier 'nowhere'` now, at its line, for a plain name of the program's -- a name of the
+   implementation's, `_`, and of the desugaring's, `.`, is refused by name as before.
+2. C++: A QUALIFIED NAME THAT NOTHING DECLARES ([namespace.qual]/2; `cpp_declared_nowhere/2`) is clang++'s `no member
+   named 'nowhere' in namespace 'n'`, `in namespace 'a::b'` and `in the global namespace`, where it was the lowering's
+   `undeclared(nowhere)`; `std::ref(c)` with no `<functional>`, which libc++ 23 includes through no other header, was
+   what met the call's value, `auto(r)` or `kind_mismatch('_Tp')`, and is clang++'s words over libc++ now -- a record
+   closed. `test/cpp/run/qualnames.cpp` holds the qualified calls that name something.
+3. C++: A VOID VALUE THROUGH A LOCAL'S OR A MEMBER'S POINTER OR REFERENCE TO A FUNCTION, AS AN ARGUMENT
+   (`cpp_void_value/1`): `g(fp())` was the lowering's `cannot initialize a parameter of type 'int' with an rvalue of
+   type 'void'`, where clang++'s overloading takes no candidate, `no matching function for call to 'g'`; the desugaring
+   trusts such a call by its type now, and a qualified name's and an ellipsis's keep their words.
+4. C++: A VOID VALUE THROUGH `printf`'S ELLIPSIS HAS THE FORMAT'S TYPE (`ir_with_call/3`, `ir_format_expected/2`):
+   `cannot pass expression of type 'void' to variadic function; expected type from format string was 'int'`, the
+   conversion at the value's place after the format literal -- its length, a width and a precision, a `*`'s `int` -- at
+   `printf`'s, `fprintf`'s, `sprintf`'s, `snprintf`'s and `dprintf`'s places of the format.
+5. C++: A QUALIFIED CALL BESIDE A LOCAL OF ITS NAME, A FAULT THAT REFUSED VALID PROGRAMS (1.6.26's record;
+   `cpp_qualified_name/2`, `ir_callable_type/1`, `cpp_c_decl_current/2`): the desugaring flattens `n::g(2)`, `::g(2)`
+   and `std::puts("x")` to a call of the bare name, and `double g = 1.5; return n::g(2);` was `not lowered yet:
+   call(id(g))`, a template's call too; and after `int puts = 4; ::puts("x");` a `return puts;` named the function,
+   since the C function's declaration for its call went into the local's frame over it. A qualified name finds no local
+   while its call resolves, in the scope that it was called in, the lowering calls the file's function where the local
+   is no function and no pointer to one, and the declaration is the file scope's. `test/cpp/run/qualshadow.cpp`, which
+   clang++ 23 and g++ print alike -- a template's own local of its name among them.
+6. C++: A SET WITH A MEMBER TEMPLATE NAMED WITH ITS CLASS (`cpp_mt_quals/2`): `S::g()` over a static member template was
+   `not lowered yet: undeclared('S.g')`, and a plain member beside a template had the plain one's count words; each is
+   the set's words now, `no matching function for call to 'g'` and `no matching member function for call to 't'` where
+   an object is at hand, the template's qualifiers its method's. `test/cpp/run/staticmt.cpp` holds the static member
+   templates that the static road takes.
+7. WHAT 1.6.26'S BROKEN COPIES NEEDED: eight of its fifty were caught by nothing at their first run. The return of a
+   record by memory was caught by the site check's tenth body, in 1.6.26's commit; the other six are held now -- the
+   cast of a type's call by a check of its words (they name the target by its type, where clang++ spells the typedef, a
+   record), the named mark of an unavailable declaration and of a definition by two bodies of a namespace whose name
+   another namespace shares and of an overloaded definition, the template guard of a qualified call by two templates
+   called with no argument, the member templates of the static road by `staticmt.cpp`, and the longjmp's frames that run
+   nothing by `ljlocals.cpp`. Of the three template guards of a qualified call each held the forms alone: one stays. And
+   the guard of the member rule against member templates was dead, the rule taking them now (item 6).
+8. 1.6.26'S NET RED AT FOUR FIXTURES OF THE C++ GATE, MENDED (the static road, `cpp_member_misfit/5`): the refusal of a
+   member that is not static with no object took a class's `operator new`, which is static whether or not it is declared
+   so ([class.free]/1), and a new-expression that the class's allocation function refused falls to the global one --
+   `new B` over A's `operator new` printed nothing of A's (`classnew.cpp`, `vdelete.cpp`) --; and it took a library
+   class's static member, `std::ios::sync_with_stdio(false)`, which the static road does not know as static
+   (`stdstreammisc.cpp`, `gnusource.cpp`). An operator and a library class's member are no part of either rule now.
+
+1.6.26'S NETS, CARRIED. Over LLVM 23 and its work tree, the toolchain check strict: the flow gate 488 s with no finding
+(61 ok), reader 4 s (173 ok), compile 33 s (422 ok), driver 212 s (146 ok), objects 6 s (29 ok), the proof, the cross
+gate 277 s (278 ok) and the library read 316 s (24 ok) GREEN; then the C++ gate RED in 1468 s, 1235 ok and four failures
+-- `classnew.cpp`, `vdelete.cpp`, `stdstreammisc.cpp` and `gnusource.cpp`, item 8 --, and the ccllib gate, run after it
+by the nets' own script, which goes on past a RED gate, GREEN in 1317 s (625 ok). 4122 s in all.
+
+1.6.26'S BROKEN COPIES: fifty runs over its copy, each rule of the step and each of its mends broken on purpose --
+forty-nine copies and one run again: forty-one caught at their first run, each by the check or the fixture of its rule,
+and eight by nothing, which item 7 takes -- one caught at 1.6.26's commit, six by 1.6.27's checks and fixtures, in
+1.6.27's copies run again, and one a dead guard, out.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the flow gate GREEN in 893 s, the driver gate's five checks of
+the step, their bodies each against clang 23 or clang++ 23 over libc++ -- thirteen of the names that nothing declares,
+six of the void values through pointers, eight of the formats and eight of what 1.6.26's copies needed, and the one of
+the type call's words --, 1.6.26's checks over the copy, the four fixtures by cicilang++ beside clang++ and g++, and the
+probes of the forms beside them. THE BROKEN COPIES, thirty-eight over the copy, each rule of the step and each guard
+broken on purpose: twenty-four caught at their first run, each by the check or the fixture of its rule, and fourteen by
+nothing, which 1.6.28 takes -- seven guards of a name that nothing declares and two mends of item 5's declaration, which
+held nothing, and five that forms of their own catch. Over the work tree after the port: the toolchain check strict
+GREEN; the other ten gates over LLVM 23 ran at the commit. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_ir.pl` (`ir_undeclared/1`, `ir_call/4`, `ir_callable_type/1`, `ir_with_call/3`, `ir_format_expected/2`,
+  `ir_void_vararg/2`; the lowering 196); `library/ccl_cpp_expr.pl` (`cpp_declared_nowhere/2`, `cpp_ns_words/2`,
+  `cpp_undeclared_args/1`, `cpp_void_value/1`, `cpp_qualified_name/2`, `cpp_qualified_hides/1`, `cpp_member_misfit/5`,
+  `cpp_mt_quals/2`, `cpp_one_function/3`); `library/ccl_cpp_library.pl` (`cpp_c_decl_current/2`);
+  `library/ccl_driver.pl` (the new words); `test/driver.sh` (five checks); `test/cpp/run/qualshadow.cpp`,
+  `qualnames.cpp`, `ljlocals.cpp`, `staticmt.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: two records closed, four narrowed, one grown), HISTORY.md, CLAUDE.md
+  (the versions, the fixtures).
+
+The module 1.6.27, the reader 214 and the lowering 196.

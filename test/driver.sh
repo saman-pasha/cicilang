@@ -351,6 +351,72 @@ check "C++: a subscript over a plain struct, in clang++'s words by its left oper
 subrec2.cpp:2: error: type 'int' does not provide a subscript operator
 subrec3.cpp:2: error: no viable overloaded operator[] for type 'int *'
 subrec4.cpp:3: error: type 'S' does not provide a subscript operator"
+check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
+static int g(int a) { return a; }
+int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}
+static int g(int a) { return a; }
+int main() { void (&fr)() = h; return g(fr()); }' 'static void h() {}
+static int g(int a) { return a; }
+struct S { void (*p)(); };
+int main() { S s{h}; return g(s.p()); }' 'static void h() {}
+static int g(int a) { return a; }
+static int g(double a) { return 2; }
+int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}
+namespace n { int g(int a); }
+int main() { void (*fp)() = h; return n::g(fp()); }' '#include <cstdio>
+static void h() {}
+int main() { void (*fp)() = h; std::printf("x", fp()); return 0; }'; do n=$((n + 1)); printf "$src\n" > voidptr$n.cpp; "$ROOT/bin/cicilang++" -c voidptr$n.cpp -o voidptr$n.o 2>&1 | head -1; done)" "voidptr1.cpp:3: error: no matching function for call to 'g'
+voidptr2.cpp:3: error: no matching function for call to 'g'
+voidptr3.cpp:4: error: no matching function for call to 'g'
+voidptr4.cpp:4: error: no matching function for call to 'g'
+voidptr5.cpp:3: error: cannot initialize a parameter of type 'int' with an rvalue of type 'void'
+voidptr6.cpp:3: error: cannot pass expression of type 'void' to variadic function"
+check "C++: a void value through printf's ellipsis has the format's type in clang++'s words (1.6.27): its conversion by its place, a length, a width and a precision, a star's int, at printf's, fprintf's and snprintf's places of the format, and none past the conversions" "$(n=0; for src in '#include <cstdio>
+static void f() {}
+int main() { std::printf("%%d", f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { std::printf("%%s %%ld", "a", f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { printf("%%f %%p", 1.0, f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { char b[8]; std::snprintf(b, 8, "%%u", f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { std::fprintf(stderr, "%%c", f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { std::printf("%%5.2hd %%zu %%llx", 1, (unsigned long)2, f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { std::printf("%%*d %%Lf", 3, 4, f()); return 0; }' '#include <cstdio>
+static void f() {}
+int main() { std::printf("x", f()); return 0; }'; do n=$((n + 1)); printf "$src\n" > voidfmt$n.cpp; "$ROOT/bin/cicilang++" -c voidfmt$n.cpp -o voidfmt$n.o 2>&1 | head -1; done)" "voidfmt1.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'int'
+voidfmt2.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'long'
+voidfmt3.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'void *'
+voidfmt4.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'unsigned int'
+voidfmt5.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'int'
+voidfmt6.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'unsigned long long'
+voidfmt7.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'long double'
+voidfmt8.cpp:3: error: cannot pass expression of type 'void' to variadic function"
+check "C++: what 1.6.26's broken copies of its rules needed, in clang++'s words (1.6.27): a member template named with its class that none takes, a set of a plain member and a template, a namespace's template and the global one called with no argument, an unavailable declaration whose name another namespace shares, and an unavailable definition among overloads" "$(n=0; for src in 'struct S { template <class T> int t(T a); int k() { return S::t(); } };
+int main() { return 0; }' 'struct S { template <class T> static int g(T a); };
+int main() { return S::g(1, 2); }' 'struct S { template <class T> static int g(T a); };
+int main() { return S::g(); }' 'struct S {
+  static int h(int a) { return a; }
+  template <class T> static int h(T a, T b) { return (int)(a + b); }
+};
+int main() { return S::h(1, 2, 3); }' 'namespace n { template <class T> void f(T a) {} }
+int main() { n::f(); }' 'template <class T> void f(T a) {}
+int main() { ::f(); }' 'namespace a { int h() { return 1; } }
+namespace b { int h() __attribute__((unavailable("no"))); }
+int main() { return b::h(); }' '[[clang::unavailable("y")]] int g(int) { return 1; }
+int g(double) { return 2; }
+int main() { return g(1); }'; do n=$((n + 1)); printf "$src\n" > need$n.cpp; "$ROOT/bin/cicilang++" -c need$n.cpp -o need$n.o 2>&1 | head -1; done)" "need1.cpp:1: error: no matching member function for call to 't'
+need2.cpp:2: error: no matching function for call to 'g'
+need3.cpp:2: error: no matching function for call to 'g'
+need4.cpp:5: error: no matching function for call to 'h'
+need5.cpp:2: error: no matching function for call to 'f'
+need6.cpp:2: error: no matching function for call to 'f'
+need7.cpp:3: error: 'h' is unavailable: no
+need8.cpp:3: error: 'g' is unavailable: y"
+check "C++: a functional cast through a class's typedef of a pointer to a floating type, its words by the cast's spelling and the target by its type, where clang++ spells the typedef, 'D' (aka 'double') (1.6.27, Not done)" "$(printf 'struct S { typedef double D; static int f(int *q) { return (int)D(q); } };\nint main() { return 0; }\n' > tcall.cpp; "$ROOT/bin/cicilang++" -c tcall.cpp -o tcall.o 2>&1 | head -1)" "tcall.cpp:1: error: functional-style cast from 'int *' to 'double' is not allowed"
 check "the verdict is the driver's own line (0.302): an error that cocolog reports past the inputs fails the build, where the verdict's text in cocolog's trace of the goals left to run made it end with exit 0, no output file and no word" "$(mkdir -p fakecoco && printf '#!/bin/sh\necho "ERROR: ?-: a report raised an error"\necho "ERROR:   then _G236=:=0->write('"'"'cicilang: ok'"'"');write('"'"'cicilang: '"'"'),write(_G236),write('"'"' error(s)'"'"')"\necho "false."\n' > fakecoco/cocolog && chmod +x fakecoco/cocolog && printf 'int main(void) { return 0; }\n' > fakeok.c && COCOLOG="$PWD/fakecoco" "$CICILI" --no-kb fakeok.c -o fakeok > /dev/null 2>&1; echo "exit $?")" "exit 1"
 # A NAME USED BEFORE ANY DECLARATION OF IT (1.1.2; the Ambitious program's finding 43): a call of a function that the file
 # defines further down was lowered by the later definition's type, where clang refuses it, and so were a name used as a value
@@ -385,6 +451,26 @@ nodecl3.c:2: error: use of undeclared identifier 'nothing'
 nodecl4.c:2: error: call to undeclared library function 'printf' with type 'int (const char *, ...)'; ISO C99 and later do not support implicit function declarations
 nodecl5.c:3: error: not lowered yet: call(id('B')) (function main)
 nodecl6.c:3: error: use of undeclared identifier 'nowhere'"
+check "C++: a name that nothing declares, in clang++'s words (1.6.27): a call, a value, an operand, a member's body, a place, an argument and sizeof's operand are use of undeclared identifier, which was undeclared(nowhere) and sizeof(id(nowhere)), and a qualified name no member named in a namespace, the global one, a nested one and std -- std::ref with no <functional> among them, as libc++ 23 has it -- and a template's argument, which was cannot_deduce at no line" "$(n=0; for src in 'int main() { return nowhere(1); }' 'int main() { return nowhere; }' 'int main() { int x = nowhere + 1; return x; }' 'struct S { int k() { return nowhere(2); } };
+int main() { return 0; }' 'int main() { nowhere = 3; return 0; }' 'int f(int a) { return a; }
+int main() { return f(nowhere); }' 'int main() { return sizeof(nowhere); }' 'namespace n { int f(); }
+int main() { return n::nowhere(); }' 'int main() { return ::nowhere(); }' 'namespace a { namespace b { int f(); } }
+int main() { return a::b::nowhere(); }' '#include <cstdio>
+int main() { return std::nothere(1); }' '#include <utility>
+int main() { int c = 1; auto r = std::ref(c); return r; }' 'template <class T> int t(T a) { return a; }
+int main() { return t(nowhere); }'; do n=$((n + 1)); printf "$src\n" > undecl$n.cpp; "$ROOT/bin/cicilang++" -c undecl$n.cpp -o undecl$n.o 2>&1 | head -1; done)" "undecl1.cpp:1: error: use of undeclared identifier 'nowhere'
+undecl2.cpp:1: error: use of undeclared identifier 'nowhere'
+undecl3.cpp:1: error: use of undeclared identifier 'nowhere'
+undecl4.cpp:1: error: use of undeclared identifier 'nowhere'
+undecl5.cpp:1: error: use of undeclared identifier 'nowhere'
+undecl6.cpp:2: error: use of undeclared identifier 'nowhere'
+undecl7.cpp:1: error: use of undeclared identifier 'nowhere'
+undecl8.cpp:2: error: no member named 'nowhere' in namespace 'n'
+undecl9.cpp:1: error: no member named 'nowhere' in the global namespace
+undecl10.cpp:2: error: no member named 'nowhere' in namespace 'a::b'
+undecl11.cpp:2: error: no member named 'nothere' in namespace 'std'
+undecl12.cpp:2: error: no member named 'ref' in namespace 'std'
+undecl13.cpp:2: error: use of undeclared identifier 'nowhere'"
 check "a unit so refused is not kept: a second build is refused again, and the file put right builds and runs (1.1.2)" "$(printf 'int g0;\nstatic int f(void) { return later(2); }\nstatic int later(int a) { return a; }\nint main(void) { return f(); }\n' > undeclkb.c; "$CICILI" -c undeclkb.c -o undeclkb.o 2>&1 | head -1; "$CICILI" -c undeclkb.c -o undeclkb.o 2>&1 | head -1; sleep 1; printf 'int g0;\nstatic int later(int a);\nstatic int f(void) { return later(2); }\nstatic int later(int a) { return a; }\nint main(void) { return f(); }\n' > undeclkb.c; "$CICILI" undeclkb.c -o undeclkb && ./undeclkb; echo "exit $?")" "undeclkb.c:2: error: call to undeclared function 'later'; ISO C99 and later do not support implicit function declarations
 undeclkb.c:2: error: call to undeclared function 'later'; ISO C99 and later do not support implicit function declarations
 exit 2"

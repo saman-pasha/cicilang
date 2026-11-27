@@ -496,6 +496,7 @@ dr_value_text(void_value(parameter, B), ['cannot initialize a parameter of type 
 dr_value_text(void_value(conversion, B), ['no viable conversion from ''void'' to ''', B, '''']).
 dr_value_text(void_value(return_conversion, B), ['no viable conversion from returned value of type ''void'' to function return type ''', B, '''']).
 dr_value_text(void_value(overloaded_assign, _), ['no viable overloaded ''=''']).
+dr_value_text(void_vararg_fmt(X), ['cannot pass expression of type ''void'' to variadic function; expected type from format string was ''', X, '''']).   % C++, with the format's type (1.6.27)
 dr_value_text(void_vararg, Ps) :- ( ccl_lang(cpp) -> Ps = ['cannot pass expression of type ''void'' to variadic function'] ; Ps = ['argument type ''void'' is incomplete'] ).
 dr_value_text(void_condition, ['value of type ''void'' is not contextually convertible to ''bool''']).
 dr_value_text(void_variable, ['variable has incomplete type ''void''']).
@@ -513,6 +514,8 @@ dr_value_text(union_cast(A), ['cast to union type from type ''', A, ''' not pres
 dr_value_text(void_cast(const_kind, B), ['const_cast to ''', B, ''', which is not a reference, pointer-to-object, or pointer-to-data-member']).
 dr_value_text(void_cast(K, B), [S, ' from ''void'' to ''', B, ''' is not allowed']) :- dr_cast_spelled(K, S).
 dr_value_text(void_cast_pointer(B), ['cannot cast from type ''void'' to pointer type ''', B, '''']).
+dr_value_text(no_member_in(F, global), ['no member named ''', F, ''' in the global namespace']).   % C++'s qualified name that nothing declares (1.6.27)
+dr_value_text(no_member_in(F, ns(T)), ['no member named ''', F, ''' in namespace ''', T, '''']).
 dr_value_text(nonstatic_no_object, ['call to non-static member function without an object argument']).   % C++ (1.6.26)
 dr_value_text(this_not_captured, ['''this'' cannot be implicitly captured in this context']).
 dr_value_text(no_subscript(T), ['type ''', T, ''' does not provide a subscript operator']).   % C++'s subscript over a plain struct (1.6.26)

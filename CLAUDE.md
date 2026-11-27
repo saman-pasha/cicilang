@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.26 the versions are: the module 1.6.26 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 214 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 195 (`ccl_lowering_version/1`,
+At 1.6.27 the versions are: the module 1.6.27 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 214 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 196 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -750,7 +750,10 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             constexpr pointers, const pointers (1.6.24); jumptemps.cpp, jumps past what the desugaring
                             declares (1.6.25); castcalls.cpp, the casts, the qualified calls, the defaults and the
                             ellipses beside 1.6.26's refusals, and qualthis.cpp, members named with their class in
-                            lambdas that captured this (1.6.26)
+                            lambdas that captured this (1.6.26); qualshadow.cpp, qualified calls beside locals of
+                            their names, qualnames.cpp, qualified calls that name something, ljlocals.cpp, longjmps out
+                            of frames with C++ locals that run nothing, and staticmt.cpp, static member templates
+                            (1.6.27)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

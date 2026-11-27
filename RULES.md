@@ -4668,14 +4668,20 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   that the closure keeps, `'$this'` with the hops (`cpp_closure_object/2`): it went out with a null this, and the
   program crashed. A MEMBER THAT IS NOT STATIC, called so in the program's code outside its class with no object, is
   clang++'s `call to non-static member function without an object argument`, where it was called over a null this; a
-  library's call goes on as it went. A CLASS'S MEMBER FUNCTIONS NAMED WITH THE CLASS THAT NONE TAKES BY THE COUNT
-  (1.6.26; `cpp_member_misfit/5`): one is called with clang++'s count words (the overloads' topic), its parameters as
-  the class declares them, their defaults and its ellipsis with them -- it was the lowering's `expected 2, have 0` --;
-  an overload set is `no matching function for call to 'g'`, and `no matching member function for call to 'm'` where an
-  object is at hand, the class's own or a base's or a closure's; a member that is not static with no object at hand has
-  the words above, and these were `not lowered yet: undeclared('S.m')`. A member template takes the roads after these.
-  `test/cpp/run/qualthis.cpp`, which clang++ 23 and g++ print alike; the driver gate's seven bodies. (0.44, 0.73,
-  1.6.26)
+  library's call goes on as it went, and so do a class's operator -- an allocation function is static whether or not it
+  is declared so ([class.free]/1), and a new-expression that the class's refused falls to the global one -- and a
+  library class's member, whose static mark the static road does not always know (1.6.27: 1.6.26's net found `new B`
+  over A's `operator new` and `std::ios::sync_with_stdio(false)` so). A CLASS'S MEMBER FUNCTIONS NAMED WITH THE CLASS
+  THAT NONE TAKES BY THE COUNT (1.6.26; `cpp_member_misfit/5`): one is called with clang++'s count words (the overloads'
+  topic), its parameters as the class declares them, their defaults and its ellipsis with them -- it was the lowering's
+  `expected 2, have 0` --; an overload set is `no matching function for call to 'g'`, and `no matching member function
+  for call to 'm'` where an object is at hand, the class's own or a base's or a closure's; a member that is not static
+  with no object at hand has the words above, and these were `not lowered yet: undeclared('S.m')`. A SET WITH A MEMBER
+  TEMPLATE that the static road refused is the set's words, the template's qualifiers its method's (1.6.27;
+  `cpp_mt_quals/2`): `S::g()` over a static member template was `undeclared('S.g')`, and a plain member beside a
+  template had the plain one's count words. `test/cpp/run/qualthis.cpp`, which clang++ 23 and g++ print alike, and
+  `staticmt.cpp`, static member templates that the static road takes; the driver gate's seven bodies and four. (0.44,
+  0.73, 1.6.26, 1.6.27)
 - A member template called bare with explicit arguments passes `this`, a null one only where it is static
   (`cpp_static_member_template`). Why: `__lower_upper_bound_unique_impl<true>(__v)` inside `__tree`. (0.79)
 - A static member function takes a null `this` (`cpp_static_method`). Named as a value it is a `this`-less thunk
@@ -7243,15 +7249,16 @@ is in `test/cpp/run/`.
   conversion for functional-style cast from 'void' to 'TT<int>'`, a class template's own name in its member,
   `'Bx<int>'`, and a nested class by its qualified name, `'O::N'`; with two values a class is its constructor's call,
   `no matching constructor for initialization of 'M'`. A void value that an ellipsis takes, one for a member that has no
-  overload, for a qualified name of one function and for a pointer or a reference to a function is the lowering's
-  (`cannot pass expression of type 'void' to variadic function`, `cannot initialize a parameter of type 'int' with an
-  rvalue of type 'void'`, a class's parameter `no viable conversion from 'void' to 'M'`; the lowering's topic). The void
-  value is one the desugaring trusts, raw or desugared: a call of a function of ONE declaration whose result is void --
-  an overloaded name's raw call is no such call, its type its chosen overload's --, a cast to void, a comma or a
-  conditional over one; a call through a pointer or a reference to a function is the lowering's. A library body's call
-  is a substitution's, which the refusal takes out as any refusal does: no build of the C++ pool's 379 lighter fixtures
-  told the rule from one kept to the program's code, and the guard is out. Through 1.6.13 each call went on and LLVM's
-  parser refused `void none`. The C++ gate's sixty-three bodies, its sixty-six of the casts and calls beside, and its
+  overload and for a qualified name of one function is the lowering's (`cannot pass expression of type 'void' to
+  variadic function`, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, a class's parameter
+  `no viable conversion from 'void' to 'M'`; the lowering's topic). The void value is one the desugaring trusts, raw or
+  desugared: a call of a function of ONE declaration whose result is void -- an overloaded name's raw call is no such
+  call, its type its chosen overload's --, a cast to void, a comma or a conditional over one, and a call through a
+  local's or a member's pointer or reference to a function by its type (1.6.27; `g(fp())` over `void (*fp)()` was the
+  lowering's parameter words, where clang++'s overloading takes no candidate). A library body's call is a
+  substitution's, which the refusal takes out as any refusal does: no build of the C++ pool's 379 lighter fixtures told
+  the rule from one kept to the program's code, and the guard is out. Through 1.6.13 each call went on and LLVM's parser
+  refused `void none`. The C++ gate's sixty-three bodies, its sixty-six of the casts and calls beside, and its
   thirty-two of the void values that the desugaring does not trust and the classes copy-initialized from one. (1.6.14)
 
 ### Where the parameters and the arguments are read
@@ -7478,10 +7485,17 @@ is in `test/cpp/run/`.
   arguments`; a pointer's parameters are no declaration's, and their count alone is said. A QUALIFIED CALL OF ONE
   FUNCTION, no overload and no template (1.6.26; `cpp_one_function/3`) -- `n::f()`, `std::puts()`, `::f()`, a function
   that a using names -- is refused so, as clang++ refuses a qualified name, and a bare one has the overloads' words; it
-  was `no matching function for call to 'f'`. A FUNCTION TEMPLATE THAT NO COUNT FITS, where no other candidate takes
-  the call, is `no matching function for call to 'f'` at the call's line (`cpp_arity_holds/4`), where it was `not
-  lowered yet: arity_mismatch` at no line. The driver gate's twenty-four bodies against clang++ 23;
-  `test/cpp/run/castcalls.cpp` holds the counts, the defaults and the ellipses that C++ takes. (0.302, 1.6.26)
+  was `no matching function for call to 'f'`. A FUNCTION TEMPLATE THAT NO COUNT FITS, where no other candidate takes the
+  call, is `no matching function for call to 'f'` at the call's line (`cpp_arity_holds/4`), where it was `not lowered
+  yet: arity_mismatch` at no line. A QUALIFIED NAME FINDS NO LOCAL (1.6.27; [basic.lookup.qual]; `cpp_qualified_name/2`,
+  `cpp_qualified_hides/1`): the desugaring flattens `n::g(2)`, `::g(2)` and `std::puts("x")` to a call of the bare name,
+  and while it resolves, a local of the name is none to `cpp_local/1` in the scope it was called in; the lowering calls
+  the file's function where the bare name's local is no function and no pointer to one (`ir_callable_type/1`), and a C
+  function's declaration for its call is the file scope's (`cpp_c_decl_current/2`). `double g = 1.5; return n::g(2);`
+  was `not lowered yet: call(id(g))`, a template's call too, and after `int puts = 4; ::puts("x");` a `return puts;`
+  named the function. `test/cpp/run/qualshadow.cpp`, which clang++ 23 and g++ print alike. The driver gate's twenty-four
+  bodies against clang++ 23; `test/cpp/run/castcalls.cpp` holds the counts, the defaults and the ellipses that C++
+  takes. (0.302, 1.6.26)
 
 ### Constness, value category and reference binding
 
@@ -13355,42 +13369,44 @@ in the first topic (The ccllib gate).
   `ir_init_as/2` naming its kind for the items' time), `return object`, `a parameter`, and a class's `no viable
   conversion from 'void' to 'S'` (`... from returned value of type 'void' to function return type 'S'` for a return), a
   class's parameter alike, and a class assigned one `no viable overloaded '='`, its operator='s. THROUGH AN ELLIPSIS:
-  `argument type 'void' is incomplete`, C++'s `cannot pass expression of type 'void' to variadic function`. AS AN
-  OPERAND, in both languages: `invalid operands to binary expression ('void' and 'int')` -- the arithmetic and bitwise
-  operators, the comparisons (`ir_cmp_values/8` asks the pair, and so C refuses two structs compared), a compound
-  assignment, an atomic's among them (`'_Atomic(int)' and 'void'`) -- and `invalid argument type 'void' to unary
-  expression`. AS A CONDITION: C's record words with `'void'` (`statement requires expression of scalar type ('void'
-  invalid)`, `used type 'void' where arithmetic or pointer type is required`, and `&&` and `||` C's binary words), C++'s
-  `value of type 'void' is not contextually convertible to 'bool'`; a condition's lowered value of LLVM type void that
-  no form asked before is refused too (`ir_cond_/2`): C++'s `&&` and `||`, a conditional's place and the object it
-  builds, over a void value that the desugaring does not trust. AS A CAST'S OPERAND: C's `operand of type 'void' where
-  arithmetic or pointer type is required` (C's cast, below), C++'s by the cast's spelling and its target's kind
-  (`ir_void_cast_kind/4`), refused before the desugaring takes the cast (`cpp_void_cast_check/3`) and kept to the
-  lowering as `ccast(K, T, E)` for a void value the desugaring does not trust -- `C-style cast from 'void' to 'int' is
-  not allowed`, `functional-style cast`, `static_cast`, `reinterpret_cast`, `const_cast from 'void' to 'int *'`; to a
-  pointer or a member pointer, but by a reinterpret_cast or a const_cast, `cannot cast from type 'void' to pointer type
-  'int *'` and `to member pointer type 'int S::*'`; to a reference, a static_cast's a binding's words (`non-const lvalue
-  reference to type 'int' cannot bind to a temporary of type 'void'`) and any other cast's `C-style cast from rvalue to
-  reference type 'int &'`; to a class by a static_cast, a C-style or a functional cast `no matching conversion for
-  static_cast from 'void' to 'ns::C'`; and a const_cast to a type that is no reference or pointer `const_cast to 'int',
-  which is not a reference, pointer-to-object, or pointer-to-data-member`. A reference's initializer that casts a void
-  value is the cast's refusal (`ir_void_ref/2`). A cast to a reference reached LLVM's parser, `alloca void`, and a
-  class's cast the constructor's words. AS AN OBJECT: `void x;` and `auto x = f();` are `variable has incomplete type
-  'void'`; a reference to void is `cannot form a reference to 'void'` (`auto &r = f();`); a reference bound to a void
-  value is `non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'` and, const or rvalue,
-  `reference to type 'const int' could not bind to an rvalue of type 'void'`. A STEP of one is `cannot increment value
-  of type 'void'`, before C's lvalue test. C++'S `sizeof` of void and of a function type is `invalid application of
-  'sizeof' to an incomplete type 'void'` and `to a function type` (`ir_cpp_sizeof_refused/1`), where C's is GNU's 1 for
-  both (`ccl_sizeof_value/2`, in a constant expression too, `char a[sizeof(f)]`; a function type's layout answers a
-  pointer's 8, which `sizeof(f)` gave). The desugaring refuses a C++ call's void argument and a void initializer that it
-  makes an assignment of (Overload resolution, the roads). Why: through 1.6.13 each went on as the value `none` of LLVM
-  type void, `%t2 = sext void none to i32`, which LLVM's parser refused at a line of the IR, none of the program's; `f()
-  + 1` was `not lowered yet: type(unknown)`, `void x;` was `alloca void`, C++'s `sizeof(void)` was 1. The driver gate
-  holds thirty-five C bodies and the C++ gate sixty-three, and thirty-six of C's casts and calls and sixty-six and
-  thirty-two of C++'s beside them, and twenty-two of the operands read as values, each in clang's words at clang's line;
-  `test/c/run/voidvalues.c` and `test/cpp/run/throwarm.cpp` hold the forms that stay -- a cast to void, a comma's left
-  operand, a conditional's arm, a void function's `return f();`, `sizeof(f())` and `sizeof(z ? 1 : f())` in C. Lowering
-  183. (1.6.14)
+  `argument type 'void' is incomplete`, C++'s `cannot pass expression of type 'void' to variadic function`, and through
+  `printf`'s, `fprintf`'s, `sprintf`'s, `snprintf`'s and `dprintf`'s with its format's type, `; expected type from
+  format string was 'int'` (1.6.27; `ir_with_call/3`, `ir_format_expected/2`: the conversion at the value's place after
+  the format literal, its length, a `*` an `int`). AS AN OPERAND, in both languages: `invalid operands to binary
+  expression ('void' and 'int')` -- the arithmetic and bitwise operators, the comparisons (`ir_cmp_values/8` asks the
+  pair, and so C refuses two structs compared), a compound assignment, an atomic's among them (`'_Atomic(int)' and
+  'void'`) -- and `invalid argument type 'void' to unary expression`. AS A CONDITION: C's record words with `'void'`
+  (`statement requires expression of scalar type ('void' invalid)`, `used type 'void' where arithmetic or pointer type
+  is required`, and `&&` and `||` C's binary words), C++'s `value of type 'void' is not contextually convertible to
+  'bool'`; a condition's lowered value of LLVM type void that no form asked before is refused too (`ir_cond_/2`): C++'s
+  `&&` and `||`, a conditional's place and the object it builds, over a void value that the desugaring does not trust.
+  AS A CAST'S OPERAND: C's `operand of type 'void' where arithmetic or pointer type is required` (C's cast, below),
+  C++'s by the cast's spelling and its target's kind (`ir_void_cast_kind/4`), refused before the desugaring takes the
+  cast (`cpp_void_cast_check/3`) and kept to the lowering as `ccast(K, T, E)` for a void value the desugaring does not
+  trust -- `C-style cast from 'void' to 'int' is not allowed`, `functional-style cast`, `static_cast`,
+  `reinterpret_cast`, `const_cast from 'void' to 'int *'`; to a pointer or a member pointer, but by a reinterpret_cast
+  or a const_cast, `cannot cast from type 'void' to pointer type 'int *'` and `to member pointer type 'int S::*'`; to a
+  reference, a static_cast's a binding's words (`non-const lvalue reference to type 'int' cannot bind to a temporary of
+  type 'void'`) and any other cast's `C-style cast from rvalue to reference type 'int &'`; to a class by a static_cast,
+  a C-style or a functional cast `no matching conversion for static_cast from 'void' to 'ns::C'`; and a const_cast to a
+  type that is no reference or pointer `const_cast to 'int', which is not a reference, pointer-to-object, or
+  pointer-to-data-member`. A reference's initializer that casts a void value is the cast's refusal (`ir_void_ref/2`). A
+  cast to a reference reached LLVM's parser, `alloca void`, and a class's cast the constructor's words. AS AN OBJECT:
+  `void x;` and `auto x = f();` are `variable has incomplete type 'void'`; a reference to void is `cannot form a
+  reference to 'void'` (`auto &r = f();`); a reference bound to a void value is `non-const lvalue reference to type
+  'int' cannot bind to a temporary of type 'void'` and, const or rvalue, `reference to type 'const int' could not bind
+  to an rvalue of type 'void'`. A STEP of one is `cannot increment value of type 'void'`, before C's lvalue test. C++'S
+  `sizeof` of void and of a function type is `invalid application of 'sizeof' to an incomplete type 'void'` and `to a
+  function type` (`ir_cpp_sizeof_refused/1`), where C's is GNU's 1 for both (`ccl_sizeof_value/2`, in a constant
+  expression too, `char a[sizeof(f)]`; a function type's layout answers a pointer's 8, which `sizeof(f)` gave). The
+  desugaring refuses a C++ call's void argument and a void initializer that it makes an assignment of (Overload
+  resolution, the roads). Why: through 1.6.13 each went on as the value `none` of LLVM type void, `%t2 = sext void none
+  to i32`, which LLVM's parser refused at a line of the IR, none of the program's; `f() + 1` was `not lowered yet:
+  type(unknown)`, `void x;` was `alloca void`, C++'s `sizeof(void)` was 1. The driver gate holds thirty-five C bodies
+  and the C++ gate sixty-three, and thirty-six of C's casts and calls and sixty-six and thirty-two of C++'s beside them,
+  and twenty-two of the operands read as values, each in clang's words at clang's line; `test/c/run/voidvalues.c` and
+  `test/cpp/run/throwarm.cpp` hold the forms that stay -- a cast to void, a comma's left operand, a conditional's arm, a
+  void function's `return f();`, `sizeof(f())` and `sizeof(z ? 1 : f())` in C. Lowering 183. (1.6.14)
 - **A C CAST'S TYPE AND OPERAND ARE SCALARS** (1.6.14, the forms beside a void operand; C17 6.5.4/2, /3;
   `ir_c_cast_check/3`), in clang's words and order: the type is void or a scalar -- a record is `used type 'struct S' where
   arithmetic or pointer type is required`, but a record of the operand's own type and a union one of whose members has the
@@ -13445,12 +13461,20 @@ in the first topic (The ccllib gate).
   value and the left side of an assignment `use of undeclared identifier 'nothing'`, where each was `not lowered yet:
   undeclared(nowhere)`, the words of a form that is not done, for the program's own error. A builtin is lowered before
   its name is looked up, and an enumerator is a value of its own: a call of one keeps the words of a call of no
-  function. C++'s names are the desugaring's, and one that it did not settle is refused by name, as before. The driver
-  gate holds six forms. Lowering 174. A LIBRARY FUNCTION THAT CLANG KNOWS BY NAME has clang's words and its note of the
+  function. C++'s names are the desugaring's, and one that it did not settle is refused by name, as before -- but A
+  PLAIN NAME OF THE PROGRAM'S, no implementation's `_' and no desugaring's `.`, has clang++'s words too (1.6.27):
+  `return nowhere(1);`, a value, an operand, a place and an argument were `not lowered yet: undeclared(nowhere)`, and
+  `sizeof` of such a name, in C and in C++, `not lowered yet: sizeof(id(nowhere))`. In C++ an argument that names
+  nothing is refused so before the call's roads meet it (`cpp_undeclared_args/1`): a template's deduction refused
+  `cannot_deduce('T')` at no line. A QUALIFIED NAME THAT NOTHING DECLARES (1.6.27; [namespace.qual]/2;
+  `cpp_declared_nowhere/2`) is clang++'s `no member named 'nowhere' in namespace 'n'`, `in namespace 'a::b'`, `in the
+  global namespace` -- `std::ref(c)` with no `<functional>` among them, as libc++ 23 has it, which was what met the
+  call's value, `auto(r)` --, where it was the lowering's `undeclared(nowhere)`. The driver gate holds six forms, and
+  thirteen in C++. Lowering 174, 196. A LIBRARY FUNCTION THAT CLANG KNOWS BY NAME has clang's words and its note of the
   header (1.6.24; `dr_lib_fn/3`, forty of them, each type as clang 23 spells it): `call to undeclared library function
   'printf' with type 'int (const char *, ...)'; ...` and `note: include the header <stdio.h> or explicitly provide a
-  declaration for 'printf'`; `puts`, which clang does not know so, keeps a call's words. The driver gate's four
-  bodies. (1.1.2, 1.6.24)
+  declaration for 'printf'`; `puts`, which clang does not know so, keeps a call's words. The driver gate's four bodies.
+  (1.1.2, 1.6.24)
 ### Control flow and defer
 
 - `defer` is scope-bound and static, with no runtime (owner's rule). `ir_defer_push/1` registers a body in its scope's
@@ -16816,18 +16840,18 @@ Declarations topic of the C++ reader).
   declaration builds as it did in C: `return later(x);` before `int later(int)` runs, and so do an object's address, an
   enumerator and a header included after the use, where clang++ says `use of undeclared identifier 'later'` -- C++'s
   lookup has a member's body in its complete class, a template's dependent names looked up where it is made, and the
-  namespaces that a call's arguments bring, which the reader's scope does not hold; and a name that nothing declares is
-  `not lowered yet: undeclared(nowhere)` in C++. And a global macro's call before the program's own declaration of its
-  name is the macro's in C++ (1.6.9): `println("early")` in a function above `static void println(const char *s)` prints
-  `early`, and the program's `println` is called below it, where clang++ says `use of undeclared identifier 'println'`.
-  A LIBRARY FUNCTION THAT NOTHING DECLARES and that the driver's table of forty does not hold, `log`, has a call's
-  words, where clang names its library type and header (1.6.24 gives the forty clang's words). A LATER FUNCTION CALLED
-  IN A FORMAT MACRO'S ARGUMENT, `println("{}", later(1))`, is refused in the
-  macro's words, `macro: cannot_format(call(id(later),[int(1)]))`: the macro asks the argument's type, which no
-  declaration gives yet, before the file's end. AN EARLIER BLOCK'S ENUMERATOR, used after its block, builds: `return B;`
-  after a function whose block declares `enum { A = 1, B = 2 }` returns 2, where clang says `use of undeclared
-  identifier 'B'` -- the table of values is the unit's, and the note asks it, since a header's enumerators are in scope
-  by it alone. ONE refusal is given, the first, where clang gives each.
+  namespaces that a call's arguments bring, which the reader's scope does not hold (a name that nothing declares has
+  clang++'s words since 1.6.27). And a global macro's call before the program's own declaration of its name is the
+  macro's in C++ (1.6.9): `println("early")` in a function above `static void println(const char *s)` prints `early`,
+  and the program's `println` is called below it, where clang++ says `use of undeclared identifier 'println'`. A LIBRARY
+  FUNCTION THAT NOTHING DECLARES and that the driver's table of forty does not hold, `log`, has a call's words, where
+  clang names its library type and header (1.6.24 gives the forty clang's words). A LATER FUNCTION CALLED IN A FORMAT
+  MACRO'S ARGUMENT, `println("{}", later(1))`, is refused in the macro's words, `macro:
+  cannot_format(call(id(later),[int(1)]))`: the macro asks the argument's type, which no declaration gives yet, before
+  the file's end. AN EARLIER BLOCK'S ENUMERATOR, used after its block, builds: `return B;` after a function whose block
+  declares `enum { A = 1, B = 2 }` returns 2, where clang says `use of undeclared identifier 'B'` -- the table of values
+  is the unit's, and the note asks it, since a header's enumerators are in scope by it alone. ONE refusal is given, the
+  first, where clang gives each.
 - THE GLOBAL MACROS AND C++'S CLASSES (1.6.9; the topic of the global macros): a class's names are found by a scan of
   its body's tokens and kept by its bare name, so two classes of one bare name -- in two namespaces, or nested in two
   classes -- give each other's members to their scopes, and a base that the program's text does not define, a library
@@ -16953,12 +16977,6 @@ Declarations topic of the C++ reader).
   difference that they hold. A rule over the inference's type, `p - x` of no known type where x's is not known, did not
   cure the reduction and broke another program (HISTORY.md's 1.6.1). `autoptrdiff.cpp` holds the form.
 
-- A NAME OF A LIBRARY HEADER THAT THE UNIT DOES NOT INCLUDE IS REFUSED, BUT NOT IN CLANG++'S WORDS (found at 1.6.21):
-  libc++ 23 includes no header transitively, and `std::ref(c)` with no `<functional>` is clang++'s `no member named 'ref'
-  in namespace 'std'`; the desugaring makes it a call of the bare `ref`, which has no type, and the refusal names what
-  met that later -- `auto(r)` for `auto r = std::ref(c);`, `kind_mismatch('_Tp')` for `v.emplace_back(std::ref(c))` --
-  where a name that no header declares is `undeclared(nothere)`. `stdthread.cpp` forgot `<functional>`, and libc++ 18 to
-  22 brought it through `<thread>`; it includes it now.
 
 ### libc++ modules
 
@@ -17060,25 +17078,25 @@ Declarations topic of the C++ reader).
   `not lowered yet: auto(f)`, where clang says `builtin functions must be directly called`, as `void (*f)() =
   __builtin_trap;` says here; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap,
   where a build does.
-- THE WORDS OF THREE VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14): a variable of a `typeof` or a `decltype` type
-  that is void is `variable has incomplete type 'void'`, where clang names the type written, `'typeof (f())' (aka
-  'void')`; a void value through `printf`'s ellipsis in C++ is `cannot pass expression of type 'void' to variadic
-  function`, where clang adds the format string's word, `; expected type from format string was 'int'`; and a closure
-  called with a void value is `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang
-  says `no matching function for call to object of type '(lambda at f.cpp:7:14)'`, the closure's column, which the reader
-  does not keep. Each is refused at clang's line.
+- THE WORDS OF TWO VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14; a void value through `printf`'s ellipsis has the
+  format's type since 1.6.27): a variable of a `typeof` or a `decltype` type that is void is `variable has incomplete
+  type 'void'`, where clang names the type written, `'typeof (f())' (aka 'void')`; and a closure called with a void
+  value is `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang says `no matching
+  function for call to object of type '(lambda at f.cpp:7:14)'`, the closure's column, which the reader does not keep.
+  Each is refused at clang's line.
 - A TYPEDEF'S NAME IN A MESSAGE, WHAT 1.6.26 LEAVES (found at 1.6.14; 1.6.24 gives clang's `(aka ...)` where the words
   are clang's, and 1.6.26 C's sites of a value of no conversion and C++'s casts of a floating value and a pointer): a
   typedef or an alias that a C++ BLOCK declares is spelled as its target, `'int *'` for clang++'s `'IP' (aka 'int *')`,
   since the desugaring resolves it; a functional cast of a typedef, `I(f())`, names its target alone, `'int'` for `'I'
-  (aka 'int')`. A class named with its scope is spelled by its own: `::M(f())` is `'M'`, where clang++ refuses `::M` as
-  `no member named 'M' in the global namespace`, and a nested class named bare in its class `'O::N'` for clang++'s
-  `'N'`.
-- C++: A VOID VALUE THAT THE DESUGARING DOES NOT TRUST HAS THE PARAMETER'S WORDS AS AN UNQUALIFIED CALL'S ARGUMENT
-  (found at 1.6.14): `g(fp())` over `void (*fp)()` is the lowering's `cannot initialize a parameter of type 'int' with
-  an rvalue of type 'void'`, where clang++, whose overloading takes no candidate, says `no matching function for call to
-  'g'`; the desugaring trusts no call through a pointer or a reference to a function, as it trusts no overloaded name's
-  raw call.
+  (aka 'int')`, and a cast through a class's typedef, a scoped one, a `decltype` and a `typename` names its target
+  alone, `'double'` for `'D' (aka 'double')` (the driver gate holds one, 1.6.27). A class named with its scope is
+  spelled by its own: `::M(f())` is `'M'`, where clang++ refuses `::M` as `no member named 'M' in the global namespace`,
+  and a nested class named bare in its class `'O::N'` for clang++'s `'N'`.
+- C++: A VOID VALUE THAT THE DESUGARING DOES NOT TRUST, WHAT 1.6.27 LEAVES (found at 1.6.14): an overloaded name's raw
+  call is no void value to the desugaring, whose type is its chosen overload's, and its argument has the lowering's
+  words, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang++ says `no matching
+  function for call to 'g'`; a call through a local's or a member's pointer or reference to a function is trusted by its
+  type since 1.6.27 (`cpp_void_value/1`).
 - C++: A FUNCTIONAL CAST TO A `decltype` TYPE NAMES ITS TARGET ALONE IN A REFUSAL (found at 1.6.14, narrowed at 1.6.22):
   `decltype(mm)(f())` over a void f is `no matching conversion for functional-style cast from 'void' to 'M'`, where
   clang++ says `... to 'decltype(mm)' (aka 'M')`; the cast of a value builds since 1.6.22.
@@ -17087,17 +17105,11 @@ Declarations topic of the C++ reader).
   1.6.22 (`cpp_builtin_op_words/4`, `cpp_cond_bool/2`, the topic of C++'s operators), and a cast of a floating value to
   a pointer and back since 1.6.26 (the lowering's topic of a record for another type); a library's body keeps the terms
   its substitution failures read, `no conversion from 'const double' to 'int *'` of a cast among them.
-- C++: A QUALIFIED CALL OF A FUNCTION WHOSE NAME A LOCAL SHARES (found at 1.6.26): the desugaring flattens `n::g(2)`,
-  `::g(2)` and `std::puts("x")` to a call of the bare name, and a local of that name in scope is the callee --
-  `double g = 1.0; return n::g(2);` is `not lowered yet: call(id(g))`, and after `int puts = 1; std::puts("x");` a
-  `return puts;` names the function, where clang++ builds both; the lowering has no form that names a global past a
-  local (found by `castcalls.cpp`, whose local was renamed).
-- C++: A QUALIFIED MEMBER CALL, WHAT 1.6.26 LEAVES (the topic of methods and calls): a MEMBER TEMPLATE named with its
-  class that no count fits, `S::g()` and `S::t()`, is `not lowered yet: undeclared('S.g')`, where clang++ says `no
-  matching function for call to 'g'` and `no matching member function for call to 't'`; a STATIC MEMBER FUNCTION that
-  calls a member that is not static by its class, `static int k() { return S::m(1); }`, builds, where clang++ says
-  `call to non-static member function without an object argument`; and a closure that captured nothing has those words,
-  where clang++ says `'this' cannot be implicitly captured in this context`.
+- C++: A QUALIFIED MEMBER CALL, WHAT 1.6.27 LEAVES (the topic of methods and calls; a member template named with its
+  class that no count fits has clang++'s words since 1.6.27): a STATIC MEMBER FUNCTION that calls a member that is not
+  static by its class, `static int k() { return S::m(1); }`, builds, where clang++ says `call to non-static member
+  function without an object argument`; and a closure that captured nothing has those words, where clang++ says `'this'
+  cannot be implicitly captured in this context`.
 - A LIBRARY HEADER'S `__FILE__` IS ITS PATH UNDER `$LLVM` (found at 1.6.10): clang++ finds libc++'s headers through its
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints

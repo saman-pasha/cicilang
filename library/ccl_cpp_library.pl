@@ -171,11 +171,13 @@ cpp_declare_emitted(Items) :- forall(( member(function(_, _, R, FN, FPs, V, _), 
 %% declaration the table kept (0.117): `std::remove(path)' after <fstream> -- the algorithm's template, `remove(_ForwardIterator,
 %% _ForwardIterator, const _Tp &)', came first in the summary and the lowering met `_ForwardIterator' in the call of stdio's
 %% `remove(const char *)'. A plain C declaration that is the one CALLED is declared again, as the header wrote it, when the table's
-%% entry is another overload's.
+%% entry is another overload's -- the file scope's entry, and at file scope (1.6.27): a local of the name, `int puts = 1;'
+%% before `::puts("x")', was the entry asked, and the declaration went into the local's frame over it, so that `return puts;'
+%% named the function
 cpp_c_decl_current(F, Ps) :-
     (   cpp_header_c_name(F), '$cpp_fn'(F, _, Ps, no, decl(Ret0, V)), cpp_params_key(Ps, K),
-        \+ ( ccl_declared(F, T), T = fn(_, Ps0, _), cpp_params_key(Ps0, K0), K0 == K )
-    ->  cpp_resolved_type(Ret0, Ret), cpp_resolved_params(Ps, Ps1), cpp_params_bare(Ps1, Ps2), ccl_declare(F, fn(Ret, Ps2, V)),   % for this walk, AND FOR EVERY WALK whose table holds the other overload (0.137: the mark kept it to the first, and the chrono formatter's `std::abs(y) % 100' in a later walk was typed by chrono::abs's raw `duration<_Rep, _Period>')
+        \+ ( ccl_gdeclared(F, T), T = fn(_, Ps0, _), cpp_params_key(Ps0, K0), K0 == K )
+    ->  cpp_resolved_type(Ret0, Ret), cpp_resolved_params(Ps, Ps1), cpp_params_bare(Ps1, Ps2), cpp_isolated(ccl_declare(F, fn(Ret, Ps2, V))),   % for this walk, AND FOR EVERY WALK whose table holds the other overload (0.137: the mark kept it to the first, and the chrono formatter's `std::abs(y) % 100' in a later walk was typed by chrono::abs's raw `duration<_Rep, _Period>')
         atomic_list_concat([F, '.cdecl.', K], Mark),
         (   cpp_instance_done(Mark) -> true
         ;   cpp_instance_note(Mark, cdecl), cpp_as_lib(yes, cpp_add_instance_items([function(0, extern, Ret, F, Ps2, V, none)])) )   % the prototype item once: the passes rebuild the table from the items (the unit's own items come first and shadow the header's)

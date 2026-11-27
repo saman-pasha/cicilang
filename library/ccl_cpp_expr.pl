@@ -127,7 +127,7 @@ cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_braced_class(F, T, C), findall
     cpp_init_list(Ctx, ET, Items, IL), cpp_temporary(T, C, [IL], E).
 cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_vector_named(F, T), !, findall(item([], V), member(V, Vs), Items), cpp_expr(Ctx, compound_lit(T, init(Items)), E).   % A BRACED VECTOR, `_VecT{x...}' (0.162): its lanes, the rest zero, as a C compound literal is
 cpp_expr(Ctx, braced_temp(X), E) :- !, cpp_expr(Ctx, X, E).
-cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_void_args(F, As1), cpp_where(call(F), cpp_call_adl(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
+cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_void_args(F, As1), cpp_undeclared_args(As1), cpp_where(call(F), cpp_call_adl(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
 %% A MEMBER NAMED THROUGH AN OBJECT BY ITS QUALIFIED NAME ([expr.ref]/7, [class.qual]; 0.112): `b.A::v' is the member
 %% v of b's A sub-object -- a base's data member the derived class hides -- and `b.A::f()', `p->A::f()' call A's f
 %% over that sub-object and never virtually, which is 0.73's rule for a qualified call inside a class, through an
@@ -867,7 +867,14 @@ cpp_delete_array(G, X, E) :- cpp_delete_pointee(X, T), cpp_delete_operand(X, Pre
 cpp_array_cookie(T, Ck) :- cpp_class_of_type(T, C), ( cpp_dtor(C, _) -> true ; cpp_usual_delete(no, 'delete[]', T, nullptr, int(0), _, cls(Sh)), memberchk(size, Sh) ), !,
     ( ccl_resolve_type(T, RT), ccl_size_align(RT, _, Al) -> true ; Al = 8 ), Ck is max(8, Al).
 cpp_array_cookie(_, 0).
-cpp_local(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), !.
+cpp_local(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), \+ cpp_qualified_hides(N), !.
+%% A QUALIFIED NAME FINDS NO LOCAL ([basic.lookup.qual]; 1.6.27): `n::g(2)' beside `double g' is flattened to a call of the
+%% bare name, whose roads asked the local -- a template's took none of them, and the call was `call(id(g))'. The name is
+%% hidden from cpp_local/1 while its call resolves, in the scope that it was called in: an instance's body is walked in
+%% a scope of its own (cpp_isolated/1), whose locals the mark does not touch
+cpp_qualified_name(F, G) :- ( nb_current('$cpp_qname', Q0) -> true ; Q0 = none ), nb_getval('$ccl_scope', Sc), nb_setval('$cpp_qname', q(F, Sc)),
+    ( catch(G, X, ( nb_setval('$cpp_qname', Q0), throw(X) )) -> nb_setval('$cpp_qname', Q0) ; nb_setval('$cpp_qname', Q0), fail ).
+cpp_qualified_hides(N) :- nb_current('$cpp_qname', q(N0, Sc)), N0 == N, nb_getval('$ccl_scope', Sc1), Sc1 == Sc.
 %% the way to a member: o.$base...n by value, p->n or p->$base...n through a pointer
 cpp_hops(X, [], X) :- !.
 %% AN XVALUE'S BASE IS AN XVALUE (1.6.21): over `std::move(x)' a base's member is reached through x's base, the move kept
@@ -920,7 +927,7 @@ cpp_call(Ctx, scoped(Path, M), As, E) :- cpp_scope_class(Path, C), cpp_method(C,
     ->  ( Hops == [] -> P = id(this) ; cpp_hops(deref(id(this)), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj)
     ;   Ctx \== none, \+ cpp_static_method(C, M, Name), cpp_closure_this(Ctx, EC), cpp_base_hops(EC, C, Hops)   % ... AND IN A CLOSURE THAT CAPTURED THIS (1.6.26): the object that it keeps, where the call went out with a null this
     ->  cpp_closure_object(Hops, P), cpp_object_arg(Name, P, Obj)
-    ;   \+ cpp_static_method(C, M, Name), \+ catch('$cpp_mt'(C, M, _, _), _, fail), nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(nonstatic_no_object)   % ... and a member function with no object in the program's code, outside its class, clang++'s words (1.6.26): it was called over a null this
+    ;   \+ cpp_static_method(C, M, Name), M \= operator(_), \+ cpp_lib_class(C), \+ catch('$cpp_mt'(C, M, _, _), _, fail), nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(nonstatic_no_object)   % ... and a member function with no object in the program's code, outside its class, clang++'s words (1.6.26): it was called over a null this
     ;   cpp_object_arg(Name, nullptr, Obj) ),
     cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]).
 cpp_call(Ctx, scoped(Path, M), As, _) :- catch(cpp_scope_class(Path, C), _, fail), cpp_member_misfit(Ctx, C, M, As, W), !, cpp_refuse_prog(W).   % ... and none of them fits (1.6.26)
@@ -992,6 +999,11 @@ cpp_call(Ctx, id(F), As, call(id(Name), [Obj|As2])) :- cpp_closure_this(Ctx, EC)
 cpp_call(Ctx, id(F), As, call(X, As)) :- cpp_closure_this(Ctx, EC), \+ cpp_local(F), cpp_data_member(EC, F, Hops),
     cpp_closure_member(F, Hops, X), catch(ccl_type_of(X, T), _, fail), ccl_resolve_type(T, ptr(_, FT)), ccl_resolve_type(FT, fn(_, _, _)), !.
 cpp_call(Ctx, scoped([std], move), [X], E) :- !, cpp_expr(Ctx, move(X), E).                     % std::move is Cicili's move: the fields go, the source is emptied; of an int, the int
+%% A QUALIFIED NAME THAT NOTHING DECLARES (1.6.27; [namespace.qual]/2): `n::nowhere()' in the program's code is clang++'s
+%% `no member named 'nowhere' in namespace 'n'', and `in the global namespace' for `::nowhere()' -- `std::ref(c)' with no
+%% `<functional>' among them --; it was the lowering's `not lowered yet: undeclared(nowhere)', or what met the call's value
+cpp_call(_, scoped(Path, F), _, _) :- atom(F), nb_getval('$cpp_in_lib', no), \+ catch(cpp_scope_class(Path, _), _, fail), cpp_declared_nowhere(Path, F), !,
+    cpp_ns_words(Path, NS), cpp_refuse_prog(no_member_in(F, NS)).
 %% A QUALIFIED CALL OF ONE FUNCTION WITH ANOTHER COUNT OF ARGUMENTS (1.6.26; [expr.call]/7, as clang++ words it): where a
 %% namespace's qualified name -- `n::f()', `std::puts()', `::f()' -- names one function, no overload and no template, the
 %% call is clang++'s `too few arguments to function call, expected 1, have 0' by its count, its defaults and its ellipsis
@@ -1008,7 +1020,7 @@ cpp_call(Ctx, scoped(Path, F), As, E) :- atom(F), Path \== [], cpp_ns_key(Path, 
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, F, K) -> true ; K = F ), \+ ( K == F, cpp_object_elsewhere(Path, F) ), cpp_callable_global(K, Name, C), !, cpp_object_call(Name, C, As, E).   % A NAMESPACE-SCOPE OBJECT CALLED goes to its class's operator() (0.100): `ranges::iter_move(x)' is libc++'s customization point object, `inline constexpr auto iter_move = __iter_move::__fn{}', where the bare name also names the hidden friends
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), cpp_ns_key(Path, F, K), !, cpp_call(none, id(K), As, E).   % a deeper namespace's colliding name, qualified: its key
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), cpp_cross_fn_key(Path, F, K), !, cpp_without_using(K, cpp_call(none, id(K), As, E)).   % ... and a name two reads define in two namespaces, qualified by one of them that is not std: that namespace's functions (0.227, cpp_cross_fn_key/3)
-cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_lib_qualified(Path, F, cpp_without_using(F, cpp_call(none, id(F), As, E))).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
+cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_lib_qualified(Path, F, cpp_without_using(F, cpp_qualified_name(F, cpp_call(none, id(F), As, E)))).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
 %% THE ARGUMENT PASS ON A CALL THROUGH AN OBJECT'S operator() (0.221; cpp_ref_args_of), as the other member roads have it: a local
 %% object, a namespace-scope object, a callable data member and a qualified method call took their arguments as written, so a class
 %% value went to a by-value parameter of another class without its conversion function -- `h(s)' over `int operator()(V) const',
@@ -1141,6 +1153,8 @@ cpp_void_args(F, As) :- ( nth1(K, As, A), cpp_void_value(A), cpp_void_call_refus
 %% over one
 cpp_void_value(call(id(F), _)) :- atom(F), \+ cpp_local(F), catch(ccl_declared(F, fn(R, _, _)), _, fail), ccl_void_typed(R),
     \+ findall(x, catch('$cpp_fn'(F, _, _, _, _), _, fail), [_, _|_]), !.
+cpp_void_value(call(F, _)) :- ( F = id(N) -> atom(N), cpp_local(N) ; F = member(_, _) ; F = arrow(_, _) ), catch(ccl_type_of(F, T0), _, fail), T0 \== unknown,   % ... A CALL THROUGH A LOCAL'S OR A MEMBER'S POINTER OR REFERENCE TO A FUNCTION (1.6.27): its type's result, where the lowering worded `g(fp())' as a parameter's initialization and clang++'s overloading takes no candidate
+    ccl_unref(T0, T1), catch(ccl_resolve_type(T1, T2), _, fail), ( T2 = ptr(_, FT) -> true ; FT = T2 ), catch(ccl_resolve_type(FT, fn(R, _, _)), _, fail), ccl_void_typed(R), !.
 cpp_void_value(cast(T, _)) :- ccl_void_typed(T), !.
 cpp_void_value(ccast(_, T, _)) :- ccl_void_typed(T), !.
 cpp_void_value(comma(_, X)) :- cpp_void_value(X), !.
@@ -1225,23 +1239,45 @@ cpp_count_word_one(few, Nm, _, too_few_args_one(Nm)).
 cpp_count_word_one(few_at_least, Nm, _, too_few_args_at_least_one(Nm)).
 cpp_count_word_one(many, Nm, M, too_many_args_one(Nm, M)).
 cpp_count_word_one(many_at_most, Nm, M, too_many_args_at_most_one(Nm, M)).
+%% ... BUT A CLASS'S OPERATOR AND A LIBRARY CLASS'S MEMBER (1.6.27): an allocation function is static whether or not it is
+%% declared so ([class.free]/1), and a new-expression that the class's refused falls to the global one -- `new B' over A's
+%% `operator new' printed nothing of A's (classnew.cpp, vdelete.cpp) --, and a library class's static members are not all
+%% marked static to the static road, `std::ios::sync_with_stdio(false)' (stdstreammisc.cpp, gnusource.cpp); 1.6.26's net
+%% found the four
 %% A CLASS'S MEMBER FUNCTIONS NAMED WITH THE CLASS THAT NONE TAKES (1.6.26), in clang++'s words in the program's code: one
 %% function is called with the count words by its parameters as its class declares them, their defaults and its ellipsis
 %% with them -- it was the lowering's `expected 2, have 0', which knew neither --; an overload set is `no matching function
 %% for call to 'g'', and `no matching member function' where an object is at hand -- the
 %% class's own or a base's member, or a closure's that captured this --; a member that is not static with no object at
 %% hand is `call to non-static member function without an object argument', and in a closure that did not capture this
-%% `'this' cannot be implicitly captured in this context'. They were `not lowered yet: undeclared('S.g')'. A member template
-%% takes the roads after this one, and is no part of it
-cpp_member_misfit(Ctx, C, M, As, W) :- nb_getval('$cpp_in_lib', no), atom(M), \+ catch('$cpp_mt'(C, M, _, _), _, fail), findall(Qs-Ps0-V0, cpp_class_method(C, M, Qs, _, Ps0, V0), L), L \== [],
-    ( forall(member(Qs-_-_, L), memberchk(static, Qs)) -> St = static ; St = member ),
+%% `'this' cannot be implicitly captured in this context'. They were `not lowered yet: undeclared('S.g')'. A set with a member
+%% template is the set's words, its template's qualifiers its method's (1.6.27, cpp_mt_quals/2)
+cpp_member_misfit(Ctx, C, M, As, W) :- nb_getval('$cpp_in_lib', no), atom(M), \+ cpp_lib_class(C), findall(Qs-Ps0-V0, cpp_class_method(C, M, Qs, _, Ps0, V0), L),
+    findall(Qs, ( catch('$cpp_mt'(C, M, _, I), _, fail), cpp_mt_quals(I, Qs) ), TQs), ( L \== [] ; TQs \== [] ),
+    ( forall(member(Qs-_-_, L), memberchk(static, Qs)), forall(member(Qs, TQs), memberchk(static, Qs)) -> St = static ; St = member ),
     ( Ctx \== none, ( catch(cpp_base_hops(Ctx, C, _), _, fail) -> true ; cpp_closure_this(Ctx, EC), catch(cpp_base_hops(EC, C, _), _, fail) ) -> Obj = yes ; Obj = no ),
     length(As, K),
     (   St == member, Obj == no -> ( Ctx \== none, cpp_closure_class(Ctx) -> W = this_not_captured ; W = nonstatic_no_object )
-    ;   L = [_-Ps0-V0] -> ( V0 == true -> V = true ; V = false ), cpp_count_words(callee(id(M)), Ps0, V, K, W)
-    ;   \+ ( member(_-Ps1-V1, L), ( V1 == true -> cpp_required(Ps1, Min), K >= Min ; cpp_arity_fits(Ps1, K) ) ), ( Obj == yes -> W = no_matching_member(M) ; W = no_matching_call(M) ) ).
+    ;   TQs == [], L = [_-Ps0-V0] -> ( V0 == true -> V = true ; V = false ), cpp_count_words(callee(id(M)), Ps0, V, K, W)
+    ;   ( TQs \== [] -> true ; \+ ( member(_-Ps1-V1, L), ( V1 == true -> cpp_required(Ps1, Min), K >= Min ; cpp_arity_fits(Ps1, K) ) ) ), ( Obj == yes -> W = no_matching_member(M) ; W = no_matching_call(M) ) ).
+%% a member template's qualifiers, its method's: the static road refused the call before this rule, so a set with one has no
+%% candidate that takes it (1.6.27: `S::g()' over a static member template was `not lowered yet: undeclared('S.g')', and a
+%% set of a plain member and a template had the plain one's count words)
+cpp_mt_quals(method(_, Qs, _, _, _, _, _), Qs) :- !.
+cpp_mt_quals(template(_, _, X), Qs) :- !, cpp_mt_quals(X, Qs).
+cpp_mt_quals(_, []).
+%% AN ARGUMENT THAT NAMES NOTHING (1.6.27), in the program's code, is clang++'s `use of undeclared identifier 'nowhere'' before
+%% the call's roads meet it: a template's deduction refused `cannot_deduce('T')' at no line, where the lowering words a plain
+%% call's argument so (ir_undeclared/1). A name of the implementation's, `_', or of the desugaring's, `.', is none of them
+cpp_undeclared_args(As) :- ( nb_getval('$cpp_in_lib', no), member(id(N), As), atom(N), \+ sub_atom(N, 0, _, _, '_'), \+ sub_atom(N, _, _, _, '.'), \+ cpp_local(N), cpp_declared_nowhere([], N) -> cpp_refuse_prog(undeclared_use(N)) ; true ).
+%% a name of no function, object, class, typedef, tag or enumerator, in no namespace's key; and the namespace as clang++ spells it
+cpp_declared_nowhere(Path, F) :- \+ catch(cpp_ns_key(Path, F, _), _, fail), \+ cpp_names_function(F), \+ catch(ccl_declared(F, _), _, fail), \+ catch(cpp_class_l(F, _), _, fail),
+    \+ catch(ccl_typedef_of(F, _), _, fail), \+ catch(ccl_enum_value(F, _), _, fail), \+ catch(ccl_tag(F, _), _, fail), \+ catch(cpp_cross_fn_key(Path, F, _), _, fail),
+    \+ catch(cpp_object_paths(F, [_|_]), _, fail), \+ catch('$cpp_tmplh'(F, _, _, _), _, fail), \+ catch(ccl_fn_template(F), _, fail).
+cpp_ns_words(Path, global) :- \+ ( member(S, Path), atom(S), S \== global ), !.
+cpp_ns_words(Path, ns(T)) :- findall(S, ( member(S, Path), atom(S), S \== global ), Ss), atomic_list_concat(Ss, '::', T).
 %% one function of the name, no overload and no template: its parameters and its ellipsis
-cpp_one_function(K, Ps, V) :- \+ catch(cpp_template(K, _, _), _, fail), \+ catch('$cpp_tmplh'(K, _, _, _), _, fail), \+ catch(ccl_fn_template(K), _, fail),
+cpp_one_function(K, Ps, V) :- \+ catch(cpp_template(K, _, _), _, fail),
     findall(Key, catch('$cpp_fn'(K, Key, _, _, _), _, fail), Ks0), sort(Ks0, Ks),
     (   Ks = [Key] -> once(catch('$cpp_fn'(K, Key, Ps, _, O), _, fail)), ( cpp_fn_variadic(O) -> V = true ; V = false )
     ;   Ks == [], catch(ccl_declared(K, fn(_, Ps, V0)), _, fail), ( ( V0 == true ; nonvar(V0), V0 = q(V1, _), V1 == true ) -> V = true ; V = false ) ).
