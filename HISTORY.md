@@ -359,6 +359,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.40 | GCC's weak, alias and section | GCC's weak, alias and section are qualifiers of the declarator's type, spelled as clang spells them -- define weak, weak and extern_weak globals and declarations, an alias's line, a section --, in C and in C++, where a leading attribute's notes carry them (reader 220, lowering 209) |
 | 1.6.41 | an extern inline's words, a void typeof's words | an extern inline definition defined again is clang's words of a GNU mode; a void variable of a typeof or a decltype type names the type as written, as clang's words do (reader 221, lowering 209) |
 | 1.6.42 | the verbose trap's arguments as its parameters, a C++ header's clashes and second definitions | a verbose trap's argument is its const char * parameter's first, in clang 23's words; a C++ header of the program's own is walked for a clash and a second definition as the file's run kept it (reader 221, lowering 210) |
+| 1.6.43 | a C++ const object with no initializer | a C++ const object of a type that is no class, with no initializer, is clang++'s default initialization words, a constexpr one its own (reader 221, lowering 211) |
 
 ## M5 — the C++ mode
 
@@ -26796,3 +26797,52 @@ tree after the port: the toolchain check strict GREEN. No CI job ran, by the own
   versions).
 
 The module 1.6.42, the reader 221 and the lowering 210.
+
+## 1.6.43 — a C++ const object with no initializer
+
+**1.6.43: at the user's word "Do many of the not done tasks", after 1.6.42: a sentence of Not done's record of a table's
+bound closed, against clang++ 23 -- a C++ const object with no initializer -- and a record of a class's const object
+new. The step was committed with its nets and its broken copies; no chain ran, by the user's word "try to run less chain
+and do more tasks before every chain", and it claims nothing GREEN of the chain.**
+
+1. C++: A CONST OBJECT WITH NO INITIALIZER IS REFUSED (`cpp_const_defaults/4`, `cpp_const_default/4`,
+   `cpp_const_scalar/1`, `cpp_const_walk/1`, `cpp_decl_pieces/6`'s clause for a block; [dcl.init.general]/7): an object
+   of the file, of a namespace, of its nested namespaces and `extern "C"` blocks, or of a block, static or not, whose
+   type is a const arithmetic type, a const enumeration, a const pointer or an array of them, and that no `extern`
+   declares, is clang++'s `default initialization of an object of const type 'const int[3]'` at its line; a `constexpr`
+   one, of any type, `constexpr variable 'k' must be initialized by a constant expression`, which the declaration's base
+   holds. They built -- `int *const p;` a null pointer, a block's `const int x;`, a namespace's -- and a file's `const
+   int T[3];` before its definition with rows was refused as a second definition, which Not done's record of a table's
+   bound held since 0.310 (in clang++ 22's words, which 1.6.24's walk had made `redefinition of 'T'`). The first form of
+   the rule asked a type that is no record, and refused a class with a user-provided default constructor and one whose
+   members have default member initializers at file scope, which clang++ builds: the rule asks an arithmetic, an
+   enumeration or a null pointer type now.
+2. FOUND: a const object of a class with no user-provided default constructor, `const P pp;`, builds where clang++ says
+   `... without a user-provided default constructor`; and a class's `static constexpr int x;` builds where clang++ says
+   `constexpr variable 'x' must be initialized by a constant expression`. Not done records them. A lambda made in
+   another lambda that names a member was probed too: its result type is deduced from the outer lambda's context, where
+   the closure's own signature is not current, and the mend reaches past a step's size; its record stands.
+
+The driver gate's check of twelve bodies holds item 1: ten refused as clang++ 23 refuses them, an extern declaration,
+two classes and a pointer to const that build, and a namespace's `extern "C"` block's object.
+
+THE NETS. Over the copy: the flow gate GREEN in 534 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+36 s (482 ok), the driver gate GREEN in 242 s (191 ok); the pool of 103 C++ run fixtures -- 1.6.42's 64 and the ones
+that hold `constexpr`, an `__attribute__` or a const declaration -- each built as the C++ gate builds it over a HOME of
+its own, 103 the same, in 125 s. After CD12's finding below, the copy with the guard out, which is CD12's, was its
+pool's 103 the same and its check's; and the flow gate over 1.6.44's copy, which holds it, GREEN in 465 s. THE BROKEN
+COPIES: twelve, each run from a copy of the copy over a fresh HOME. CD1 to CD11 -- the file scope's walk, the
+namespace's, the block's clause, constexpr's words, the pointer, the array, the positive test of the type, extern, a
+namespace's `extern "C"` block, a nested namespace and the driver's words -- were caught by the driver gate's check.
+CD12, which took the block's clause's guard of a library's body away, ran the C++ pool of 103 fixtures and was caught by
+nothing: a library's body holds no const object of a scalar type with no initializer, which C++ refuses, so the guard
+held nothing, and it is out. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the
+owner's rule of 0.271.
+
+- `library/ccl_cpp.pl` (`cpp_redef_walk/3`, `cpp_redef_item/3`, `cpp_const_defaults/4`, `cpp_const_default/4`,
+  `cpp_const_scalar/1`, `cpp_const_walk/1`); `library/ccl_cpp_stmt.pl` (`cpp_decl_pieces/6`); `library/ccl_driver.pl`
+  (two texts); `library/ccl_ir.pl` (the lowering 211); `test/driver.sh` (one check); the module's version.
+- RULES.md (the rule in the C reader's topic; Not done: one record narrowed, one new), HISTORY.md, CLAUDE.md (the
+  versions).
+
+The module 1.6.43, the reader 221 and the lowering 211.

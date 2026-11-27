@@ -1681,4 +1681,21 @@ gh: exit 0
 ph: exit 0
 ah: exit 0
 nsh: exit 0"
+# C++: A CONST OBJECT WITH NO INITIALIZER (1.6.43; [dcl.init.general]/7; cpp_const_defaults/4, cpp_const_default/4): an
+# object of a const scalar, pointer, enumeration or array of them type, of the file, a namespace or a block, static or not,
+# is clang++'s `default initialization of an object of const type', and a constexpr one `constexpr variable must be
+# initialized'; an extern declaration, a class with a user-provided default constructor or default member initializers and
+# a pointer to const build. Built with -c: C++'s -fsyntax-only stops after the reader
+check "C++: a const object with no initializer in clang++'s words -- a scalar, an array, a const pointer, an enumeration, a static bool, a nested namespace's, a namespace's extern \"C\" block's, a second declarator, a constexpr one, a block's and a block's static constexpr -- and the forms beside them that build (1.6.43)" "$(n=0; for body in 'const int x;\nint main() { return 0; }' 'const int T[3];\nconst int T[] = { 1, 2, 3 };\nint main() { return T[1] - 2; }' 'int *const p;\nint main() { return 0; }' 'enum E { A };\nconst E e;\nint main() { return 0; }' 'static const bool b;\nint main() { return 0; }' 'namespace n { namespace m { const double d; } }\nint main() { return 0; }' 'const int y = 1, z;\nint main() { return y; }' 'constexpr int k;\nint main() { return 0; }' 'int main() {\n  const unsigned u;\n  return 0;\n}' 'int main() {\n  static constexpr int w;\n  return 0;\n}' 'extern const int ex;\nstruct Q { Q() {} int a; };\nconst Q qq;\nstruct R { int a = 1; };\nconst R rr;\nconst char *s;\nint main() { const Q lq; const R lr; return 0; }' 'namespace n { extern "C" { const int c; } }\nint main() { return 0; }'; do n=$((n + 1)); printf '%b\n' "$body" > cdi$n.cpp; o=$("$ROOT/bin/cicilang++" -c cdi$n.cpp -o cdi.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "cdi$n.cpp: built"; done)" "cdi1.cpp:1: error: default initialization of an object of const type 'const int'
+cdi2.cpp:1: error: default initialization of an object of const type 'const int[3]'
+cdi3.cpp:1: error: default initialization of an object of const type 'int *const'
+cdi4.cpp:2: error: default initialization of an object of const type 'const E'
+cdi5.cpp:1: error: default initialization of an object of const type 'const bool'
+cdi6.cpp:1: error: default initialization of an object of const type 'const double'
+cdi7.cpp:1: error: default initialization of an object of const type 'const int'
+cdi8.cpp:1: error: constexpr variable 'k' must be initialized by a constant expression
+cdi9.cpp:2: error: default initialization of an object of const type 'const unsigned int'
+cdi10.cpp:2: error: constexpr variable 'w' must be initialized by a constant expression
+cdi11.cpp: built
+cdi12.cpp:1: error: default initialization of an object of const type 'const int'"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

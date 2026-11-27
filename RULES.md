@@ -2800,6 +2800,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   first one's body, and one beside the file's was LLVM's `invalid redefinition of function`. A guarded header, a
   `#pragma once` one included twice, a header in a header and a header's dead arms build. The driver gate's check of ten
   bodies, as clang++ 23 refuses and builds them. (1.6.24, 1.6.42)
+- IN C++ A CONST OBJECT WITH NO INITIALIZER IS REFUSED (1.6.43; [dcl.init.general]/7: a const object of a type that is
+  no class is not default-initialized; `cpp_const_defaults/4` in the second definitions' walk, `cpp_const_walk/1` over a
+  namespace's items, `cpp_decl_pieces/6`'s clause for a block, over `cpp_const_default/4`): an object of the file, of a
+  namespace, of its nested namespaces and `extern "C"` blocks, or of a block, static or not, whose type is a const
+  arithmetic type, a const enumeration, a const pointer or an array of them, and that no `extern` declares, is clang++'s
+  `default initialization of an object of const type 'const int[3]'` at its line, the type spelled with its `(aka ...)`
+  where it has one; a `constexpr` one of any type, `constexpr variable 'k' must be initialized by a constant expression`
+  -- the declaration's base holds the word. They built: `int *const p;` a null pointer, a block's `const int x;` and a
+  namespace's; a file's `const int T[3];` before its definition with rows was refused as a second definition (Not done
+  since 0.310). A class's object asks a user-provided default constructor (Not done), and an extern declaration, a
+  pointer to const and a class with a user-provided default constructor or default member initializers build. The driver
+  gate's check of twelve bodies, as clang++ 23 refuses and builds them. (1.6.43)
 - A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C (1.6.7; C17 6.9/3 and /5, 6.9.2/1, 6.7/3, 6.7.2.3/1 and /2,
   6.7.2.2/3; C23 6.7.2.3/1 and 6.2.7/1; `ccl_redefinitions/3` at the end of the file's read, `ccl_redef_check/5`), in
   clang's words at the second one's line. A FUNCTION'S SECOND BODY AND AN OBJECT'S SECOND INITIALIZER, `redefinition of
@@ -17210,9 +17222,8 @@ Declarations topic of the C++ reader).
   read stops there and the preprocessed read takes the text. WITH `-g` the code of a file put in place stands at the
   `#include`'s line of the program's file, where clang names the file's own lines. AN ARRAY DECLARED AGAIN WITH ANOTHER
   BOUND is refused since 1.6.24 (the C reader's topic), a bound that its initializer gives too: `const css_prop T[] = {
-  three rows };`, then `extern const css_prop T[2];`, is clang's `redeclaration of 'T' with a different type`. IN C++ a
-  const array with no initializer, defined again with its rows, is refused as longer than its bound, where clang++ says
-  `default initialization of an object of const type` and `redefinition of 'T'`.
+  three rows };`, then `extern const css_prop T[2];`, is clang's `redeclaration of 'T' with a different type`. (In C++
+  a const array with no initializer is clang++'s words since 1.6.43, the C reader's topic.)
 
 - A NAME USED BEFORE ITS DECLARATION (1.1.2; the C reader's topic of the symbol table, the lowering's of a name that
   nothing declares): what is left. THE PROGRAM'S OWN HEADER is not checked: a function of it that calls one that the
@@ -17279,6 +17290,14 @@ Declarations topic of the C++ reader).
   the desugaring's since 1.6.24, over the file's own items and, since 1.6.42, its own headers' as the run kept them: a
   namespace's two definitions are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own
   since 1.6.38.)
+- C++: A CONST OBJECT OF A CLASS WITH NO INITIALIZER BUILDS (found at 1.6.43, whose rule takes the types that are no
+  class; the C reader's topic): `struct P { int a; }; const P pp;` is clang++'s `default initialization of an object of
+  const type 'const P' without a user-provided default constructor`, where a class with a user-provided default
+  constructor, or whose every member has a default member initializer, is const-default-constructible
+  ([dcl.init.general]/7) and builds -- the rule would read the class's constructors and members, which the walk before
+  the desugaring does not register. A static data member declared `static constexpr int x;` in its class, clang++'s
+  `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it
+  builds.
 - C++: WHAT 1.6.42'S WALK OF A HEADER LEAVES (the C reader's topic of the kinds and of the second definitions). A HEADER
   THAT THE RUN DID NOT RUN IS DESUGARED STILL: a header of the program's own whose guard the file defined first,
   `#define G_H` before `#include "g.h"`, is LLVM's `invalid redefinition of function 'gf'` where the file defines the

@@ -164,12 +164,13 @@ cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> ( N = 
 %% over (`linkonce'), and a type that does not resolve leaves its function out
 cpp_redef_walk([], S, S).
 cpp_redef_walk([extern_c(_, Js)|Is], S0, S) :- !, cpp_redef_walk(Js, S0, S1), cpp_redef_walk(Is, S1, S).
+cpp_redef_walk([namespace(_, _, Js)|Is], S0, S) :- is_list(Js), !, cpp_const_walk(Js), cpp_redef_walk(Is, S0, S).   % a namespace's const objects (1.6.43), below
 cpp_redef_walk(['$live_header'(P, Js)|Is], S0, S) :- !, cpp_kind_in(P, cpp_redef_walk(Js, S0, S1)), cpp_redef_walk(Is, S1, S).   % the program's own header as the run kept it (1.6.42)
 cpp_redef_walk([I|Is], S0, S) :- ( cpp_redef_item(I, S0, S1) -> true ; S1 = S0 ), cpp_redef_walk(Is, S1, S).
 cpp_redef_item(function(L, Sto, _, N, Ps, V, block(_)), S0, [fn(N, Sig)|S0]) :- atom(N), Sto \== linkonce, catch(cpp_redef_sig(Ps, V, Sig), _, fail),
     ( memberchk(fn(N, Sig), S0) -> cpp_redef_throw(redefinition(N), L) ; true ).
 cpp_redef_item(declare(L, B), S0, S) :- cpp_redef_tags(B, L, S0, S).
-cpp_redef_item(declaration(L, Sto, B, Vs), S0, S) :- Sto \== typedef, Sto \== linkonce, cpp_redef_tags(B, L, S0, S1), cpp_redef_vars(Vs, Sto, L, S1, S).
+cpp_redef_item(declaration(L, Sto, B, Vs), S0, S) :- Sto \== typedef, Sto \== linkonce, cpp_const_defaults(B, Sto, L, Vs), cpp_redef_tags(B, L, S0, S1), cpp_redef_vars(Vs, Sto, L, S1, S).
 cpp_redef_tags(base(_, Specs), L, S0, S) :- ( member(Sp, Specs), cpp_redef_tag_def(Sp, Tag) -> ( memberchk(tag(Tag), S0) -> cpp_redef_throw(redefinition(Tag), L) ; S = [tag(Tag)|S0] ) ; S = S0 ).
 cpp_redef_tag_def(struct(Tag, Ms), Tag) :- atom(Tag), Tag \== anon, is_list(Ms).
 cpp_redef_tag_def(union(Tag, Ms), Tag) :- atom(Tag), Tag \== anon, is_list(Ms).
@@ -185,6 +186,24 @@ cpp_redef_vars([var(N, T, Init)|Vs], Sto, L, S0, S) :- atom(N), \+ ccl_redef_fn_
     ;   true ),
     cpp_redef_vars(Vs, Sto, L, [ob(N, T, D)|S0], S).
 cpp_redef_vars([_|Vs], Sto, L, S0, S) :- cpp_redef_vars(Vs, Sto, L, S0, S).
+%% A CONST OBJECT WITH NO INITIALIZER IS DEFAULT-INITIALIZED, WHICH A CONST SCALAR IS NOT (1.6.43; [dcl.init.general]/7: a
+%% const object of a type that is no class is not default-initialized): an object of the file, of a namespace or of a
+%% block, static or not, whose type is a const scalar, a const pointer, a const enumeration or an array of them, and that
+%% no `extern' declares, is clang++'s `default initialization of an object of const type 'const int[3]'', at its line; a
+%% file's `const int T[3];' was refused as a second definition where its rows came after it, `int *const p;' built a null
+%% pointer, and a block's `const int x;' built. A `constexpr' one of any type is `constexpr variable 'x' must be
+%% initialized by a constant expression' (the declaration's base holds the word). A class's object asks a user-provided
+%% default constructor (Not done)
+cpp_const_defaults(B, Sto, L, Vs) :- ( Sto \== extern, member(var(N, T, none), Vs), atom(N), cpp_const_default(B, N, T, W) -> cpp_redef_throw(W, L) ; true ).
+cpp_const_default(B, N, _, constexpr_uninit(N)) :- nonvar(B), B = base(QB, _), is_list(QB), memberchk(constexpr, QB), !.
+cpp_const_default(_, _, T0, default_const_init(A)) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail), cpp_const_scalar(R), catch(ir_type_aka(T0, A), _, fail).
+cpp_const_scalar(arr(_, E)) :- !, catch(once(ccl_resolve_type(E, R)), _, fail), cpp_const_scalar(R).
+cpp_const_scalar(ptr(Q, _)) :- !, memberchk(const, Q).
+cpp_const_scalar(base(Q, S)) :- memberchk(const, Q), ( ccl_is_integer(base([], S)) -> true ; ccl_is_float(base([], S)) -> true ; memberchk(nullptr_t, S) ).
+%% ... a namespace's, its nested namespaces' and its `extern "C"' blocks' among them
+cpp_const_walk([]).
+cpp_const_walk([I|Is]) :- ( I = namespace(_, _, Js), is_list(Js) -> cpp_const_walk(Js) ; I = extern_c(_, Js), is_list(Js) -> cpp_const_walk(Js)
+    ; I = declaration(L, Sto, B, Vs), Sto \== typedef, Sto \== linkonce -> cpp_const_defaults(B, Sto, L, Vs) ; true ), cpp_const_walk(Is).
 cpp_redef_throw(W, L) :- ( nb_current('$cpp_kind_file', P), atom(P), P \== none -> nb_setval('$ir_fail_file', P) ; true ), throw(error(not_lowered(W), where(file, line(L)))).   % a line of the program's own header is named by its file (1.6.42)
 %% a function's parameter types as they make its type: adjusted, then each level's typedefs resolved and its qualifiers
 %% sorted; a variadic one apart
