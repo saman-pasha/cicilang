@@ -2505,6 +2505,20 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   A `static inline` or a plain `inline` with the attribute is a definition, and so is an `extern` one with no `inline`,
   whose attribute clang ignores (`test/c/run/gnuinline.c`). An `extern inline` without the attribute, C99's external
   definition, defined again is `redefinition of 'k'` (the driver gate; Not done holds clang's words).
+- GCC'S `weak`, `alias("target")` AND `section("name")` (1.6.40, reader 220, lowering 209; GCC's manual, the common
+  function and variable attributes): each, `__weak__`, `__alias__` and `__section__` too, a note of the item's scan
+  (`ccl_gattr_note/1` in `ccl_layout_scan/1`), reset with the other notes of an item (`ccl_run_notes_reset/0`, which
+  C++'s leading attribute does not run) and the specifiers' set aside for each declarator (`ccl_run_notes_aside/1`), so
+  that a declarator's own reaches that one alone, the qualifier `gattr(G)` of the declarator's type where an asm label
+  stands (`ccl_gattr_take/2`, `ccl_add_gattr/3`), which the lowering reads (`ccl_gattr_of/2`): a definition is `define
+  weak` and a global `weak global`; a declaration that nothing defines is `declare extern_weak` or an `extern_weak
+  global`, its address null; a declaration with an alias is its line, `@f = alias i32 (i32), ptr @target`, emitted
+  whether or not the unit uses it, since another unit may call it, and noted defined (`ir_alias_def/4`); a section is `,
+  section "name"` after a global's constant and ` section "name"` after a function's attributes (`ir_gattr_section/3`),
+  as clang writes them. They were read and dropped, and each met the link. `test/c/run/gnuattrs.c` -- a section's
+  objects and function counted by the linker's `__start_` and `__stop_` symbols -- and `test/cpp/run/gnuattrscpp.cpp`,
+  as clang 23 and clang++ 23 print them; the driver gate's two units, whose strong definitions win, and its IR of two
+  declarators of each, as clang's IR places them.
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -17207,10 +17221,12 @@ Declarations topic of the C++ reader).
 - GCC'S ATTRIBUTES, WHAT 1.6.8 LEAVES (the C reader's topic; a jump into a cleanup's scope is clang's words since
   1.6.25, the safe part's topic): A CLEANUP THAT FREES THROUGH ITS PARAMETER, `void free_str(char **p) { free(*p); }`,
   is refused by the safe part, `a borrow consumed`, as the same defer written by hand is. THE OTHER ATTRIBUTES that the
-  probes took (`p113/forms`, s02 to s08) are read and dropped as before: `section`, `weak` and `alias` fail at the link,
-  `transparent_union` in LLVM's parser, `error` is clang's words in C since 1.6.29 -- a call in a branch that clang's
-  code generation drops is none since 1.6.39, and `-fsyntax-only` refuses none, as clang; in C++, where clang++ names
-  `'f()'`, it builds --, C's and C++'s `unavailable` are clang's
+  probes took (`p113/forms`, s02 to s08) are read and dropped as before: `transparent_union` fails in LLVM's parser
+  (`section`, `weak` and `alias` are spelled since 1.6.40, but in C++ an alias whose target is the mangled name of a
+  function of the program's, `alias("_Z8g_targeti")`, is LLVM's `use of undefined value '@_Z8g_targeti'`, since the
+  desugaring names the program's functions otherwise; an `extern "C"` target builds), `error` is clang's words in C
+  since 1.6.29 -- a call in a branch that clang's code generation drops is none since 1.6.39, and `-fsyntax-only`
+  refuses none, as clang; in C++, where clang++ names `'f()'`, it builds --, C's and C++'s `unavailable` are clang's
   words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
   `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
   `register_t`, an `int` of four bytes where clang's is a `long`.

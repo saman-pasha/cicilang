@@ -1468,6 +1468,16 @@ ccl_add_asm(N, S, ptr(Q, T), ptr([asm(N, S)|Q], T)) :- !.
 ccl_add_asm(N, S, arr(K, T0), arr(K, T)) :- !, ccl_add_asm(N, S, T0, T).
 ccl_add_asm(N, S, fn(R0, Ps, V), fn(R, Ps, V)) :- !, ccl_add_asm(N, S, R0, R).
 ccl_add_asm(_, _, T, T).
+%% GCC's weak, alias and section where the asm label stands (1.6.40, ccl_gattr_take/2), and read back by the lowering
+ccl_add_gattr(G, base(Q, B), base([gattr(G)|Q], B)) :- !.
+ccl_add_gattr(G, ptr(Q, T), ptr([gattr(G)|Q], T)) :- !.
+ccl_add_gattr(G, arr(K, T0), arr(K, T)) :- !, ccl_add_gattr(G, T0, T).
+ccl_add_gattr(G, fn(R0, Ps, V), fn(R, Ps, V)) :- !, ccl_add_gattr(G, R0, R).
+ccl_add_gattr(_, T, T).
+ccl_gattr_of(base(Q, _), G) :- memberchk(gattr(G), Q), !.
+ccl_gattr_of(ptr(Q, _), G) :- memberchk(gattr(G), Q), !.
+ccl_gattr_of(arr(_, T), G) :- !, ccl_gattr_of(T, G).
+ccl_gattr_of(fn(R, _, _), G) :- ccl_gattr_of(R, G).
 ccl_asm_of(base(Q, _), N, S) :- memberchk(asm(N, S), Q), !.
 ccl_asm_of(ptr(Q, _), N, S) :- memberchk(asm(N, S), Q), !.
 ccl_asm_of(arr(_, T), N, S) :- !, ccl_asm_of(T, N, S).

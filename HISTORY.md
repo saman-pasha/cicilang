@@ -356,6 +356,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.37 | include chains before a header's error, a block's unknown type names, a compound literal's block | an error in a header is led by clang's `In file included from` lines; a block's unknown type name is clang's use of an undeclared identifier, a for's own among them; a compound literal that a pointer borrows ends with its block; two stale texts of RULES.md corrected (reader 218, lowering 206) |
 | 1.6.38 | overloads with an ellipsis, prototypes before definitions, static overloads as values | C++: a function or member with an ellipsis beside its plain twin is an overload of its own, `.z` after its key, a call that both fit clang++'s ambiguity; a prototype of the program's own names its definition; `T::s` of several static members waits for its target; 1.6.34's qualified call no longer takes a frame's function for a local, which the chain's C++ gate found (reader 218, lowering 207) |
 | 1.6.39 | a dead branch, gnu_inline, a trap's constant objects, a namespace's sets, a compound literal's storage | a call in a branch that clang's code generation drops is none; GNU's extern inline with gnu_inline is a declaration; a verbose trap's string through a constant object's name is its initializer's; a namespace's overload set named as a value meets its target; a C++ compound literal's storage class is clang++'s refusal; a braced string literal sizes its array (reader 219, lowering 208) |
+| 1.6.40 | GCC's weak, alias and section | GCC's weak, alias and section are qualifiers of the declarator's type, spelled as clang spells them -- define weak, weak and extern_weak globals and declarations, an alias's line, a section --, in C and in C++, where a leading attribute's notes carry them (reader 220, lowering 209) |
 
 ## M5 — the C++ mode
 
@@ -26614,3 +26615,56 @@ CI job ran, by the owner's rule of 0.271.
   and the fixtures).
 
 The module 1.6.39, the reader 219 and the lowering 208.
+
+## 1.6.40 — GCC's weak, alias and section
+
+**1.6.40: at the user's word "Do many of the not done tasks", after 1.6.39: GCC's `weak`, `alias` and `section`, which
+the record of GCC's attributes held failing at the link, spelled as clang spells them, in C and in C++. The step was
+committed with its nets and its broken copies; no chain ran, by the user's word "try to run less chain and do more tasks
+before every chain", and it claims nothing GREEN of the chain.**
+
+1. C AND C++: GCC'S `weak`, `alias("target")` AND `section("name")` ARE QUALIFIERS OF THE DECLARATOR'S TYPE (reader 220,
+   lowering 209; `ccl_gattr_note/1`, `ccl_gattr_take/2`, `ccl_add_gattr/3`, `ccl_gattr_of/2`), where the asm label of
+   0.194 stands, and the lowering spells them: `define weak`, a `weak global`, `declare extern_weak` and an `extern_weak
+   global` for a declaration that nothing defines, an alias's line for a function and for an object (`ir_alias_def/4`),
+   emitted whether or not the unit uses it, and a section after a global's constant and after a function's attributes
+   (`ir_gattr_section/3`). Each was read and dropped: a weak declaration that nothing defines was an undefined symbol at
+   the link, an alias's name too, and a section held nothing.
+2. C++: THE THREE ARE AN ITEM'S NOTES, RESET WITH THE OTHERS (`ccl_run_notes_reset/0`, `ccl_run_notes_aside/1`): item
+   1's first form reset them at the item's start, and in C++, which reads a leading `__attribute__` before the item in a
+   clause of its own, `weak` and `section` were lost there -- the alias, read after the declarator, stood. They are
+   reset with the cleanup's and the constructor's notes, which the leading attribute's road does not reset, and the
+   specifiers' are set aside for each declarator, so that a declarator's own reaches that one alone, as clang's IR has
+   them. A carry of them in the leading attribute's saved notes was the first mend, and its broken copy GA2 found that
+   it held nothing: it is out.
+3. A C++ ALIAS OF A FUNCTION OF THE PROGRAM'S BY ITS MANGLED NAME, `alias("_Z8g_targeti")`, which clang++ takes, is
+   LLVM's `use of undefined value '@_Z8g_targeti'`: the desugaring names the program's functions otherwise. An `extern
+   "C"` target builds. The record of GCC's attributes narrows to it.
+
+`test/c/run/gnuattrs.c` holds item 1 in C -- a weak definition and object, weak declarations that nothing defines, an
+alias of a function and of an object, two objects and a function in sections of their own, which the linker's `__start_`
+and `__stop_` symbols count --, and `test/cpp/run/gnuattrscpp.cpp` items 1 and 2 in C++; clang 23, clang++ 23 and this
+step print each alike. The driver gate's two units hold the link: the other unit's strong definitions of a function and
+an object win, and a weak declaration that it defines is called, `2 5 9` as clang's; and its IR of two declarations of
+two declarators each holds item 2's declarators, as clang's IR places the attributes.
+
+THE NETS. Over the copy: the flow gate GREEN in 498 s, the reader gate GREEN in 5 s (173 ok), the compile gate GREEN in
+38 s (482 ok), the driver gate GREEN in 236 s (185 ok); the cross gate GREEN in 331 s (294 ok) over the copy before
+GA2's mend, which changes no C file's read; the pool of 52 C++ run fixtures, `gnuattrscpp.cpp` and the 51 of 1.6.39,
+each built as the C++ gate builds it over a HOME of its own, 52 the same, in 78 s. THE BROKEN COPIES: thirteen, each run
+from a copy of the copy over a fresh HOME; eleven were caught at first. GA2, which took the notes out of the leading
+attribute's saved notes, was caught by nothing: that carry held nothing, and it is out (item 2). GA3, which kept a
+declarator's own attribute for the declarators after it, was caught by nothing too: the driver gate's IR of two
+declarators catches it now, and WK1, WK2, WK3 and GA1 were run again over the copy with the check, caught. Twelve stand,
+all caught. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of
+0.271.
+
+- `library/ccl_syntax.pl` (`ccl_layout_scan/1`, `ccl_gattr_take/2`, `ccl_gattr_note/1`, `ccl_gattr_word/2`,
+  `ccl_init_declarator//3`, `ccl_external_rest//6`, `ccl_run_notes_reset/0`, `ccl_run_notes_aside/1`; the reader 220);
+  `library/ccl_infer.pl` (`ccl_add_gattr/3`, `ccl_gattr_of/2`); `library/ccl_ir.pl` (`ir_function/7`, `ir_globals/2`,
+  `ir_declares/3`, `ir_gattr_section/3`, `ir_alias_def/4`; the lowering 209); `test/driver.sh` (two checks); the step's
+  fixtures; the module's version.
+- RULES.md (the rule in the C reader's topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions and
+  the fixtures).
+
+The module 1.6.40, the reader 220 and the lowering 209.

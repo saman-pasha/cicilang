@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.39 the versions are: the module 1.6.39 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 219 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 208 (`ccl_lowering_version/1`,
+At 1.6.40 the versions are: the module 1.6.40 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 220 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 209 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -648,7 +648,7 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             local, each built as C and as C++ (1.6.36); complitblocks.c, compound literals used while
                             their blocks run, C alone (1.6.37); gnuinline.c, GNU's extern inline with gnu_inline, and
                             deadbranch.c, branches that clang's code generation drops, and bracedstr.c, string literals in
-                            braces for arrays of no bound (1.6.39)
+                            braces for arrays of no bound (1.6.39); gnuattrs.c, GCC's weak, alias and section (1.6.40)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -792,7 +792,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             pointer beside the file's overloads of its name (1.6.34); varoverload.cpp, overloads with an
                             ellipsis beside their plain twins, free and members, overloads declared before their
                             definitions, and static overloads named with their class as values (1.6.38); nsvalues.cpp,
-                            a namespace's overload sets named as values (1.6.39)
+                            a namespace's overload sets named as values (1.6.39); gnuattrscpp.cpp, GCC's weak, section and
+                            an extern "C" alias in C++ (1.6.40)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

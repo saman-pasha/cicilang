@@ -1606,4 +1606,13 @@ deadbr2.c:3: error: call to 'f' declared with 'error' attribute: never call"
 # AN `extern inline' WITHOUT GCC'S gnu_inline IS C99'S EXTERNAL DEFINITION (1.6.39, ccl_gnu_inline_item/3): defined again, it is
 # refused -- clang's words are `redefinition of a 'extern inline' function 'k' is not supported in C99 mode' (Not done)
 check "C: an extern inline function without gnu_inline, defined again, is refused at its second definition (1.6.39)" "$(printf '#include <stdio.h>\nextern inline int k(int x) { return x + 1; }\nint k(int x) { return x + 2; }\nint main(void) { printf("%%d\\n", k(1)); return 0; }\n' > einl.c; "$CICILI" -c einl.c -o einl.o 2>&1 | head -1)" "einl.c:3: error: redefinition of 'k'"
+# GCC'S weak ACROSS TWO UNITS (1.6.40): a strong definition of the other unit is the one that the link takes, a function's and
+# an object's, and a weak declaration that the other unit defines is no null address, as clang's link has them
+# ... AND A DECLARATOR'S OWN ATTRIBUTE IS ITS OWN (1.6.40, ccl_gattr_take/2): the specifiers' reach each declarator, one after
+# a declarator reaches that one alone
+check "C: GCC's weak and section of the specifiers reach each declarator, a declarator's own that one alone, in the IR (1.6.40)" "$(printf 'int v __attribute__((weak)) = 1, u = 3;\n__attribute__((section("sx"))) int a = 1, b = 2;\nint main(void) { return v + u + a + b - 7; }\n' > wdecl.c; "$CICILI" -S -emit-llvm wdecl.c -o wdecl.ll 2>&1 | head -1; grep '^@[uvab] =' wdecl.ll | sort)" '@a = global i32 1, section "sx"
+@b = global i32 2, section "sx"
+@u = global i32 3
+@v = weak global i32 1'
+check "C: GCC's weak across two units -- the other unit's strong definitions of a function and an object win, and a weak declaration it defines is called -- as clang's (1.6.40)" "$(printf '#include <stdio.h>\n__attribute__((weak)) int f(void) { return 1; }\n__attribute__((weak)) int v = 1;\n__attribute__((weak)) int g(void);\nint main(void) { printf("%%d %%d %%d\\n", f(), v, g ? g() : 0); return 0; }\n' > weaka.c; printf 'int f(void) { return 2; }\nint v = 5;\nint g(void) { return 9; }\n' > weakb.c; "$CICILI" weaka.c weakb.c -o weakab 2>&1 | head -2; ./weakab)" "2 5 9"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi
