@@ -357,6 +357,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.38 | overloads with an ellipsis, prototypes before definitions, static overloads as values | C++: a function or member with an ellipsis beside its plain twin is an overload of its own, `.z` after its key, a call that both fit clang++'s ambiguity; a prototype of the program's own names its definition; `T::s` of several static members waits for its target; 1.6.34's qualified call no longer takes a frame's function for a local, which the chain's C++ gate found (reader 218, lowering 207) |
 | 1.6.39 | a dead branch, gnu_inline, a trap's constant objects, a namespace's sets, a compound literal's storage | a call in a branch that clang's code generation drops is none; GNU's extern inline with gnu_inline is a declaration; a verbose trap's string through a constant object's name is its initializer's; a namespace's overload set named as a value meets its target; a C++ compound literal's storage class is clang++'s refusal; a braced string literal sizes its array (reader 219, lowering 208) |
 | 1.6.40 | GCC's weak, alias and section | GCC's weak, alias and section are qualifiers of the declarator's type, spelled as clang spells them -- define weak, weak and extern_weak globals and declarations, an alias's line, a section --, in C and in C++, where a leading attribute's notes carry them (reader 220, lowering 209) |
+| 1.6.41 | an extern inline's words, a void typeof's words | an extern inline definition defined again is clang's words of a GNU mode; a void variable of a typeof or a decltype type names the type as written, as clang's words do (reader 221, lowering 209) |
 
 ## M5 — the C++ mode
 
@@ -26668,3 +26669,49 @@ all caught. Over the work tree after the port: the toolchain check strict GREEN.
   the fixtures).
 
 The module 1.6.40, the reader 220 and the lowering 209.
+
+## 1.6.41 — an extern inline's words, a void typeof's words
+
+**1.6.41: at the user's word "Do many of the not done tasks", after 1.6.40: two records' words made clang's -- an
+`extern inline` defined again, and a void variable of a `typeof` or a `decltype` type. Both records narrow. The step was
+committed with its nets and its broken copies; no chain ran, by the user's word "try to run less chain and do more tasks
+before every chain", and it claims nothing GREEN of the chain.**
+
+1. C: AN `extern inline` DEFINITION DEFINED AGAIN IS REFUSED IN CLANG'S WORDS (reader 221; `ccl_redef_words/5` in
+   `ccl_redef_name/6`; the read's note of such definitions, `'$ccl_ext_inlines'`, in `ccl_gnu_inline_item/3`): in a GNU
+   mode, where it is the first definition, `redefinition of a 'extern inline' function 'k' is not supported in C99
+   mode`; under `-std=c99`, `c11`, `c17` and `c23`, and where it is the second, `redefinition of 'k'` -- clang's probes
+   found the mode, which 1.6.39's record did not name. The note was a backtrackable value first, and the walk saw none
+   of it: it is a global one, which ends with the read's walk, so that a second file of one build keeps the plain words.
+2. C AND C++: A VOID VARIABLE OF A `typeof` OR A `decltype` TYPE NAMES THE TYPE AS WRITTEN (reader 221;
+   `ccl_typeof_here/2`, `ccl_spell_operand/2`, `ir_typeof_words/2`, `cpp_decl_pieces/6`): `'typeof (f())' (aka 'void')`
+   in C, `typeof` and `__typeof__` alike, and `'decltype(f())' (aka 'void')` in C++, where both said `'void'`. The C
+   reader resolves a typeof's operand where it stands (1.6.2), and the operand was gone by the lowering: a void operand
+   that the speller spells keeps it, `typeof(spelled(S, T))`, which the resolution reads through, so that a pointer to
+   such a type builds as before. The C++ desugaring resolves a `decltype` type before the lowering, and a block's
+   declaration of one that is void is refused there.
+
+The driver gate holds both: 1.6.39's check of an `extern inline` defined again holds the GNU mode's words, `-std=c17`'s
+and the second definition's, and a check of two files in one build the note's end; a check of the void variables holds
+`typeof` and `__typeof__` in C, a call over calls, `decltype` in C++, and a pointer to such a type that builds -- each
+against clang 23 and clang++ 23.
+
+THE NETS. Over the copy: the flow gate GREEN in 473 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+35 s (482 ok), the driver gate GREEN in 228 s (187 ok); the pool of 52 C++ run fixtures of 1.6.40, each built as the C++
+gate builds it over a HOME of its own, 52 the same, in 77 s; after TV5's mend, the flow gate GREEN in 466 s, the compile
+gate GREEN in 37 s (482 ok) and the void variables' check. THE BROKEN COPIES: ten, each run from a copy of the copy over
+a fresh HOME. EI1 to EI5 -- the GNU mode's words taken out, given at every level, given where the extern inline
+definition is the second, the read's note of such definitions taken out, and its end after the walk taken out -- and TV1
+to TV4 -- the read's spelling of a void operand, the resolution's road through it, C++'s clause of a decltype type and
+the speller's call of a name -- were caught. TV5, which took the lowering's own spelling of an operand that the read
+left unspelled out of `ir_typeof_words/2`, was caught by nothing: the read spells every void operand that the speller
+takes, and the lowering's fallback held nothing, so it is out. Nine stand, all caught. Over the work tree after the
+port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_syntax.pl` (`ccl_gnu_inline_item/3`, `ccl_redef_name/6`, `ccl_redef_words/5`, `ccl_redefinitions/3`,
+  `ccl_typeof_here/2`; the reader 221); `library/ccl_infer.pl` (`ccl_resolve_base/3`, `ccl_spell_operand/2`);
+  `library/ccl_ir.pl` (`ir_locals/2`, `ir_typeof_words/2`); `library/ccl_cpp_stmt.pl` (`cpp_decl_pieces/6`);
+  `library/ccl_driver.pl` (the words); `test/driver.sh` (two checks, and 1.6.39's changed); the module's version.
+- RULES.md (the rules in their topics; Not done: two records narrowed), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.41, the reader 221 and the lowering 209.

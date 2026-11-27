@@ -4934,7 +4934,7 @@ ir_locals([var(N, T, Init)|Vs], Sto) :-
     ->  ir_local(N, T1, '%agg.result'), ir_init('%agg.result', T1, Init)
     ;   T1 = fn(_, _, _) -> ir_note_extern(N, T), ir_local_extern(N, T1)   % a local prototype
     ;   Sto == extern -> ir_note_extern(N, T), ir_local_extern(N, T1)
-    ;   ccl_void_typed(T1) -> ir_fail(void_variable)                       % `void x;', `auto x = f();' (1.6.14): `variable has incomplete type 'void''
+    ;   ccl_void_typed(T1) -> ( ir_typeof_words(T, W) -> ir_fail(void_variable_as(W)) ; ir_fail(void_variable) )   % `void x;', `auto x = f();' (1.6.14): `variable has incomplete type 'void''; a typeof type as written (1.6.41)
     ;   ir_has_vla(T1)                                                     % A VARIABLE LENGTH ARRAY (C99, mandatory in C17): allocated HERE, in the body, with the bound's value -- the entry block's allocas are fixed
     ->  ( Init == none -> true ; Init == init([]) -> true ; ir_fail(vla_initialized(N)) ),   % C23 6.7.10: `{}' is the one initializer a VLA takes (0.117)
         %% THE BOUNDS ARE EVALUATED ONCE, at the declaration ([dcl.array], C 6.7.6.2/5), and kept in the type the
@@ -5555,6 +5555,11 @@ ir_declares([N-T|Es], Ds, [D|Decls]) :-
             ( ccl_gattr_of(T1, weak) -> Dk = 'declare extern_weak ' ; Dk = 'declare ' ), atomic_list_concat([Dk, RLA, ' @', N, '(', PL, ')', Attr], D)   % GCC's weak (1.6.40)
     ;   ir_type(T, LL), ( ccl_gattr_of(T1, weak) -> Ek = ' = extern_weak global ' ; Ek = ' = external global ' ), atomic_list_concat(['@', N, Ek, LL], D) ),
     ir_declares(Es, Ds, Decls).
+%% A VOID VARIABLE OF A `typeof' TYPE NAMES THE TYPE AS WRITTEN (1.6.41), as clang's words do: `'typeof (f())' (aka 'void')',
+%% `typeof' and `__typeof__' alike, where they said `'void''. The reader keeps a void operand's spelling, typeof(spelled(S, T))
+%% (ccl_typeof_here/2), and any other operand keeps the plain words -- one that the read could not type was spelled here too,
+%% and 1.6.41's broken copy TV5 found that no program reaches it
+ir_typeof_words(T, W) :- nonvar(T), T = base(_, [typeof(spelled(S, _))]), atomic_list_concat(['typeof (', S, ')'], W).
 %% GCC'S `section("name")' (1.6.40): `, section "name"' after a global's constant, ` section "name"' after a function's attributes,
 %% as clang writes them; and `alias("target")' a line of its own, `@f = alias i32 (i32), ptr @target', the declared name
 %% noted defined, so that no declare line stands beside it (ir_declares/3)

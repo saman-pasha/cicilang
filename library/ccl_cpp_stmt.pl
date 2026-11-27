@@ -878,6 +878,10 @@ cpp_implicitly_movable(id(N)) :- atom(N), ccl_locals(Fs), member(F, Fs), memberc
 cpp_ret_constructs(C) :- cpp_dtor(C, _), !.
 cpp_ret_constructs(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, _, [P], I, _), Ms), I \= memberwise(_, _), ( cpp_special_param(P, C, ref) ; cpp_special_param(P, C, rref) ), !.
 cpp_decl_pieces(_, _, _, _, [], []).
+%% A VOID VARIABLE OF A `decltype' TYPE NAMES THE TYPE AS WRITTEN (1.6.41), as clang++'s words do: `'decltype(f())' (aka 'void')',
+%% where the lowering met the type resolved and said `'void''
+cpp_decl_pieces(_, L, Sto, _, [var(_, T0, _)|_], _) :- Sto \== extern, nonvar(T0), T0 = base(_, [decltype(E)]), \+ nb_current('$cpp_in_lib', yes),
+    catch(cpp_type(T0, T1), _, fail), ccl_void_typed(T1), ccl_spell_operand(E, S), !, atomic_list_concat(['decltype(', S, ')'], W), cpp_refuse(L, void_variable_as(W)).
 %% `auto x = {a, b}' DEDUCES `std::initializer_list<E>' ([dcl.type.auto.deduct]/4; 0.206), E the first item's type decayed, a list of one
 %% item too: the reader reads the direct form of one item, `auto x{a}', as `auto x = a' (ccl_var_init_fn//2), and `auto x{a, b}' is
 %% ill-formed. It was refused `auto(x)'

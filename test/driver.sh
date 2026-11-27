@@ -1604,8 +1604,14 @@ int main(int argc, char **argv) {
 }'; do n=$((n + 1)); printf "$src\n" > deadbr$n.c; "$CICILI" -c deadbr$n.c -o deadbr$n.o 2>&1 | head -1; done)" "deadbr1.c:2: error: call to 'f' declared with 'error' attribute: never call
 deadbr2.c:3: error: call to 'f' declared with 'error' attribute: never call"
 # AN `extern inline' WITHOUT GCC'S gnu_inline IS C99'S EXTERNAL DEFINITION (1.6.39, ccl_gnu_inline_item/3): defined again, it is
-# refused -- clang's words are `redefinition of a 'extern inline' function 'k' is not supported in C99 mode' (Not done)
-check "C: an extern inline function without gnu_inline, defined again, is refused at its second definition (1.6.39)" "$(printf '#include <stdio.h>\nextern inline int k(int x) { return x + 1; }\nint k(int x) { return x + 2; }\nint main(void) { printf("%%d\\n", k(1)); return 0; }\n' > einl.c; "$CICILI" -c einl.c -o einl.o 2>&1 | head -1)" "einl.c:3: error: redefinition of 'k'"
+# refused in clang's words (1.6.41, ccl_redef_words/5) -- a GNU mode's own where the `extern inline' definition is the first, the
+# plain words under -std=c17 and where it is the second
+check "C: an extern inline function without gnu_inline, defined again, is refused in clang's words: a GNU mode's where it is the first definition, the plain ones under -std=c17 and where it is the second (1.6.39, 1.6.41)" "$(printf '#include <stdio.h>\nextern inline int k(int x) { return x + 1; }\nint k(int x) { return x + 2; }\nint main(void) { printf("%%d\\n", k(1)); return 0; }\n' > einl.c; printf 'int k(int x) { return x + 2; }\nextern inline int k(int x) { return x + 1; }\nint main(void) { return k(1); }\n' > einl2.c; "$CICILI" -c einl.c -o einl.o 2>&1 | head -1; "$CICILI" -std=c17 -c einl.c -o einl.o 2>&1 | head -1; "$CICILI" -c einl2.c -o einl2.o 2>&1 | head -1)" "einl.c:3: error: redefinition of a 'extern inline' function 'k' is not supported in C99 mode
+einl.c:3: error: redefinition of 'k'
+einl2.c:2: error: redefinition of 'k'"
+# ... AND A READ'S NOTES END WITH ITS WALK (1.6.41): of two files in one build, the second's plain definitions defined again are
+# the plain words, though the first defined an `extern inline' function of the name
+check "C: a read's notes of extern inline definitions end with its walk: a second file's plain redefinition keeps the plain words (1.6.41)" "$(printf 'extern inline int k(int x) { return x + 1; }\nint use_k(void) { return k(1); }\n' > eia.c; printf 'int k(int x) { return x; }\nint k(int x) { return x + 2; }\n' > eib.c; "$CICILI" -c eia.c eib.c 2>&1 | grep error | head -1)" "eib.c:2: error: redefinition of 'k'"
 # GCC'S weak ACROSS TWO UNITS (1.6.40): a strong definition of the other unit is the one that the link takes, a function's and
 # an object's, and a weak declaration that the other unit defines is no null address, as clang's link has them
 # ... AND A DECLARATOR'S OWN ATTRIBUTE IS ITS OWN (1.6.40, ccl_gattr_take/2): the specifiers' reach each declarator, one after
@@ -1615,4 +1621,11 @@ check "C: GCC's weak and section of the specifiers reach each declarator, a decl
 @u = global i32 3
 @v = weak global i32 1'
 check "C: GCC's weak across two units -- the other unit's strong definitions of a function and an object win, and a weak declaration it defines is called -- as clang's (1.6.40)" "$(printf '#include <stdio.h>\n__attribute__((weak)) int f(void) { return 1; }\n__attribute__((weak)) int v = 1;\n__attribute__((weak)) int g(void);\nint main(void) { printf("%%d %%d %%d\\n", f(), v, g ? g() : 0); return 0; }\n' > weaka.c; printf 'int f(void) { return 2; }\nint v = 5;\nint g(void) { return 9; }\n' > weakb.c; "$CICILI" weaka.c weakb.c -o weakab 2>&1 | head -2; ./weakab)" "2 5 9"
+# A VOID VARIABLE OF A typeof OR decltype TYPE NAMES THE TYPE AS WRITTEN (1.6.41; ccl_typeof_here/2's spelled operand,
+# ir_typeof_words/2, cpp_decl_pieces/6): `typeof' and `__typeof__' alike in C, `decltype' in C++, a call over calls among them,
+# and a pointer to such a type builds, as clang's and clang++'s do
+check "C and C++: a void variable of a typeof or decltype type names the type as written, in clang's words -- typeof and __typeof__, a call over calls, decltype in C++ -- and a pointer to one builds (1.6.41)" "$(printf 'void f(void);\nint main(void) {\n  typeof(f()) x;\n  return 0;\n}\n' > tyv1.c; printf 'int g(int);\nvoid h(int, int);\nint main(void) {\n  __typeof__(h(1, g(2))) w;\n  return 0;\n}\n' > tyv2.c; printf 'void f(void);\nint main(void) {\n  typeof(f()) *p = 0;\n  __typeof__(f()) *q = p;\n  return p == q ? 0 : 1;\n}\n' > tyv3.c; printf 'void f();\nint main() {\n  decltype(f()) z;\n  return 0;\n}\n' > tyv4.cpp; "$CICILI" -std=c23 -c tyv1.c -o tyv1.o 2>&1 | head -1; "$CICILI" -c tyv2.c -o tyv2.o 2>&1 | head -1; "$CICILI" -std=c23 tyv3.c -o tyv3 2>&1 | head -1; ./tyv3; echo "exit $?"; "$ROOT/bin/cicilang++" -c tyv4.cpp -o tyv4.o 2>&1 | head -1)" "tyv1.c:3: error: variable has incomplete type 'typeof (f())' (aka 'void')
+tyv2.c:4: error: variable has incomplete type 'typeof (h(1, g(2)))' (aka 'void')
+exit 0
+tyv4.cpp:3: error: variable has incomplete type 'decltype(f())' (aka 'void')"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

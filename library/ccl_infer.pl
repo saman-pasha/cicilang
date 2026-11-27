@@ -529,6 +529,7 @@ ccl_resolve_base([typedef(N)], Q, T) :- atom(N), ccl_lang(cpp), ccl_tag(N, Ms), 
 ccl_resolve_base([typedef(scoped([global], N))], Q, T) :- atom(N), ccl_lang(cpp), !, ccl_resolve_base([typedef(N)], Q, T).   % C++: `::N' is the global N, which keeps the bare name (0.201): libc++ 18's `typedef ::timespec __libcpp_timespec_t;' at file scope resolved to nothing, and `std::barrier''s wait met `decltype(__ts.tv_sec)' of no type
 %% typeof(x): the TYPE when a type was written (GNU's, and C23's own), else the expression's -- nothing
 %% resolved it before, so a `typeof' reached the lowering as a specifier it could not take
+ccl_resolve_base([typeof(spelled(_, X))], Q, T) :- !, ccl_resolve_base([typeof(X)], Q, T).   % a void operand's spelling kept for the words (1.6.41, ccl_typeof_here/2)
 ccl_resolve_base([typeof(unqual(X))], Q, T) :- !, ccl_resolve_base([typeof(X)], [], T0), ccl_strip_quals(T0, T1), ccl_add_quals(Q, T1, T).   % C23's typeof_unqual: the top-level qualifiers off
 ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_term(X), !, ccl_resolve_type(X, T0), ccl_add_quals(Q, T0, T).
 ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_of(X, T0), T0 \== unknown, !, ccl_resolve_type(T0, T1), ccl_place_free(T1, T2), ccl_add_quals(Q, T2, T).   % the type alone, where its object lies off (0.203)
@@ -1474,6 +1475,13 @@ ccl_add_gattr(G, ptr(Q, T), ptr([gattr(G)|Q], T)) :- !.
 ccl_add_gattr(G, arr(K, T0), arr(K, T)) :- !, ccl_add_gattr(G, T0, T).
 ccl_add_gattr(G, fn(R0, Ps, V), fn(R, Ps, V)) :- !, ccl_add_gattr(G, R0, R).
 ccl_add_gattr(_, T, T).
+%% AN OPERAND SPELLED AS CLANG'S WORDS PRINT IT (1.6.41; a typeof's and a decltype's in a void variable's words): a name, an integer
+%% literal, a call of a name over such operands; no other form
+ccl_spell_operand(id(N), N) :- atom(N), !.
+ccl_spell_operand(int(K), K) :- integer(K), !.
+ccl_spell_operand(call(id(F), As), S) :- atom(F), ccl_spell_operands(As, Ss), atomic_list_concat(Ss, ', ', A), atomic_list_concat([F, '(', A, ')'], S).
+ccl_spell_operands([], []).
+ccl_spell_operands([A|As], [S|Ss]) :- ccl_spell_operand(A, S), ccl_spell_operands(As, Ss).
 ccl_gattr_of(base(Q, _), G) :- memberchk(gattr(G), Q), !.
 ccl_gattr_of(ptr(Q, _), G) :- memberchk(gattr(G), Q), !.
 ccl_gattr_of(arr(_, T), G) :- !, ccl_gattr_of(T, G).

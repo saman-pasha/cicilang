@@ -628,6 +628,7 @@ dr_value_text(void_vararg_fmt(X), ['cannot pass expression of type ''void'' to v
 dr_value_text(void_vararg, Ps) :- ( ccl_lang(cpp) -> Ps = ['cannot pass expression of type ''void'' to variadic function'] ; Ps = ['argument type ''void'' is incomplete'] ).
 dr_value_text(void_condition, ['value of type ''void'' is not contextually convertible to ''bool''']).
 dr_value_text(void_variable, ['variable has incomplete type ''void''']).
+dr_value_text(void_variable_as(W), ['variable has incomplete type ''', W, ''' (aka ''void'')']).   % a typeof or decltype type as written (1.6.41)
 dr_value_text(void_reference, ['cannot form a reference to ''void''']).
 dr_value_text(void_bind(nonconst, B), ['non-const lvalue reference to type ''', B, ''' cannot bind to a temporary of type ''void''']).
 dr_value_text(void_bind(other, B), ['reference to type ''', B, ''' could not bind to an rvalue of type ''void''']).

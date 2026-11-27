@@ -2504,7 +2504,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   were `redefinition of 'k'`; with no definition after it a call names the external symbol, as clang's call does at -O0.
   A `static inline` or a plain `inline` with the attribute is a definition, and so is an `extern` one with no `inline`,
   whose attribute clang ignores (`test/c/run/gnuinline.c`). An `extern inline` without the attribute, C99's external
-  definition, defined again is `redefinition of 'k'` (the driver gate; Not done holds clang's words).
+  definition, defined again is refused in clang's words (1.6.41, reader 221; `ccl_redef_words/5` in `ccl_redef_name/6`,
+  the read's note `'$ccl_ext_inlines'` of such definitions, which ends with its walk): in a GNU mode, where the `extern
+  inline` definition is the first, `redefinition of a 'extern inline' function 'k' is not supported in C99 mode`, as
+  clang's default gnu17 says; under `-std=c99`, `c11`, `c17` and `c23`, and where it is the second, `redefinition of
+  'k'`. The driver gate's two checks, the second over two files in one build.
 - GCC'S `weak`, `alias("target")` AND `section("name")` (1.6.40, reader 220, lowering 209; GCC's manual, the common
   function and variable attributes): each, `__weak__`, `__alias__` and `__section__` too, a note of the item's scan
   (`ccl_gattr_note/1` in `ccl_layout_scan/1`), reset with the other notes of an item (`ccl_run_notes_reset/0`, which
@@ -13707,21 +13711,27 @@ in the first topic (The ccllib gate).
   type that is no reference or pointer `const_cast to 'int', which is not a reference, pointer-to-object, or
   pointer-to-data-member`. A reference's initializer that casts a void value is the cast's refusal (`ir_void_ref/2`). A
   cast to a reference reached LLVM's parser, `alloca void`, and a class's cast the constructor's words. AS AN OBJECT:
-  `void x;` and `auto x = f();` are `variable has incomplete type 'void'`; a reference to void is `cannot form a
-  reference to 'void'` (`auto &r = f();`); a reference bound to a void value is `non-const lvalue reference to type
-  'int' cannot bind to a temporary of type 'void'` and, const or rvalue, `reference to type 'const int' could not bind
-  to an rvalue of type 'void'`. A STEP of one is `cannot increment value of type 'void'`, before C's lvalue test. C++'S
-  `sizeof` of void and of a function type is `invalid application of 'sizeof' to an incomplete type 'void'` and `to a
-  function type` (`ir_cpp_sizeof_refused/1`), where C's is GNU's 1 for both (`ccl_sizeof_value/2`, in a constant
-  expression too, `char a[sizeof(f)]`; a function type's layout answers a pointer's 8, which `sizeof(f)` gave). The
-  desugaring refuses a C++ call's void argument and a void initializer that it makes an assignment of (Overload
-  resolution, the roads). Why: through 1.6.13 each went on as the value `none` of LLVM type void, `%t2 = sext void none
-  to i32`, which LLVM's parser refused at a line of the IR, none of the program's; `f() + 1` was `not lowered yet:
-  type(unknown)`, `void x;` was `alloca void`, C++'s `sizeof(void)` was 1. The driver gate holds thirty-five C bodies
-  and the C++ gate sixty-three, and thirty-six of C's casts and calls and sixty-six and thirty-two of C++'s beside them,
-  and twenty-two of the operands read as values, each in clang's words at clang's line; `test/c/run/voidvalues.c` and
-  `test/cpp/run/throwarm.cpp` hold the forms that stay -- a cast to void, a comma's left operand, a conditional's arm, a
-  void function's `return f();`, `sizeof(f())` and `sizeof(z ? 1 : f())` in C. Lowering 183. (1.6.14)
+  `void x;` and `auto x = f();` are `variable has incomplete type 'void'`, and one of a `typeof` or a `decltype` type
+  names the type as written, `'typeof (f())' (aka 'void')` in C, `typeof` and `__typeof__` alike, and `'decltype(f())'
+  (aka 'void')` in C++ (1.6.41, reader 221; the reader keeps a void operand's spelling, `typeof(spelled(S, T))`,
+  `ccl_typeof_here/2`, which the resolution reads through, `ir_typeof_words/2`, `cpp_decl_pieces/6`'s clause of a
+  `decltype` type; `ccl_spell_operand/2` spells a name, an integer literal and a call of a name over such operands, and
+  any other operand keeps the plain words) -- they were `'void'`, and a pointer to such a type builds as before; a
+  reference to void is `cannot form a reference to 'void'` (`auto &r = f();`); a reference bound to a void value is
+  `non-const lvalue reference to type 'int' cannot bind to a temporary of type 'void'` and, const or rvalue, `reference
+  to type 'const int' could not bind to an rvalue of type 'void'`. A STEP of one is `cannot increment value of type
+  'void'`, before C's lvalue test. C++'S `sizeof` of void and of a function type is `invalid application of 'sizeof' to
+  an incomplete type 'void'` and `to a function type` (`ir_cpp_sizeof_refused/1`), where C's is GNU's 1 for both
+  (`ccl_sizeof_value/2`, in a constant expression too, `char a[sizeof(f)]`; a function type's layout answers a pointer's
+  8, which `sizeof(f)` gave). The desugaring refuses a C++ call's void argument and a void initializer that it makes an
+  assignment of (Overload resolution, the roads). Why: through 1.6.13 each went on as the value `none` of LLVM type
+  void, `%t2 = sext void none to i32`, which LLVM's parser refused at a line of the IR, none of the program's; `f() + 1`
+  was `not lowered yet: type(unknown)`, `void x;` was `alloca void`, C++'s `sizeof(void)` was 1. The driver gate holds
+  thirty-five C bodies and the C++ gate sixty-three, and thirty-six of C's casts and calls and sixty-six and thirty-two
+  of C++'s beside them, and twenty-two of the operands read as values, each in clang's words at clang's line;
+  `test/c/run/voidvalues.c` and `test/cpp/run/throwarm.cpp` hold the forms that stay -- a cast to void, a comma's left
+  operand, a conditional's arm, a void function's `return f();`, `sizeof(f())` and `sizeof(z ? 1 : f())` in C. Lowering
+  183. (1.6.14)
 - **A C CAST'S TYPE AND OPERAND ARE SCALARS** (1.6.14, the forms beside a void operand; C17 6.5.4/2, /3;
   `ir_c_cast_check/3`), in clang's words and order: the type is void or a scalar -- a record is `used type 'struct S' where
   arithmetic or pointer type is required`, but a record of the operand's own type and a union one of whose members has the
@@ -17230,11 +17240,9 @@ Declarations topic of the C++ reader).
   words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
   `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
   `register_t`, an `int` of four bytes where clang's is a `long`.
-- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.39 LEAVES (the C reader's topic; GNU's `extern inline` with `gnu_inline`
-  is the function's declaration since 1.6.39): AN `extern inline` WITHOUT THE ATTRIBUTE, C99's external definition,
-  defined again is `redefinition of 'k'`, where clang says `redefinition of a 'extern inline' function 'k' is not
-  supported in C99 mode`: the item keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, so the walk does not
-  tell it from another external definition. A HEADER OF THE LIBRARY AND A MACRO FILE'S C HEADER are not walked: a
+- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.41 LEAVES (the C reader's topic; GNU's `extern inline` with `gnu_inline`
+  is the function's declaration since 1.6.39, and one without the attribute defined again clang's words since 1.6.41): A
+  HEADER OF THE LIBRARY AND A MACRO FILE'S C HEADER are not walked: a
   function of the program's under the name of a function that such a header defines builds with one body, and two of the
   program's own macro files' C headers that define one helper with no shared guard build with the first one's --
   ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two macro files of one
@@ -17422,12 +17430,12 @@ Declarations topic of the C++ reader).
   parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'`). In C++ `auto f = __builtin_trap;` has
   clang's words, `builtin functions must be directly called`, since 1.6.29; and C++'s `-fsyntax-only`, which stops after
   the reader, refuses no misuse of a trap, where a build does.
-- THE WORDS OF TWO VOID VALUES ARE NOT CLANG'S WHOLE (found at 1.6.14; a void value through `printf`'s ellipsis has the
-  format's type since 1.6.27): a variable of a `typeof` or a `decltype` type that is void is `variable has incomplete
-  type 'void'`, where clang names the type written, `'typeof (f())' (aka 'void')`; and a closure called with a void
-  value is `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, where clang says `no matching
-  function for call to object of type '(lambda at f.cpp:7:14)'`, the closure's column, which the reader does not keep.
-  Each is refused at clang's line.
+- THE WORDS OF A VOID VALUE FOR A CLOSURE ARE NOT CLANG'S WHOLE (found at 1.6.14, narrowed at 1.6.41, whose void
+  variables of a `typeof` or a `decltype` type name the type as written; a void value through `printf`'s ellipsis has
+  the format's type since 1.6.27): a closure called with a void value is `cannot initialize a parameter of type 'int'
+  with an rvalue of type 'void'`, where clang says `no matching function for call to object of type '(lambda at
+  f.cpp:7:14)'`, the closure's column, which the reader does not keep. It is refused at clang's line. An operand of a
+  `typeof` that is no name, literal or call of a name over such operands keeps the plain words (`ccl_spell_operand/2`).
 - A TYPEDEF'S NAME IN A MESSAGE, WHAT 1.6.26 LEAVES (found at 1.6.14; 1.6.24 gives clang's `(aka ...)` where the words
   are clang's, and 1.6.26 C's sites of a value of no conversion and C++'s casts of a floating value and a pointer): a
   typedef or an alias that a C++ BLOCK declares is spelled as its target, `'int *'` for clang++'s `'IP' (aka 'int *')`,
