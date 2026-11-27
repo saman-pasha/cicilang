@@ -646,6 +646,16 @@ int main() { S s{}; return s.f(); }' 'struct S { long a; int f() { auto g = [] {
 int main() { S s{}; return s.f(); }'; do n=$((n + 1)); printf "$src\n" > luneval$n.cpp; "$ROOT/bin/cicilang++" -c luneval$n.cpp -o luneval$n.o 2>&1 | head -1; done)" "luneval2.cpp:1: error: invalid use of 'this' outside of a non-static member function
 luneval3.cpp:1: error: 'this' cannot be implicitly captured in this context
 luneval4.cpp:1: error: 'this' cannot be implicitly captured in this context"
+check "C++: the forms that catch 1.6.28's broken copies (1.6.32): decltype and alignof of a member in a static member function's body, unevaluated, and a base's conversion function, which fits a scalar parameter, first; a pointer to another pointer type for a pointer to a pointer, and a namespace's object beside its extern C block's function of its name, each refused" "$(n=0; for src in 'struct S { long a; static int f() { decltype(a + 1) z = 1; return (int) z; } };
+int main() { return S::f() - 1; }' 'struct S { long a; static int f() { return (int) alignof(decltype(a)); } };
+int main() { return S::f() - 8; }' 'struct B { operator int() const { return 3; } };
+struct D : B {};
+static int f(int v) { return v; }
+int main() { D d; return f(d) - 3; }' 'static int f(int **p) { return p != 0; }
+int main() { char *c = 0; return f(&c); }' 'namespace n { extern "C" { int t(); } int t; }
+int main() { return 0; }'; do n=$((n + 1)); printf "$src\n" > bcopy$n.cpp; "$ROOT/bin/cicilang++" -c bcopy$n.cpp -o bcopy$n.o 2>&1 | head -1; done)" "bcopy4.cpp:2: error: no matching function for call to 'f'
+bcopy5.cpp:1: error: redefinition of 't' as different kind of symbol"
+check "C++: a header of the program's own whose name clashes inside it keeps its first kind (1.6.32; 1.6.28's broken copies): the file's own declaration of the other kind is refused at its line, in clang++'s words -- clang++ refuses the header's at the header's line, which the words give for the file -- where a header's later kind was taken and the file built" "$(printf 'int t(void);\nint t;\n' > kindh.h; printf '#include "kindh.h"\nint t;\nint main() { return 0; }\n' > kindh1.cpp; "$ROOT/bin/cicilang++" -c kindh1.cpp -o kindh1.o 2>&1 | head -1)" "kindh1.cpp:2: error: redefinition of 't' as different kind of symbol"
 check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
 static int g(int a) { return a; }
 int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}

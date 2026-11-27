@@ -348,6 +348,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.29 | C++'s lambdas with no this, enumerations and members' initializers, a base's mutable member, GCC's error | a lambda that captured no this names no member of its class, in clang++'s words; an enumeration given a pointer and a scalar member's initializer; a const member function's write of a member of a base that is not the primary one; a void value of an overloaded function held; a builtin named as an auto's initializer; GCC's error attribute in C (reader 215, lowering 198) |
 | 1.6.30 | C's block enumerators, a hundred and three library functions' words, C++'s decltype casts' words | a C block's enumerator is its block's, where one table gave wrong values and a use after the block built; 103 library functions that nothing declares in clang's words and header notes; a void value cast to a decltype type named as written (reader 216, lowering 199) |
 | 1.6.31 | compound literals in the safe part and in C++, global plain slots, 1.6.28's two misfits, decltype braced | a block's compound literal a borrow of its object and C23's static one static storage, where frees aborted and a dead frame was read; a global plain slot's pointer static storage; C++'s address of one in clang++'s words; a generic closure and an aligned delete no misfit; decltype(v){...} read; unevaluated members in a lambda with no this (reader 217, lowering 200) |
+| 1.6.32 | a freed plain pointer, 1.6.28's broken copies carried | a plain pointer that a free consumed is freed, its read, second free and write refused, where a double free built and aborted; of 1.6.28's seventeen uncaught copies seven caught, five guards out, five tests that no program reaches recorded (lowering 201) |
 
 ## M5 — the C++ mode
 
@@ -26023,3 +26024,70 @@ toolchain check strict GREEN; the other ten gates over LLVM 23 ran at the commit
   (the versions and the fixtures).
 
 The module 1.6.31, the reader 217 and the lowering 200.
+
+## 1.6.32 — a freed plain pointer, 1.6.28's broken copies carried
+
+**1.6.32: at the user's words "try to run less chain and do more tasks before every chain" and "To prevent code lost,
+first commit and push": a hole of the safe part closed -- a plain pointer freed twice, written through, read or copied
+after its free, each built --, one record of Not done narrowed and one found, and 1.6.28's broken copies carried. The
+step was committed while its nets and its broken copies, and 1.6.29's, 1.6.30's and 1.6.31's, ran: it claims nothing
+GREEN of them, and the next step's commit carries them.**
+
+1. C AND C++: A PLAIN POINTER THAT A FREE CONSUMED IS FREED (C17 7.22.3.3/2, 6.2.4/2; `ck_free_loose/3`, `ck_read/2`,
+   `ck_rebind/4`, `ck_merge_state/3`, `ck_leaks/2`, `ck_ending_keys/3`; the lowering 201): `free`, `fclose` and a
+   deallocator left a loose plain pointer `none`, a pointer that holds nothing that the check follows, and `char *p =
+   malloc(8); free(p); free(p);` BUILT and aborted in `free` (`double free detected`), and so did a write through p
+   after its free, `strlen(p)`, a copy of p, a stream closed twice, getline through the freed pointer's address and, in
+   C++, a second `delete` and a read after one. A freed pointer is `freed` now, a state of no owner: each of those is
+   `use after free of 'p'`, an assignment gives it new memory, a borrow or a null, and a join keeps new memory or its
+   own state. realloc's old block and an own parameter leave it `none`, since realloc's failure leaves the block live
+   (`freedagain.c` holds the failure's free). The first form made it `moved`, an owner's state, and an assignment after
+   the free took the owner's road: `p = malloc(4)` made p live, and three run fixtures, `longjmps.c`, `looppasses.c` and
+   `nulldecls.c`, were refused at a loop's second free; then `p = NULL` after the free kept the state, and
+   `loopjoins.c`'s `while (p) { free(p); p = NULL; }` was refused at the condition. The record of 1.6.18, narrowed: a
+   free on one path only, then a second free, and realloc's old block freed after a success are taken still.
+2. 1.6.28'S BROKEN COPIES, CARRIED: seventy-eight copies, sixty-one caught; of the seventeen that nothing caught, FIVE
+   ARE CAUGHT by a body of the driver gate now -- a base's conversion function, which fits a scalar parameter (its test
+   of a base); a pointer to another pointer type for a pointer to a pointer (its pointee's pointer); a namespace's
+   object beside its `extern "C"` block's function of its name (its walk of such a block); a header of the program's own
+   whose name clashes inside it, its first kind kept, so that the file's declaration of the other kind is refused at the
+   file's line, where clang++'s second error stands (`kindh1.cpp`); and `decltype(a + 1)` and `alignof(decltype(a))` in
+   a static member function's body, unevaluated (its test of an unevaluated operand, whose copy looped forever on
+   `sizeof(a)` -- a build that a cap killed printed no words, which the check's want of none matched) --; FIVE GUARDS
+   THAT HELD NOTHING ARE OUT: the misfit's tests of a null pointer constant and of a type not known, which no clause
+   asks; the const place's tests of a library's body and of a dereferenced call, whose `*g() = 3` is C's words, as
+   clang++'s; and the static body's test of a library's body --; TWO HOLD NOW, the static body's tests in the calls of a
+   member object and of a pointer member: the step's first form took both out, and the copy's driver gate found `f()` of
+   a member object `use of undeclared identifier 'f'` and `p(1)` of a pointer member built, where each copy alone passed
+   at 1.6.28; they stay, and 1.6.28's bodies catch them --; and FIVE TESTS THAT NO PROGRAM REACHES stay, a record: an
+   argument of a class or of an enumeration takes its namespace's road first, a qualified call's too, where the misfit
+   is not asked -- the same enumeration, a class's parameter, a pointer to a function's pointee, a pointee that is no
+   plain type, thirteen probes --, and a quoted include of a system header holds no unit for the kinds' walk: `#include
+   "stdio.h"` and `int printf;` built, where clang++ refuses them.
+
+1.6.29'S NETS, RUNNING AT THIS COMMIT over a copy of its tree, LLVM 23 and a fresh HOME, one guarded run at a time: the
+toolchain check strict, the flow gate 1046 s, reader 5 s, compile 44 s, driver 317 s, objects 6 s, the proof, the cross
+gate 293 s and the library read 226 s GREEN; the C++ gate RED in 1240 s at two fixtures, `alignnew.cpp` and
+`genericfp.cpp`, 1.6.28's two misfits, which 1.6.31 mended; the ccllib gate running, then its broken copies, and
+1.6.30's and 1.6.31's nets and broken copies. The next step's commit carries them.
+
+THE NETS, AT THE COMMIT. Over the copy before the port: the flow gate GREEN in 599 s, the compile gate GREEN in 33 s --
+its run fixture and its seven refusals of the step among them, and the three run fixtures that item 1's first form
+refused --, the driver gate's two checks of the step, their bodies each against clang++ 23, the copy's whole driver gate
+over a fresh HOME, GREEN in 208 s (171 ok), the ccllib gate over a fresh HOME, GREEN in 1290 s (625 ok), and a pool of
+twenty-five C++ run fixtures that allocate, delete, and hold 1.6.28's and 1.6.31's rules, each built and run as the C++
+gate runs it, each the same. THE BROKEN COPIES, queued behind 1.6.31's: the next step's commit carries them. Over the
+work tree after the port: the toolchain check strict GREEN; the other ten gates over LLVM 23 ran at the commit. No CI
+job ran, by the owner's rule of 0.271.
+
+- `library/ccl_check.pl` (`ck_free_loose/3` and its site in `ck_args_/5`, `ck_read/2`, `ck_rebind/4`, the plain
+  assignment, `ck_merge_state/3`, `ck_leaks/2`, `ck_ending_keys/3`, `ck_anchor_local/3`'s words);
+  `library/ccl_cpp_expr.pl` (`cpp_type_misfit_pair/2`, `cpp_const_return_place/3`, the two calls of a data member,
+  `cpp_static_body_now/1`); `library/ccl_driver.pl` (the new words); `library/ccl_ir.pl` (the lowering 201);
+  `test/driver.sh` (two checks); `test/cpp.sh` (eight refusals); `test/c/run/freedagain.c`, which reads a temporary
+  file, since the compile gate runs a program in a directory of its own; seven refusals of `test/c/safe/`;
+  `test/cpp/deleted_twice.cpp` and `deleted_read.cpp`; the module's version.
+- RULES.md (the rules in their topics; Not done: one record narrowed, one found), HISTORY.md, CLAUDE.md (the versions
+  and the fixtures).
+
+The module 1.6.32, the reader 217 and the lowering 201.

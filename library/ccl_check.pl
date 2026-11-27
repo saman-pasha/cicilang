@@ -830,7 +830,7 @@ ck_shadow_outer(St, _, St).
 ck_key_of(K, N) :- K == N, !.
 ck_key_of(K, N) :- atom_concat(N, Sfx, K), ( sub_atom(Sfx, 0, 1, _, '.') ; sub_atom(Sfx, 0, 2, _, '->') ), !.
 %% a plain pointer assigned again: a borrow of something else, or of nothing
-ck_rebind(St0, N, none, St) :- !, ( ck_state(St0, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ) -> ck_set(St0, N, none, St) ; St = St0 ).
+ck_rebind(St0, N, none, St) :- !, ( ck_state(St0, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ) -> ck_set(St0, N, none, St) ; St = St0 ).
 ck_rebind(St0, N, S, St) :- ( ck_state(St0, N, _) -> ck_set(St0, N, S, St) ; ck_declare_at(St0, N, S, St) -> true ; ck_declare(St0, N, S, St) ).
 %% a local: declared in a frame of the function's, not the file's, and not
 %% static (a static local's storage never ends: a global's); its type from there
@@ -1007,6 +1007,14 @@ ck_path_root(index(X, _), R) :- ck_path_root(X, R).
 ck_path_root(deref(X), R) :- ck_path_root(X, R).
 %% a loose pointer's memory taken: by free, a return, a slot, an owner
 ck_consume_loose(St0, P, St) :- ck_set(St0, P, none, St1), ck_dangle(St1, P, St).
+%% ... AND FREED: THE POINTER IS `freed' (1.6.32; C17 7.22.3.3/2, 6.2.4/2: its value is indeterminate), a state of no owner
+%% -- a read, a second free and a write through it are `use after free' (ck_read/2), an assignment gives it new memory, a
+%% borrow or a null, and a join keeps new memory or its own state (ck_merge_state/3). Its address handed to a call leaves
+%% it freed (ck_anchor_local/3): the call may read it -- getline reallocs `*lineptr' --, so a null is given it first. `free', `fclose' and a deallocator consume so (ck_args_/5's `free'); realloc's old block and an own
+%% parameter leave it `none', since realloc's failure leaves the block live. It was `none', a pointer that holds nothing
+%% that the check follows: `char *p = malloc(8); free(p); free(p);', a write through p after its free and its read were
+%% built
+ck_free_loose(St0, P, St) :- ck_set(St0, P, freed, St1), ck_dangle(St1, P, St).
 ck_loose_taken(E, St0, St) :- ( ck_carries_none(E) -> St = St0 ; ck_borrows_from(E, St0, P), ck_state(St0, P, loose) -> ck_set(St0, P, none, St) ; St = St0 ).
 %% ... NEVER BY AN ARITHMETIC VALUE (0.238): `return p[0] - 1' hands the caller an int, and the block stays the function's
 %% to give back -- it was taken, and the leak never seen. A class's value may take it (a `unique_ptr' made from it)
@@ -1606,6 +1614,10 @@ ck_merge_state(borrow(P), loose, borrow(P)) :- !.
 ck_merge_state(anchor, borrow(P), borrow(P)) :- !.                  % a library object anchored on one path, holding a borrow on the other (0.216)
 ck_merge_state(borrow(P), anchor, borrow(P)) :- !.
 ck_merge_state(null, loose, loose) :- !.               % new memory on one path, a null found by its test on the other (0.290): still to be given back
+ck_merge_state(freed, loose, loose) :- !.              % ... or its free (1.6.32): still to be given back on the other
+ck_merge_state(loose, freed, loose) :- !.
+ck_merge_state(freed, null, freed) :- !.               % freed on one path, a null on the other: no memory to follow, neither read (1.6.32)
+ck_merge_state(null, freed, freed) :- !.
 ck_merge_state(loose, null, loose) :- !.
 ck_merge_state(none, S, S) :- !.                    % a plain pointer, bound on one side only: bound
 ck_merge_state(S, none, S) :- !.
@@ -2337,7 +2349,7 @@ ck_scope_end(st([fr(Os, Ds)|Frs]), St) :-
 ck_ending_keys([], _, []).
 ck_ending_keys([K-S|Os], Frs, Ks) :-
     (   S == shadow -> Ks = Ks1
-    ;   ( S = borrow(_) ; S = dangling(_) ; S == none ), member(fr(Os2, _), Frs), memberchk(K-_, Os2) -> Ks = Ks1
+    ;   ( S = borrow(_) ; S = dangling(_) ; S == none ; S == freed ), member(fr(Os2, _), Frs), memberchk(K-_, Os2) -> Ks = Ks1
     ;   Ks = [K|Ks1] ),
     ck_ending_keys(Os, Frs, Ks1).
 ck_run_defers([], St, St).
@@ -2368,7 +2380,7 @@ ck_leaks_frames([fr(Os, _)|Frs], Form) :- ck_leaks(Os, Form), ck_leaks_frames(Fr
 ck_leaks([], _).
 ck_leaks([N-S|Os], Form) :-
     (   S == loose -> ck_fail(unconsumed, N, Form)
-    ;   ( memberchk(S, [moved, unset, null, none, anchor, array, shadow]) ; S = borrow(_) ; S = dangling(_) ; ck_is_borrowed_field(N) ) -> true
+    ;   ( memberchk(S, [moved, unset, null, none, freed, anchor, array, shadow]) ; S = borrow(_) ; S = dangling(_) ; ck_is_borrowed_field(N) ) -> true
     ;   ck_fail(owner_leaked, N, Form) ),
     ck_leaks(Os, Form).
 ck_any_owner(st(Frs)) :- member(fr(Os, _), Frs), member(_-S, Os), ck_owner_state(S), !.
@@ -2439,7 +2451,7 @@ ck_dangle_owners([], _, []).
 ck_dangle_owners([N-borrow(P)|T], P, [N-dangling(P)|T1]) :- !, ck_dangle_owners(T, P, T1).
 ck_dangle_owners([X|T], P, [X|T1]) :- ck_dangle_owners(T, P, T1).
 %% a read of an owner, a field, a borrow, an anchor
-ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> true ; S = borrow(_) -> true ; S = dangling(P) -> ck_fail_dangling(K, P) ; S == unset -> ck_fail(owner_unset, K, id(K)) ; ck_fail(use_after_move, K, id(K)) ).
+ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> true ; S = borrow(_) -> true ; S = dangling(P) -> ck_fail_dangling(K, P) ; S == unset -> ck_fail(owner_unset, K, id(K)) ; S == freed -> ck_fail(use_after_free, K, id(K)) ; ck_fail(use_after_move, K, id(K)) ).
 
 %% the walk's clauses are ordered by what a node is most often (counted on
 %% the B-tree: a third are names, then members, operators, literals), and a
@@ -2532,7 +2544,7 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ;   T \== unknown, ck_is_pointer_type(T), ck_static_value(R) -> ck_static_name(R, SN), ck_rebind(St2, N, borrow(static(SN)), St)   % static storage (0.294)
     ;   T \== unknown, ck_is_pointer_type(T), ck_plain_value(St1, R, _) -> ( ck_state(St2, N, anchor) -> St = St2 ; ck_rebind(St2, N, null, St) )   % a pointer that holds no memory the check follows (0.299, ck_plain_value/3); an anchored local stays one
     ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St)
-    ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )
+    ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ; S == freed ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )   % a freed one given a null or another value of nothing that the check follows (1.6.32)
     ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2
     ;   St = St2 ).
 %% A STORE THROUGH A LIBRARY MEMBER (0.216): `m[k] = &x' and `v[0] = &y' write what a library object holds, through the
@@ -2937,7 +2949,7 @@ ck_args_([A|As], Callee, I, St0, St) :-
         ;   ck_own_elem(A1, K) -> ck_expr(A1, St0, St1a), ck_dangle(St1a, K, St1)          % an element freed, or taken: the slot nulled by the lowering
         ;   A = move(_) -> ck_expr(A, St0, St1)
         ;   ck_path(A, K), ck_by_value(A), ck_own_under(St0, K, Fs), Fs \== [] -> ck_expr(A, St0, St1a), ck_move_out(St1a, Fs, Form, St1)
-        ;   ck_borrows_from(A, St0, P), ck_state(St0, P, loose) -> ck_expr(A, St0, St1a), ck_consume_loose(St1a, P, St1)   % loose memory freed, or taken by an own parameter
+        ;   ck_borrows_from(A, St0, P), ck_state(St0, P, loose) -> ck_expr(A, St0, St1a), ( How == free -> ck_free_loose(St1a, P, St1) ; ck_consume_loose(St1a, P, St1) )   % loose memory freed, or taken by an own parameter
         ;   ck_kind(A, St0, borrow(P)), \+ ck_library_root(P) -> ( A = id(N) -> true ; P = static(N) -> true ; N = P ), ck_fail(borrow_consumed, N, Form)   % static storage too, freed or given to an own parameter (0.294) ... unless the borrow is of a LIBRARY OBJECT (0.94): a plain pointer a library class's member answers is a borrow of it (0.91, so an array's `end()' is no loose pointer), and what the program then does with it is the library's discipline -- `delete u.release()' is how a unique_ptr hands its object out, and the check refused it as a borrow freed
         ;   ck_expr(A, St0, St1) )
     ;   ck_strip_move(A, A1), ck_path(A1, K), ck_by_value(A1), ck_own_under(St0, K, Fs), Fs \== [], ck_param_by_value(Callee, I)   % a struct with owners handed by value: its fields go to the callee's copy

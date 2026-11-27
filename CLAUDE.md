@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.31 the versions are: the module 1.6.31 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 217 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 200 (`ccl_lowering_version/1`,
+At 1.6.32 the versions are: the module 1.6.32 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 217 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 201 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -636,7 +636,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             array members given their items at file scope and in a static local (1.6.25);
                             blockenums.c, a block's enumerators, which shadow the file's and another block's (1.6.30);
                             complits.c, compound literals and global slots that the safe part keeps, and complits23.c,
-                            C23's static compound literals (1.6.31)
+                            C23's static compound literals (1.6.31); freedagain.c, plain pointers that a free leaves
+                            freed and that the program gives new memory again (1.6.32)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -681,7 +682,9 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             what a later pass of a loop meets (1.6.19); skipped_null_decl.c, static_null_lazy.c,
                             lj_volatile_held.c and lj_volatile_typedef.c, what a pointer declared null and a volatile
                             local refuse still (1.6.20); complit_*.c and slot_*.c, a compound literal's address and a
-                            global plain slot's pointer freed, given to an owner or returned (1.6.31)
+                            global plain slot's pointer freed, given to an owner or returned (1.6.31); freed_*.c, a
+                            plain pointer freed twice, written through, read, copied, closed again or handed to getline
+                            after its free (1.6.32)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -710,7 +713,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             noreturnnxend.cpp, noreturnanon.cpp and noreturnoverload.cpp, a function declared
                             [[noreturn]] that returns, in clang++'s words, lj_dtor.cpp, lj_dtor_block.cpp and
                             lj_dtor_out.cpp, a longjmp over a destructor, and lj_throw_write.cpp, a pointer stepped
-                            before a throw whose handler jumps (1.6.17)
+                            before a throw whose handler jumps (1.6.17); deleted_twice.cpp and deleted_read.cpp, a plain
+                            pointer deleted twice and read after its delete (1.6.32)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp

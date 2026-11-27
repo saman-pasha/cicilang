@@ -683,6 +683,7 @@ dr_hex_digits(C, Ds) :- Q is C // 16, R is C mod 16, dr_hex_digits(Q, Ds0), dr_h
 dr_hex_digit(V, D) :- ( V < 10 -> D is 0'0 + V ; D is 0'A + V - 10 ).
 dr_pad4(Ds0, Ds) :- length(Ds0, N), ( N < 4 -> dr_pad4([0'0|Ds0], Ds) ; Ds = Ds0 ).
 dr_kind(use_after_move, 'use after move of') :- !.
+dr_kind(use_after_free, 'use after free of') :- !.   % a plain pointer's memory freed, then read, freed again or written through (1.6.32)
 dr_kind(owner_unset, 'owner used before it was given anything:') :- !.
 dr_kind(borrow_after_move, 'use of a borrow after its owner was consumed:') :- !.
 dr_kind(borrow_after_call, 'use of a borrow after a call that may replace its owner:') :- !.   % a struct's own field, handed by a plain pointer (0.265)

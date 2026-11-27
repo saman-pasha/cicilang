@@ -289,9 +289,10 @@ cpp_written_tag(base(_, [K])) :- ( K = struct(N, _) ; K = union(N, _) ), atom(N)
 %% A CONST PLACE THAT A CALL GIVES (1.6.28; [expr.ass]/1): `c[0] = 7' over a `span<const int>' and `v.at(0) = 7' over a
 %% const reference's result are clang++'s `cannot assign to return value because function 'operator[]' returns a const
 %% value', the function by its name as the program wrote the call, where they were C's `read-only variable is not
-%% assignable'
+%% assignable'. In a library's body too, and over a call alone: a dereferenced call, `*g() = 3' of `const int *g()', is C's
+%% `read-only variable is not assignable', as clang++'s (1.6.32: the tests of both held nothing, 1.6.28's broken copies)
 cpp_assignable_named(A, A1) :- ( cpp_const_return_place(A, A1, N) -> cpp_refuse_stmt(const_return(N)) ; cpp_assignable(A1) ).
-cpp_const_return_place(A, A1, N) :- \+ nb_current('$cpp_in_lib', yes), cpp_raw_callee_name(A, N), ( A1 = call(_, _) ; A1 = deref(call(_, _)) ), catch(ir_c_const_place(A1, _), _, fail), !.
+cpp_const_return_place(A, A1, N) :- cpp_raw_callee_name(A, N), A1 = call(_, _), catch(ir_c_const_place(A1, _), _, fail), !.
 cpp_raw_callee_name(index(_, _), 'operator[]').
 cpp_raw_callee_name(call(member(_, M), _), M) :- atom(M).
 cpp_raw_callee_name(call(arrow(_, M), _), M) :- atom(M).
@@ -1275,8 +1276,11 @@ cpp_int_ptr_pair(PT0, A) :- cpp_param_ref(PT0, PT), \+ cpp_null_to_pointer(PT, A
 %% argument's, the qualifiers aside --; and an integer or another enumeration for an enumeration.
 %% `f(c)' of `int f(int *)' over a char array built and read four characters as one int, `f(1)' of `int f(E)' built, and
 %% a struct for an int was the lowering's `no conversion from 'S' to 'int'', where clang++ says `no matching function for
-%% call to 'f''
-cpp_type_misfit_pair(PT0, A) :- cpp_param_ref(PT0, PT), \+ cpp_null_to_pointer(PT, A), ccl_resolve_type(PT, RT), cpp_arg_type(A, AT), AT \== unknown,
+%% call to 'f''. No clause takes a null pointer constant or a type that is not known: the tests of both held nothing, and
+%% are out (1.6.32, 1.6.28's broken copies). An argument of a class or of an enumeration takes its namespace's road first,
+%% where this is not asked: the tests of the same enumeration, of a class's parameter, of a pointer to a function's pointee
+%% and of a pointee that is no plain type are reached by no program found (RULES.md's Not done)
+cpp_type_misfit_pair(PT0, A) :- cpp_param_ref(PT0, PT), ccl_resolve_type(PT, RT), cpp_arg_type(A, AT),
     ccl_unref(AT, AT1), ccl_resolve_type(AT1, RA), cpp_misfit_kinds(RT, RA, AT1), !.
 cpp_misfit_kinds(RT, RA, AT) :- cpp_scalar_kind(RT), cpp_record_type(AT), \+ ( cpp_class_of_type(AT, C), cpp_converts_out(C) ), !.
 cpp_misfit_kinds(ptr(_, _), RA, _) :- ccl_is_float(RA), !.
@@ -1541,7 +1545,7 @@ cpp_static_method(C, M, Name) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(me
 %% built: the desugaring gives a static method a `this' of its own, which the call passes as null. The signature is the
 %% walk's class's own -- a local class's member function, and a lambda's, even a static one, are walked in their own
 %% class --, and sizeof's and decltype's operands are unevaluated
-cpp_static_body_now(Ctx) :- nb_getval('$cpp_in_lib', no), \+ nb_current('$cpp_uneval', yes), cpp_fsig_now(fsig(member, C, _, _, _, _, FQs, _)), C == Ctx, memberchk(static, FQs).
+cpp_static_body_now(Ctx) :- \+ nb_current('$cpp_uneval', yes), cpp_fsig_now(fsig(member, C, _, _, _, _, FQs, _)), C == Ctx, memberchk(static, FQs).
 %% a static member function of the name that the call chose, the class's own or a base's, an empty one's too, whose
 %% sub-object no hop names (1.6.28: libc++'s num_get calls `__num_get_base::__get_base' so, `staticbase.cpp')
 cpp_static_held(C, M, Name) :- cpp_static_bare(C, M, Name), !.

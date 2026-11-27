@@ -2694,9 +2694,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   lowered yet: call(id(t))`. A function's overloads and its templates are one kind, a class's and an enumeration's tag
   no name of these. A HEADER OF THE PROGRAM'S OWN is noted before the items after it (1.6.28; `cpp_kind_seed/3`): `int
   t(void);` in the header and `int t;` in the file built; a clash inside a header has no line of the file, and is noted
-  only. A NAMESPACE'S NAMES ARE ITS OWN SCOPE'S, ITS BLOCKS ONE (1.6.28; [namespace.def]/2; `cpp_kind_walk_ns/4`): `int
-  t();` and `int t;` in two blocks of one namespace, or in one, built, and are refused so now; a nested namespace is its
-  own scope. The driver gate's ten bodies and ten. (1.6.24, 1.6.28)
+  only -- the header keeps its first kind, so that the file's own declaration of the other is refused at its line, as
+  clang++'s second error stands (1.6.32; `cpp_kind_first/3`). A namespace's `extern "C"` block is the namespace's scope
+  (`cpp_kind_walk_ns/4`; 1.6.32's body). A NAMESPACE'S NAMES ARE ITS OWN SCOPE'S, ITS BLOCKS ONE (1.6.28;
+  [namespace.def]/2; `cpp_kind_walk_ns/4`): `int t();` and `int t;` in two blocks of one namespace, or in one, built,
+  and are refused so now; a nested namespace is its own scope. The driver gate's ten bodies and ten. (1.6.24, 1.6.28)
 - IN C++ A SECOND DEFINITION AT FILE SCOPE IS REFUSED (1.6.24; [basic.def.odr]/1; `cpp_redef_walk/3`, beside the walk
   above), in clang++'s words at the second one's line, among the program's own items of the global scope and of its
   `extern "C"` blocks: a function of one name and one list of parameter types (`cpp_redef_sig/3`: each type adjusted as
@@ -4708,7 +4710,9 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   a local class's member function and a lambda's, a static one too, are walked in their own --, in the program's code,
   and sizeof's and decltype's operands are unevaluated; a static member of a base, an empty one's too, is a static
   member (`cpp_static_held/3`: `staticbase.cpp`'s call of `get_base` was refused by the rule's first form). The driver
-  gate's twenty-five bodies. (0.44, 0.73, 1.6.26, 1.6.27, 1.6.28)
+  gate's twenty-five bodies. A library's body is asked too: the test of a library's body held nothing, and is out
+  (1.6.32); `decltype(a + 1)` and `alignof(decltype(a))` in the body stay, unevaluated, a body each of the driver gate
+  (1.6.32). (0.44, 0.73, 1.6.26, 1.6.27, 1.6.28, 1.6.32)
 - A member template called bare with explicit arguments passes `this`, a null one only where it is static
   (`cpp_static_member_template`). Why: `__lower_upper_bound_unique_impl<true>(__v)` inside `__tree`. (0.79)
 - A static member function takes a null `this` (`cpp_static_method`). Named as a value it is a `this`-less thunk
@@ -7515,7 +7519,9 @@ is in `test/cpp/run/`.
   ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is no program's call (1.6.31; `cpp_alloc_sym/3` in
   `cpp_no_overload_fits/2`): 1.6.28's nets found `genericfp.cpp`'s `apply([](auto v) { return v * 3; }, 5)` and
   `alignnew.cpp`'s `delete[] w` over the program's aligned `operator delete[]`, which hands its alignment as an integer,
-  refused, `no matching function for call to 'apply'` and `'_ZdaPvmSt11align_val_t'`. ANOTHER MISFIT GOES ON TO THAT
+  refused, `no matching function for call to 'apply'` and `'_ZdaPvmSt11align_val_t'`. 1.6.28's broken copies (1.6.32):
+  the tests of a null pointer constant and of a type not known held nothing, and are out; a class's base's conversion
+  function, a pointer to another pointer type and the kinds below have a body each now. ANOTHER MISFIT GOES ON TO THAT
   ROAD, as it went: it converts a generic lambda to a function pointer (`genericfp.cpp`), which the candidates' filter
   finds no conversion operator for, and refuses a struct for a scalar in its own words, `no conversion from
   'optional_int' to 'double'`. The rule's first form refused every call that no candidate fitted, and the C++ pool and
@@ -12672,7 +12678,17 @@ in the first topic (The ccllib gate).
   dangle. A `return` takes it (`ck_loose_taken/3`) -- NOT BY AN ARITHMETIC VALUE (0.238; `ck_carries_none/1`: `return
   p[0] - 1` hands the caller an int, and the block was taken and its leak unseen; `test/c/safe/loose_arith.c`) --, and
   an own slot takes it over (`ck_retarget/4`). Left at a scope's end or a return, or overwritten, it is `unconsumed`. A
-  rebind lands in the variable's own frame (`ck_declare_at/4`). `test/c/safe/unconsumed.c`. (M3)
+  rebind lands in the variable's own frame (`ck_declare_at/4`). `test/c/safe/unconsumed.c`. A PLAIN POINTER THAT `free`,
+  `fclose` OR A DEALLOCATOR CONSUMED IS FREED (1.6.32; C17 7.22.3.3/2, 6.2.4/2: its value is indeterminate;
+  `ck_free_loose/3`), a state of no owner: a read of it, a second free, a write through it, a copy, a stream closed
+  again and its address handed to getline, which reads `*lineptr` and reallocs it, are `use after free of 'p'`
+  (`ck_read/2`), and in C++ a second `delete` and a read after one; an assignment gives it new memory, a borrow or a
+  null (`ck_rebind/4`), and a join keeps new memory or its own state (`ck_merge_state/3`). realloc's old block and an
+  own parameter leave it `none`, since realloc's failure leaves the block live. It was `none`, a pointer that holds
+  nothing that the check follows, and each was built -- the first aborted in `free`, `double free detected`.
+  `test/c/run/freedagain.c`; `test/c/safe/freed_twice.c`, `freed_write.c`, `freed_read.c`, `freed_copy.c`,
+  `freed_fclose.c` and `freed_getline.c`, in C and as C++, and `freed_one_path.c`, a free on one path only, the leak's
+  words as before; `test/cpp/deleted_twice.cpp` and `deleted_read.cpp`. (M3, 1.6.32)
 - `untied` ("no owner behind") is a slot the check cannot follow, given a fresh value or a loose pointer: a struct by
   value (`ck_no_owner_behind/4`), or a field, an element, `*p`, a global or an initializer item (`ck_into_plain/6`,
   named by `ck_slot_label/4`). `test/c/safe/untied.c`. A VALUE READ OUT OF A PLAIN SLOT HAS ITS OWNER BEHIND IT, OR IS
@@ -13684,8 +13700,9 @@ in the first topic (The ccllib gate).
   the rule below, and a library's body keeps its own. A CONST PLACE THAT A CALL GIVES (1.6.28; `cpp_assignable_named/2`)
   is clang++'s `cannot assign to return value because function 'operator[]' returns a const value`, by the function's
   name as the program wrote the call -- a span of const elements, an `operator[]`'s, a member's and a free function's
-  const reference --, where it was C's `read-only variable is not assignable`. The driver gate's eight bodies and six.
-  (1.6.23, 1.6.24, 1.6.28)
+  const reference --, where it was C's `read-only variable is not assignable`; in a library's body too, and over a call
+  alone -- `*g() = 3` of `const int *g()` is C's words, as clang++'s (1.6.32: the tests of a library's body and of a
+  dereferenced call held nothing, and are out). The driver gate's eight bodies and six. (1.6.23, 1.6.24, 1.6.28)
 - C++: A CONST MEMBER FUNCTION WRITES NO MEMBER BUT A MUTABLE ONE (1.6.24; [class.this]/1, [dcl.stc]/9; the second
   clause of `cpp_const_assign/2`): in a const member function a write of a member through `this` -- the member, an
   element of an array member, a member of it, a base's member through its subobject (`cpp_this_path/3`,
@@ -17247,13 +17264,18 @@ Declarations topic of the C++ reader).
 - A CYCLE OF A BACKWARD GOTO IS WALKED IN THE ORDER OF ITS FIRST PASS (found at 1.6.17, narrowed at 1.6.19, which walks
   a loop's body again until its state settles; the safe part's topic): the function is walked again from the label's
   join, as the gotos' walk has it, and a write in the goto's cycle after the jump is not noted for its next pass.
-- A PLAIN POINTER'S FREED MEMORY IS FOLLOWED NO FURTHER (found at 1.6.18; the safe part's topic): `free`, `fclose`,
-  `realloc` and an own parameter make a loose pointer `none` (`ck_consume_loose/3`), a pointer that holds nothing that
-  the check follows, so `char *p = malloc(8); free(p); free(p);`, a write through p after its free and a copy of p after
-  it -- null to the check since 1.6.18 (`ck_plain_copy/3`), new memory before -- are taken, where an own pointer's are
-  refused (`use after move`); new memory that a call gives through its address after the free is followed, as an
-  anchor's (`ck_anchor_local/3`). A state of its own for freed memory -- refused at a read and at a free, given new
-  memory again by an assignment -- would close it, and reaches every program that frees a plain pointer.
+- A FREED PLAIN POINTER, WHAT 1.6.32 LEAVES (found at 1.6.18; the safe part's topic): a free on one path only, then a
+  second free, is taken -- the join keeps the other path's new memory, so that it is given back (`ck_merge_state/3`) --,
+  and so is realloc's old block freed after a success, `q = realloc(p, n); if (q) free(p);`, since realloc leaves it
+  `none`, its failure the block's live road. A freed pointer's address handed to a call keeps it freed, so `free(p);
+  init(&p);` with no null between is refused at p's next read.
+- FOUR TESTS OF 1.6.28'S MISFITS AND ONE OF ITS KINDS THAT NO PROGRAM REACHES (found at 1.6.32 by 1.6.28's broken
+  copies): an argument of a class or of an enumeration takes its namespace's road first, a qualified call's too, where
+  `cpp_type_misfit_pair/2` is not asked -- the tests of the same enumeration, of a class's parameter, of a pointer to a
+  function's pointee and of a pointee that is no plain type are reached by no program of thirteen probes --; and a
+  quoted include of a system header holds no unit for the kinds' walk, whose test of a system path (`cpp_system_path/1`)
+  is reached by none: `#include "stdio.h"` and `int printf;` built, where clang++ says `redefinition of 'printf' as
+  different kind of symbol`. Each guards the rule against a false refusal on a road that may reach it.
 - A JOIN OF NEW MEMORY AND A BORROW IS THE BORROW (M3, 0.216; found at 1.6.18; the safe part's topic): the other path's
   new memory is never asked for -- `char *p = malloc(4); if (c) { free(p); p = argv[0]; }` and `char *p = c ? argv[0] :
   malloc(8);`, each with no free after, are taken; and `if (p == NULL) p = argv[0];` over new memory, refused until
