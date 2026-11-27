@@ -360,6 +360,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.41 | an extern inline's words, a void typeof's words | an extern inline definition defined again is clang's words of a GNU mode; a void variable of a typeof or a decltype type names the type as written, as clang's words do (reader 221, lowering 209) |
 | 1.6.42 | the verbose trap's arguments as its parameters, a C++ header's clashes and second definitions | a verbose trap's argument is its const char * parameter's first, in clang 23's words; a C++ header of the program's own is walked for a clash and a second definition as the file's run kept it (reader 221, lowering 210) |
 | 1.6.43 | a C++ const object with no initializer | a C++ const object of a type that is no class, with no initializer, is clang++'s default initialization words, a constexpr one its own (reader 221, lowering 211) |
+| 1.6.44 | GCC's error in C++, a null pointer constant for an array parameter | a C++ call of a function that GCC's error marks is clang++'s words, the callee by its demangled name, a plain call alone; 0 for an array parameter (reader 221, lowering 212) |
 
 ## M5 — the C++ mode
 
@@ -26846,3 +26847,59 @@ owner's rule of 0.271.
   versions).
 
 The module 1.6.43, the reader 221 and the lowering 211.
+
+## 1.6.44 — GCC's error in C++, a null pointer constant for an array parameter
+
+**1.6.44: at the user's word "Do many of the not done tasks", after 1.6.43: a part of Not done's record of GCC's
+attributes closed -- GCC's `error` in C++, which built -- and two older faults that its probes found, a null pointer
+constant for an array parameter and an unnamed namespace in a header, each against clang++ 23; three faults beside them
+recorded. The step was committed with its nets and its broken copies; no chain ran, by the user's word "try to run less
+chain and do more tasks before every chain", and it claims nothing GREEN of the chain.**
+
+1. C++: A CALL OF A FUNCTION THAT GCC'S `error("msg")` MARKS IS REFUSED IN CLANG++'S WORDS (lowering 212;
+   `cpp_error_attr_units/2` and its walk before the desugaring names the functions otherwise, `error_attr(M, S)`;
+   `ir_error_attr_call/1`'s C++ clause): `call to 'S::n(int)' declared with 'error' attribute: no n`. The call built,
+   and met the link where nothing defined the function, or built whole under `-c`. clang++'s back end names the callee
+   by its demangled symbol, so the walk spells it so: its namespaces and classes, `(anonymous namespace)` and a nested
+   class among them, each parameter's type resolved with no top-level qualifier and a pointee's or a referent's after
+   it, `t(char const*, int*, unsigned int, S const&, int (*)(int), unsigned long)`, an array a pointer, an ellipsis, a
+   const member's ` const`, and an `extern "C"` function by its bare name. The first form spelled the types as written,
+   `const char *`, which clang++'s probes showed to be no words of clang++'s.
+2. C++: AS CLANG++ ASKS A PLAIN CALL ALONE, AN INVOKE BUILDS: LLVM's back end checks the `dontcall-error` mark at a
+   call, so a call that may throw where a try or a destructor waits (`ir_invoke_needed/0`, `ir_nothrow_callee/1`) builds
+   in clang++ -- `D d; k();` builds, and `k(); D d;` does not -- and here too.
+3. C++: A NULL POINTER CONSTANT CONVERTS TO AN ARRAY PARAMETER, which is a pointer (`cpp_null_to_pointer/2`;
+   [dcl.fct]/5, [conv.ptr]/1): `ar(0)` of `int ar(int a[3])` was `no matching function for call to 'ar'`, in 1.6.41 too.
+4. C++: AN UNNAMED NAMESPACE IN A HEADER OF THE PROGRAM'S OWN HAS ITS USING-DIRECTIVE AFTER THE HEADER'S `#include` TOO
+   (`cpp_anon_ns_items/3`): it stood in the header's own items, which the file's lookup does not reach, so a function,
+   an object or a class of it was `use of undeclared identifier` in the file, unless the file had an unnamed namespace
+   of its own -- in 1.6.41 too. Item 1's probes found it, an anonymous namespace's function of the check's header.
+5. FOUND: a prvalue for a non-const lvalue reference parameter builds -- `r(0)` of `void r(int &)`, and of a reference
+   to an array LLVM's parser meets it --; a call of a function that the program declares `noexcept` and defines in no
+   unit is an invoke where clang++'s is a plain call, so GCC's `error` on it builds; and a library class as a parameter
+   is `?` in item 1's words, where clang++ names the template's instance. Not done records them. The first form of item
+   3 kept a reference to an array out, and the copy that took that test away was caught by nothing: the reference takes
+   0 by that road, in 1.6.41 too, and the test is out.
+
+The driver gate's check of sixteen bodies holds items 1 and 2, as clang++ 23 refuses and builds them, the declarations
+in a header of the program's own; a check of three bodies holds item 3, and one of four item 4.
+
+THE NETS. Over the copy: the flow gate GREEN in 468 s, the reader gate GREEN in 5 s (173 ok), the compile gate GREEN in
+37 s (482 ok), the driver gate GREEN in 244 s (194 ok); the pool of 103 C++ run fixtures of 1.6.43, each built as the
+C++ gate builds it over a HOME of its own, 103 the same, in 126 s; and the flow gate GREEN in 465 s again after 1.6.43's
+guard came out. THE BROKEN COPIES: eighteen, each run from a copy of the copy over a fresh HOME: EA1 to EA16 of item 1
+and 2 -- the walk, a namespace's prefix, an anonymous one's, a class's, a nested class's, a const member's, the invoke's
+test, a `(void)` list, a pointer to a function, a pointee's qualifiers, a reference, an own header's road, an ellipsis,
+C linkage, a class's tag and an array parameter --, NA1 of item 3 and AN1 of item 4. Seventeen were caught; EA8, which
+took the test of a `(void)` list away, was caught by nothing: the reader reads `(void)` as no parameters in C++, and the
+test is out. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of
+0.271.
+
+- `library/ccl_cpp_namespace.pl` (`cpp_anon_ns_items/3`); `library/ccl_cpp.pl` (`ccl_cpp_units/2`,
+  `cpp_error_attr_units/2`, `cpp_ea_items/3`, `cpp_ea_item/3`, `cpp_ea_vars/3`, `cpp_ea_base/3`, `cpp_ea_ret/7`,
+  `cpp_ea_params/3`, `cpp_ea_type/2`, `cpp_ea_dm/2`, `cpp_ea_res/2`, `cpp_ea_dm_/2`, `cpp_ea_ptr/2`, `cpp_ea_cv/2`,
+  `cpp_ea_quals/3`, `cpp_ea_base_text/2`); `library/ccl_cpp_overload.pl` (`cpp_null_to_pointer/2`); `library/ccl_ir.pl`
+  (`ir_error_attr_call/1`; the lowering 212); `test/driver.sh` (three checks); the module's version.
+- RULES.md (the rules in their topics; Not done: one record narrowed, one new), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.44, the reader 221 and the lowering 212.

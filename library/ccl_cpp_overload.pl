@@ -396,7 +396,7 @@ cpp_null_arg(A) :- catch(cpp_arg_type(A, T), _, fail), ccl_unref(T, T1), ccl_nul
 %% stable_partition writes `pair<value_type *, ptrdiff_t> __p(0, 0);' and the pair's `(const _T1 &, const _T2 &)'
 %% constructor was refused for the literal 0, no constructor of arity two was left, and every algorithm that
 %% buffers -- stable_partition, inplace_merge, stable_sort -- stopped at `no_constructor(pair..., 2)'
-cpp_null_to_pointer(PT, A) :- cpp_null_constant(A), ccl_unref(PT, PT1), ccl_resolve_type(PT1, RP), ( RP = ptr(_, _) ; RP = memptr(_, _, _) ), !.
+cpp_null_to_pointer(PT, A) :- cpp_null_constant(A), ccl_unref(PT, PT1), ccl_resolve_type(PT1, RP), ( RP = ptr(_, _) ; RP = memptr(_, _, _) ; RP = arr(_, _) ), !.   % AN ARRAY PARAMETER IS A POINTER ([dcl.fct]/5; 1.6.44): `ar(0)' of `int ar(int a[3])' was `no matching function'
 %% ... AND THROUGH THE CLASS'S OWN WORDS: a parameter type is written there (`__rep(__long __r)' names two of
 %% `basic_string''s nested classes by their short names), and the fit test resolves with the INFERENCE, which knows
 %% typedefs and tags but no class scope. cpp_type/2 is the door that does, and the caller has put us in the class.

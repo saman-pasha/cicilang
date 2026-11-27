@@ -2485,18 +2485,26 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A FUNCTION MARKED WITH GCC'S `error("msg")` (1.6.29, reader 215; `ccl_error_attr_note/1`, `ir_error_attr_call/1`): the
   attribute, before the declarator or after it and spelled `__error__` too, is a note beside unavailable's, and the
   result takes the qualifier `error_attr(M)`; a call of the function is clang's `call to 'f' declared with 'error'
-  attribute: msg`, where the attribute was dropped and the call built. The function's name as a value is no call. In C:
-  C++'s words name the function with its parameters. The driver gate's five bodies. IN BRACKETS IT IS `gnu::`'S ALONE
-  (1.6.33, reader 218; `ccl_gnu_scope//0` in `ccl_skip_attr//0`): `[[gnu::error("m")]]`, `[[gnu::__error__("m")]]` and
-  `[[__gnu__::error("m")]]` are the attribute, and `[[error("m")]]` and `[[clang::error("m")]]`, which clang ignores,
-  were each a call refused; the `__attribute__` form is read by its own scan (`ccl_layout_scan/1`). The driver gate's
-  nine bodies. A CALL IN A BRANCH THAT CLANG'S CODE GENERATION DROPS IS NONE (1.6.39; `ir_dead_branch/3`, its
-  CodeGenFunction's EmitIfStmt and ContainsLabel): a branch of an `if` whose condition folds to the other one and that
-  holds no label -- `if (0) f();`, the `else` of `if (1)`, `if (sizeof(int) == 3)` -- is walked, so that what the
-  lowering refuses in it is refused, as clang's Sema refuses it, and the lines that it emits are dropped, so that a
-  function that it alone calls needs no definition. It was refused, where clang builds and runs it
-  (`test/c/run/deadbranch.c`; the driver gate's check of a branch with a label and of a condition that does not fold).
-  (1.6.29, 1.6.33, 1.6.39)
+  attribute: msg`, where the attribute was dropped and the call built. The function's name as a value is no call. The
+  driver gate's five bodies. IN C++ THE FUNCTION IS NAMED AS CLANG++'S BACK END NAMES IT, BY ITS DEMANGLED SYMBOL
+  (1.6.44, lowering 212; `cpp_error_attr_units/2` before the desugaring names the functions otherwise, `error_attr(M,
+  S)`): its namespaces and classes, `(anonymous namespace)` among them, its parameters' types resolved with no top-level
+  qualifier and a pointee's or a referent's after it -- `t(char const*, int*, unsigned int, S const&, int (*)(int),
+  unsigned long)`, an array a pointer --, an ellipsis, a const member's ` const`, and an `extern "C"` function by its
+  bare name; a library class is `?`, where clang++ names its template's instance (Not done). The call was built, and met
+  the link where nothing defined the function. AS CLANG++ ASKS A PLAIN CALL ALONE, an invoke -- a call that may throw
+  where a try or a destructor waits (`ir_invoke_needed/0`, `ir_nothrow_callee/1`) -- builds: LLVM's back end checks the
+  `dontcall-error` mark at a call. The driver gate's check of sixteen bodies, as clang++ 23 refuses and builds them. IN
+  BRACKETS IT IS `gnu::`'S ALONE (1.6.33, reader 218; `ccl_gnu_scope//0` in `ccl_skip_attr//0`): `[[gnu::error("m")]]`,
+  `[[gnu::__error__("m")]]` and `[[__gnu__::error("m")]]` are the attribute, and `[[error("m")]]` and
+  `[[clang::error("m")]]`, which clang ignores, were each a call refused; the `__attribute__` form is read by its own
+  scan (`ccl_layout_scan/1`). The driver gate's nine bodies. A CALL IN A BRANCH THAT CLANG'S CODE GENERATION DROPS IS
+  NONE (1.6.39; `ir_dead_branch/3`, its CodeGenFunction's EmitIfStmt and ContainsLabel): a branch of an `if` whose
+  condition folds to the other one and that holds no label -- `if (0) f();`, the `else` of `if (1)`, `if (sizeof(int) ==
+  3)` -- is walked, so that what the lowering refuses in it is refused, as clang's Sema refuses it, and the lines that
+  it emits are dropped, so that a function that it alone calls needs no definition. It was refused, where clang builds
+  and runs it (`test/c/run/deadbranch.c`; the driver gate's check of a branch with a label and of a condition that does
+  not fold). (1.6.29, 1.6.33, 1.6.39)
 - GNU'S `extern inline` WITH `gnu_inline` IS THE FUNCTION'S DECLARATION (1.6.39, reader 219; GCC's manual, the
   gnu_inline attribute; `ccl_gnu_inline_item/3` after `ccl_external//3`, the file's storage words
   `'$ccl_file_sto_words'`, the attribute's note in `ccl_layout_scan/1`): in C a definition whose storage words hold
@@ -7835,9 +7843,11 @@ is in `test/cpp/run/`.
 - No standard conversion joins a pointer and an arithmetic type (only `bool` takes a pointer), a function and an
   object pointer, or two pointers whose pointees disagree (`cpp_scalar_mismatch/2`). Why: the char inserter took the
   literal's address as a byte. (0.73, 0.78, 0.94)
-- A null pointer constant converts to any pointer or pointer to member ([conv.ptr]/1; `cpp_null_to_pointer/2`); the
-  template road accepts it only where the pointee resolves ([temp.deduct]/8; `cpp_pointee_settles/1`). `nullconst.cpp`,
-  `detect2.cpp`. Why: `pair<value_type *, ptrdiff_t> __p(0, 0)`. (0.92, 0.93, 0.101)
+- A null pointer constant converts to any pointer or pointer to member ([conv.ptr]/1; `cpp_null_to_pointer/2`), and to
+  an array parameter, which is a pointer ([dcl.fct]/5; 1.6.44: `ar(0)` of `int ar(int a[3])` was `no matching function
+  for call to 'ar'`; the driver gate's check of three bodies); the template road accepts it only where the pointee
+  resolves ([temp.deduct]/8; `cpp_pointee_settles/1`). `nullconst.cpp`, `detect2.cpp`. Why: `pair<value_type *,
+  ptrdiff_t> __p(0, 0)`. (0.92, 0.93, 0.101, 1.6.44)
 - The traits' convertibility takes a derived pointer for a pointer to ANY base, the pointee losing no qualifier
   ([conv.ptr]/3; `cpp_pointer_to_base/2` via `cpp_derives/2`). The call roads keep the first-base walk, whose hops
   they emit. `stdsharedfromthis.cpp`. Why: `__enable_weak_this`; `__range_adaptor_closure_t`'s CRTP base. (0.100, 0.112)
@@ -10586,16 +10596,18 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   (0.139, 0.160, 0.161)
 - AN UNNAMED NAMESPACE IS ITS UNIT'S OWN ([namespace.unnamed]/1: `inline namespace unique {} using namespace unique;
   namespace unique { body }`; 0.192; `cpp_anon_ns_units/2` at the head of `cpp_ns_resolve/2`): it is named
-  `_GLOBAL__N_<tag>` (the unit's tag, the Lambdas topic), a using-directive of it stands after its block, and every name it
-  declares is keyed by its whole path (`cpp_anon_quals/3`: `_GLOBAL__N_<tag>.helper`, `n._GLOBAL__N_<tag>.deep`), so the
-  renaming above finds it after the block and two units' names never meet at the link; a qualified name looks into the
-  unnamed namespace of the namespace it names where that namespace declares no such name ([namespace.qual]/2;
-  `cpp_anon_in/4` in `cpp_abs_ns_path`: `n::deep()`, `::helper()`). It was flattened into its enclosing namespace: two
-  units that each define `namespace { int helper(); }` did not link, two strong definitions. The mangler spells the
-  segment `12_GLOBAL__N_1`, as clang does (`cpp_ita_ns`), the type information of a type that names it is `internal`
-  (`ir_rtti_link/2`: `typeid` of two units' `S` are two types, as clang++ has them), a function's description says
-  `(anonymous namespace)` (`cpp_pf_anon/2`) and the debug information's namespace has no name. The C++ gate's two units.
-  (0.192)
+  `_GLOBAL__N_<tag>` (the unit's tag, the Lambdas topic), a using-directive of it stands after its block -- and, for one
+  in a header of the program's own, after the header's `#include` too (1.6.44: a function, an object or a class of it
+  was `use of undeclared identifier` in the file, which had no unnamed namespace of its own; the driver gate's check of
+  four bodies) --, and every name it declares is keyed by its whole path (`cpp_anon_quals/3`: `_GLOBAL__N_<tag>.helper`,
+  `n._GLOBAL__N_<tag>.deep`), so the renaming above finds it after the block and two units' names never meet at the
+  link; a qualified name looks into the unnamed namespace of the namespace it names where that namespace declares no
+  such name ([namespace.qual]/2; `cpp_anon_in/4` in `cpp_abs_ns_path`: `n::deep()`, `::helper()`). It was flattened into
+  its enclosing namespace: two units that each define `namespace { int helper(); }` did not link, two strong
+  definitions. The mangler spells the segment `12_GLOBAL__N_1`, as clang does (`cpp_ita_ns`), the type information of a
+  type that names it is `internal` (`ir_rtti_link/2`: `typeid` of two units' `S` are two types, as clang++ has them), a
+  function's description says `(anonymous namespace)` (`cpp_pf_anon/2`) and the debug information's namespace has no
+  name. The C++ gate's two units. (0.192)
 - An inline namespace is in the mangler's path (`cpp_hdr_ns`, `cpp_ns_plain`: `St3__1`) and out of the keys:
   two paths are one namespace by their named segments (`cpp_ns_named_path`). (0.100, 0.112)
 - An item declared by a namespace-qualified name stands in that namespace ([namespace.memdef]/2; `ccl_flat_quals`,
@@ -17275,8 +17287,8 @@ Declarations topic of the C++ reader).
   (`section`, `weak` and `alias` are spelled since 1.6.40, but in C++ an alias whose target is the mangled name of a
   function of the program's, `alias("_Z8g_targeti")`, is LLVM's `use of undefined value '@_Z8g_targeti'`, since the
   desugaring names the program's functions otherwise; an `extern "C"` target builds), `error` is clang's words in C
-  since 1.6.29 -- a call in a branch that clang's code generation drops is none since 1.6.39, and `-fsyntax-only`
-  refuses none, as clang; in C++, where clang++ names `'f()'`, it builds --, C's and C++'s `unavailable` are clang's
+  since 1.6.29 and in C++ since 1.6.44 -- a call in a branch that clang's code generation drops is none since 1.6.39,
+  and `-fsyntax-only` refuses none, as clang --, C's and C++'s `unavailable` are clang's
   words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
   `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
   `register_t`, an `int` of four bytes where clang's is a `long`.
@@ -17290,6 +17302,16 @@ Declarations topic of the C++ reader).
   the desugaring's since 1.6.24, over the file's own items and, since 1.6.42, its own headers' as the run kept them: a
   namespace's two definitions are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own
   since 1.6.38.)
+- C++: WHAT 1.6.44 FOUND BESIDE GCC'S `error` (the C reader's topic of the attribute, the overloads' topic). A PRVALUE
+  FOR A NON-CONST LVALUE REFERENCE PARAMETER ([dcl.init.ref]/5: such a reference binds an lvalue alone), `r(0)` or
+  `r(g())` of `void r(int &)` over `int g()` and `r(0)` of `void r(int *&)`, builds, where clang++ says `no matching
+  function for call to 'r'`; of a reference to an array, `void r(int (&a)[3])`, it meets LLVM's parser, `invalid cast
+  opcode for cast from 'i32' to '[3 x i32]'`. 1.6.6 refuses it for a free operator's parameter alone. A CALL OF A
+  FUNCTION THAT THE PROGRAM DECLARES `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor
+  waits, where clang++ makes it a plain call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's
+  `error` on such a function is refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in
+  GCC's `error` words, where clang++ names the template's instance, `std::__1::basic_string<char,
+  std::__1::char_traits<char>, std::__1::allocator<char>>&`.
 - C++: A CONST OBJECT OF A CLASS WITH NO INITIALIZER BUILDS (found at 1.6.43, whose rule takes the types that are no
   class; the C reader's topic): `struct P { int a; }; const P pp;` is clang++'s `default initialization of an object of
   const type 'const P' without a user-provided default constructor`, where a class with a user-provided default

@@ -88,6 +88,9 @@ cpp_tag_digit(D, C) :- ( D < 10 -> C is 48 + D ; C is 87 + D ).
 %% every name it declares is keyed by its path (cpp_anon_quals/3), so two units' names never meet at the link. It was flattened
 %% into its enclosing namespace: two units that each define `namespace { int helper(); }' did not link, two strong definitions.
 %% The mangler spells the segment as clang does, `12_GLOBAL__N_1', and such a type's information is internal (ir_rtti_link/2).
+%% ONE IN A HEADER OF THE PROGRAM'S OWN has its using-directive after the header's `#include' too (1.6.44): it stood in the
+%% header's own items, which the file's lookup does not reach, and a function, an object or a class of it was `use of
+%% undeclared identifier' in the file, unless the file had an unnamed namespace of its own
 cpp_anon_ns_units(Us0, Us) :- \+ ( member(unit(Is), Us0), cpp_anon_ns_in(Is) ), !, Us = Us0.
 cpp_anon_ns_units(Us0, Us) :- cpp_unit_tag(T), ( T == '' -> AN = '_GLOBAL__N_1' ; atom_concat('_GLOBAL__N_', T, AN) ),
     findall(unit(Is1), ( member(unit(Is), Us0), cpp_anon_ns_items(Is, AN, Is1) ), Us).
@@ -95,7 +98,8 @@ cpp_anon_ns_in(Is) :- member(I, Is), ( I = namespace(_, anon, _) -> true ; I = n
 cpp_anon_ns_items([], _, []).
 cpp_anon_ns_items([namespace(L, anon, Js)|Is], AN, [namespace(L, AN, Js1), using(L, namespace(AN))|Is1]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1).
 cpp_anon_ns_items([namespace(L, N, Js)|Is], AN, [namespace(L, N, Js1)|Is1]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1).
-cpp_anon_ns_items([include(L, S, file(F, raw, unit(Js)))|Is], AN, [include(L, S, file(F, raw, unit(Js1)))|Is1]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1).
+cpp_anon_ns_items([include(L, S, file(F, raw, unit(Js)))|Is], AN, [include(L, S, file(F, raw, unit(Js1)))|Is2]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1),
+    ( cpp_anon_ns_in(Js) -> Is2 = [using(L, namespace(AN))|Is1] ; Is2 = Is1 ).
 cpp_anon_ns_items([I|Is], AN, [I|Is1]) :- cpp_anon_ns_items(Is, AN, Is1).
 cpp_anon_quals(Pairs, Qs0, Qs) :-
     findall(Q, ( member(Q, Qs0), \+ ( Q = q(bare, _, P), cpp_anon_ns_path(P) ) ), Qs1),

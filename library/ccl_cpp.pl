@@ -93,7 +93,7 @@
 :- use_module(library(ccl_cpp_lambda)).
 :- use_module(library(ccl_cpp_concept)).
 
-ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_kind_clashes(Units0), cpp_alloc_units(Units0, Units00), cpp_ns_resolve(Units00, Units1),
+ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_kind_clashes(Units0), cpp_error_attr_units(Units0, Units0a), cpp_alloc_units(Units0a, Units00), cpp_ns_resolve(Units00, Units1),
     catch(( cpp_register_units(Units1), cpp_units(Units1, Units) ), Err, ( cpp_kept_assert_failure, throw(Err) )), cpp_kept_assert_failure.
 %% THE PROGRAM'S OWN FAILED STATIC ASSERTION IS ITS ERROR WHEREVER IT WAS ASKED (0.221; [dcl.pre]/10, [temp.inst]/3: a class template's
 %% instance asserts as it is made, in no immediate context of a deduction): the failure is kept ('$cpp_assert_failed', the first one)
@@ -101,6 +101,54 @@ ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_kind_clashes(Units0), cpp_a
 %% program compiled. A library header's failure is reported only where its throw comes out: what this compiler instantiates beyond
 %% what clang does is no error of the program's.
 cpp_kept_assert_failure :- ( '$cpp_assert_failed'(Err, L) -> throw(error(Err, here(none, L))) ; true ).   % Err: static_assert_failed(Text), or static_assert_unfolded (0.257)
+%% GCC'S `error("msg")' IN C++ NAMES ITS FUNCTION AS CLANG++ NAMES IT (1.6.44): the mark of a function's result,
+%% `error_attr(M)' (ccl_error_attr_note/1, the reader), is `error_attr(M, S)' before the desugaring names the functions
+%% otherwise, S the function's name after its namespaces and classes and before its parameters' types, `S::n(int)',
+%% `q::h()', `g(int)' -- a free function's, a namespace's, a class's member's, a nested class's and an own header's --,
+%% which the lowering's words take (ir_error_attr_call/1): clang++'s `call to 'S::n(int)' declared with 'error'
+%% attribute: no n'. A call of one built, and met the link where nothing defined it
+cpp_error_attr_units([], []).
+cpp_error_attr_units([unit(Is)|Us], [unit(Js)|Vs]) :- !, cpp_ea_items(Is, '', Js), cpp_error_attr_units(Us, Vs).
+cpp_error_attr_units([U|Us], [U|Vs]) :- cpp_error_attr_units(Us, Vs).
+cpp_ea_items([], _, []).
+cpp_ea_items([I|Is], P, [J|Js]) :- cpp_ea_item(I, P, J), cpp_ea_items(Is, P, Js).
+cpp_ea_item(namespace(L, N, Is), P, namespace(L, N, Js)) :- is_list(Is), !, ( atom(N), N \== anon -> atomic_list_concat([P, N, '::'], P1) ; N = inline(N1), atom(N1) -> atomic_list_concat([P, N1, '::'], P1) ; atom_concat(P, '(anonymous namespace)::', P1) ), cpp_ea_items(Is, P1, Js).
+cpp_ea_item(extern_c(X, Is), _, extern_c(X, Js)) :- is_list(Is), !, cpp_ea_items(Is, '$c', Js).   % C linkage: the symbol is the bare name
+cpp_ea_item(include(L, K, file(F, X, unit(Is))), P, include(L, K, file(F, X, unit(Js)))) :- is_list(Is), !, cpp_ea_items(Is, P, Js).
+cpp_ea_item(function(L, Sto, R, N, Ps, V, B), P, function(L, Sto, R1, N, Ps, V, B)) :- atom(N), cpp_ea_ret(R, P, N, Ps, V, '', R1), !.
+cpp_ea_item(declaration(L, Sto, B, Vs), P, declaration(L, Sto, B1, Vs1)) :- is_list(Vs), !, cpp_ea_base(B, P, B1), cpp_ea_vars(Vs, P, Vs1).
+cpp_ea_item(declare(L, B), P, declare(L, B1)) :- !, cpp_ea_base(B, P, B1).
+cpp_ea_item(method(L, Qs, R, N, Ps, V, B), P, method(L, Qs, R1, N, Ps, V, B)) :- atom(N), ( memberchk(const, Qs) -> X = ' const' ; X = '' ), cpp_ea_ret(R, P, N, Ps, V, X, R1), !.
+cpp_ea_item(nested(B), P, nested(B1)) :- !, cpp_ea_base(B, P, B1).   % a nested class, `A::B::z()'
+cpp_ea_item(I, _, I).
+cpp_ea_vars([], _, []).
+cpp_ea_vars([var(N, fn(R, Ps, V), I)|Vs], P, [var(N, fn(R1, Ps, V), I)|Ws]) :- atom(N), cpp_ea_ret(R, P, N, Ps, V, '', R1), !, cpp_ea_vars(Vs, P, Ws).
+cpp_ea_vars([X|Vs], P, [X|Ws]) :- cpp_ea_vars(Vs, P, Ws).
+cpp_ea_base(base(Q, [class(K, Tag, Bs, Ms)]), P, base(Q, [class(K, Tag, Bs, Ms1)])) :- atom(Tag), is_list(Ms), !, atomic_list_concat([P, Tag, '::'], P1), cpp_ea_items(Ms, P1, Ms1).
+cpp_ea_base(B, _, B).
+cpp_ea_ret(base(Q, S), P, N, Ps, V, X, base([error_attr(M, Sp)|Q0], S)) :- is_list(Q), select(error_attr(M), Q, Q0), !,
+    ( P == '$c' -> Sp = N ; cpp_ea_params(Ps, V, A), atomic_list_concat([P, N, '(', A, ')', X], Sp) ).
+%% ... CLANG++'S SPELLING IS ITS SYMBOL'S, DEMANGLED (its back end names the callee by llvm::demangle): each parameter's type
+%% resolved, a top-level qualifier off, a pointee's and a referent's qualifiers after it, `char const*', `S const&',
+%% `int&&', a pointer to a function `int (*)(int)', `size_t' as `unsigned long', an ellipsis after them, and a const member's
+%% ` const'; a function of C linkage, an `extern "C"' block's, its bare name. A class's name is its tag, where the symbol
+%% names its namespace too, and a library class is `?', where the symbol names its template's instance (Not done)
+cpp_ea_params(Ps, V, A) :- findall(T, ( member(Pa, Ps), compound(Pa), arg(1, Pa, PT), cpp_ea_type(PT, T) ), Ts0),
+    ( ck_c_variadic(V) -> append(Ts0, ['...'], Ts) ; Ts = Ts0 ), atomic_list_concat(Ts, ', ', A).
+cpp_ea_type(T, S) :- catch(once(cpp_ea_dm(T, S0)), _, fail), atom(S0), !, S = S0.
+cpp_ea_type(_, '?').
+cpp_ea_dm(T0, S) :- cpp_ea_res(T0, T), cpp_ea_dm_(T, S).
+cpp_ea_res(T0, T) :- ( catch(once(ccl_resolve_type(T0, T1)), _, fail) -> T = T1 ; T = T0 ).
+cpp_ea_dm_(ref(_, X), S) :- !, cpp_ea_cv(X, S0), atom_concat(S0, '&', S).
+cpp_ea_dm_(rref(_, X), S) :- !, cpp_ea_cv(X, S0), atom_concat(S0, '&&', S).
+cpp_ea_dm_(ptr(_, X), S) :- !, cpp_ea_ptr(X, S).
+cpp_ea_dm_(arr(_, X), S) :- !, cpp_ea_ptr(X, S).
+cpp_ea_dm_(base(_, Sp), S) :- cpp_ea_base_text(Sp, S).
+cpp_ea_ptr(X0, S) :- cpp_ea_res(X0, X), ( X = fn(R, Ps, V) -> cpp_ea_dm(R, RS), cpp_ea_params(Ps, V, PS), atomic_list_concat([RS, ' (*)(', PS, ')'], S) ; cpp_ea_cv(X, S0), atom_concat(S0, '*', S) ).
+cpp_ea_cv(X0, S) :- cpp_ea_res(X0, X), ( X = base(Q, Sp) -> cpp_ea_base_text(Sp, S0), cpp_ea_quals(Q, S0, S) ; X = ptr(Q, Y) -> cpp_ea_ptr(Y, S0), cpp_ea_quals(Q, S0, S) ; cpp_ea_dm_(X, S) ).
+cpp_ea_quals(Q, S0, S) :- ( memberchk(const, Q) -> atom_concat(S0, ' const', S1) ; S1 = S0 ), ( memberchk(volatile, Q) -> atom_concat(S1, ' volatile', S) ; S = S1 ).
+cpp_ea_base_text(Sp, S) :- member(X, Sp), compound(X), ( X = struct(Tag, _) ; X = union(Tag, _) ; X = class(_, Tag, _, _) ; X = enum(Tag, _) ; X = enum_class(Tag, _) ), atom(Tag), !, S = Tag.
+cpp_ea_base_text(Sp, S) :- ir_type_text(base([], Sp), S0), atom(S0), S = S0.
 %% A NAME OF THE FILE SCOPE DECLARED AGAIN AS ANOTHER KIND OF SYMBOL (1.6.24; [basic.scope.declarative]/4, [dcl.typedef]):
 %% an object and a function of one name, a typedef's name and either, an enumerator and either, among the program's own
 %% items of the global scope and of its `extern "C"' blocks, are clang++'s `redefinition of 't' as different kind of

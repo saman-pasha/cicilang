@@ -1698,4 +1698,40 @@ cdi9.cpp:2: error: default initialization of an object of const type 'const unsi
 cdi10.cpp:2: error: constexpr variable 'w' must be initialized by a constant expression
 cdi11.cpp: built
 cdi12.cpp:1: error: default initialization of an object of const type 'const int'"
+# C++: A CALL OF A FUNCTION THAT GCC'S `error' MARKS (1.6.44; cpp_error_attr_units/2, ir_error_attr_call/1) is refused in
+# clang++ 23's words, the function named as its back end names it, by its demangled symbol: a free function, a static
+# member, a member, a nested class's, a const member's, a namespace's, an anonymous namespace's, an overload, the
+# parameters' canonical types, an ellipsis, a definition, an extern "C" function by its bare name and a (void) list; a
+# call that clang++ makes an invoke, a call in a dead branch, an overload that the mark leaves out and the function's
+# address build
+check "C++: a call of a function that GCC's error attribute marks, in clang++'s words by its demangled name -- free, static, member, nested, const, namespace, anonymous namespace, overload, the parameters' canonical types, an ellipsis, a definition, extern \"C\", (void), an array -- and an invoke, a dead branch, the other overload and the address that build (1.6.44)" "$(printf '%s\n' 'void f() __attribute__((error("do not call f")));' 'int g(int x) __attribute__((error("no g")));' 'struct S { static void m() __attribute__((error("no m"))); void n(int) __attribute__((error("no n"))); struct B { void z() __attribute__((error("z"))); }; void c(int) const __attribute__((error("c"))); };' 'namespace q { void h() __attribute__((error("no h"))); }' 'void o(int) __attribute__((error("o int")));' 'inline void o(double) {}' 'enum E { E1 };' 'void t(const char *, int *, unsigned, long long, char *const, const int, S &, const S &, int (*)(int), bool, unsigned long, E, signed char, long double, short, const char *const *) __attribute__((error("t")));' 'void va(int, ...) __attribute__((error("va")));' '__attribute__((error("def"))) inline int df(int x) { return x; }' 'struct D { ~D() {} };' 'extern "C" void k(int) __attribute__((error("k")));' 'void fv(void) __attribute__((error("fv")));' 'void ar(int a[3]) __attribute__((error("ar")));' > eah.h
+n=0; for c in 'if (argc > 5) f();' 'if (argc > 5) g(1);' 'if (argc > 5) S::m();' 'S s; if (argc > 5) s.n(2);' 'S::B b; if (argc > 5) b.z();' 'const S s; if (argc > 5) s.c(1);' 'if (argc > 5) q::h();' 'if (argc > 5) an();' 'if (argc > 5) o(1);' 'S s; if (argc > 5) t(0, 0, 0, 0, 0, 0, s, s, 0, 0, 0, E1, 0, 0, 0, 0);' 'if (argc > 5) va(1, 2.0);' 'if (argc > 5) df(2);' 'if (argc > 5) k(1);' 'if (argc > 5) fv();' 'int buf[3]; if (argc > 5) ar(buf);' 'if (argc > 5) o(1.0); if (0) f(); void (*p)() = &an; (void)p; D d; if (argc > 5) f();'; do n=$((n + 1)); { echo '#include "eah.h"'; echo 'namespace { void an() __attribute__((error("an"))); }'; echo 'int main(int argc, char **argv) {'; echo "  $c"; echo '  return 0;'; echo '}'; } > eat$n.cpp; o=$("$ROOT/bin/cicilang++" -c eat$n.cpp -o eat.o 2>&1 | head -1); [ -n "$o" ] && echo "$o" || echo "eat$n.cpp: built"; done)" "eat1.cpp:4: error: call to 'f()' declared with 'error' attribute: do not call f
+eat2.cpp:4: error: call to 'g(int)' declared with 'error' attribute: no g
+eat3.cpp:4: error: call to 'S::m()' declared with 'error' attribute: no m
+eat4.cpp:4: error: call to 'S::n(int)' declared with 'error' attribute: no n
+eat5.cpp:4: error: call to 'S::B::z()' declared with 'error' attribute: z
+eat6.cpp:4: error: call to 'S::c(int) const' declared with 'error' attribute: c
+eat7.cpp:4: error: call to 'q::h()' declared with 'error' attribute: no h
+eat8.cpp:4: error: call to '(anonymous namespace)::an()' declared with 'error' attribute: an
+eat9.cpp:4: error: call to 'o(int)' declared with 'error' attribute: o int
+eat10.cpp:4: error: call to 't(char const*, int*, unsigned int, long long, char*, int, S&, S const&, int (*)(int), bool, unsigned long, E, signed char, long double, short, char const* const*)' declared with 'error' attribute: t
+eat11.cpp:4: error: call to 'va(int, ...)' declared with 'error' attribute: va
+eat12.cpp:4: error: call to 'df(int)' declared with 'error' attribute: def
+eat13.cpp:4: error: call to 'k' declared with 'error' attribute: k
+eat14.cpp:4: error: call to 'fv()' declared with 'error' attribute: fv
+eat15.cpp:4: error: call to 'ar(int*)' declared with 'error' attribute: ar
+eat16.cpp: built"
+# C++: A NULL POINTER CONSTANT FOR AN ARRAY PARAMETER (1.6.44; [dcl.fct]/5, [conv.ptr]/1; cpp_null_to_pointer/2): an
+# array parameter is a pointer, which `0' initializes -- `ar(0)' of `int ar(int a[3])' was `no matching function for
+# call to 'ar''
+check "C++: a literal 0 for an array parameter, of a bound, of none and of const characters, builds and runs as clang++'s (1.6.44)" "$(n=0; for b in 'int ar(int a[3]) { return a ? 1 : 0; }\nint main() { return ar(0); }' 'int ar(int a[]) { return a ? 1 : 0; }\nint main() { return ar(0) + ar(nullptr); }' 'int ar(const char a[4]) { return a ? 1 : 0; }\nint main() { return ar(0); }'; do n=$((n + 1)); printf '%b\n' "$b" > nap$n.cpp; o=$("$ROOT/bin/cicilang++" nap$n.cpp -o nap$n 2>&1 | head -1); if [ -n "$o" ]; then echo "$o"; else ./nap$n; echo "nap$n: exit $?"; fi; done)" "nap1: exit 0
+nap2: exit 0
+nap3: exit 0"
+# C++: AN UNNAMED NAMESPACE IN A HEADER OF THE PROGRAM'S OWN (1.6.44; cpp_anon_ns_items/3): its using-directive stands
+# after the header's #include too, so that a function, an object and a class of it are found in the file, as clang++
+# finds them -- each was `use of undeclared identifier' where the file had no unnamed namespace of its own
+check "C++: a function, an object and a class of an unnamed namespace in the program's own header are found in the file, and a declaration there defined in the file's own, as clang++ builds and runs them (1.6.44)" "$(n=0; for b in 'namespace { int an() { return 3; } }|an()' 'namespace { int av = 3; }|av' 'namespace { struct AS { int v = 3; }; }|AS().v' 'namespace { int an(); }|an()'; do n=$((n + 1)); h=${b%%|*}; u=${b#*|}; printf '%s\n' "$h" > anh$n.h; { echo "#include \"anh$n.h\""; [ $n = 4 ] && echo 'namespace { int an() { return 3; } }'; echo "int main() { return $u - 3; }"; } > anf$n.cpp; o=$("$ROOT/bin/cicilang++" anf$n.cpp -o anf$n 2>&1 | head -1); if [ -n "$o" ]; then echo "$o"; else ./anf$n; echo "anf$n: exit $?"; fi; done)" "anf1: exit 0
+anf2: exit 0
+anf3: exit 0
+anf4: exit 0"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi
