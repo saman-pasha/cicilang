@@ -2676,9 +2676,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   [basic.scope.declarative]/4, [dcl.typedef]; `cpp_kind_clashes/1`, before the desugaring registers the units): an
   object and a function of one name, a typedef's name and either, an enumerator and either, among the program's own
   items of the global scope and of its `extern "C"` blocks, are clang++'s `redefinition of 't' as different kind of
-  symbol` at the later one's line; `int t(void); int t;` was built, and other pairs were refused in LLVM's words or
-  `not lowered yet: call(id(t))`. A function's overloads and its templates are one kind, a class's and an enumeration's
-  tag no name of these, and a namespace's names are its own scope's. The driver gate's ten bodies. (1.6.24)
+  symbol` at the later one's line; `int t(void); int t;` was built, and other pairs were refused in LLVM's words or `not
+  lowered yet: call(id(t))`. A function's overloads and its templates are one kind, a class's and an enumeration's tag
+  no name of these. A HEADER OF THE PROGRAM'S OWN is noted before the items after it (1.6.28; `cpp_kind_seed/3`): `int
+  t(void);` in the header and `int t;` in the file built; a clash inside a header has no line of the file, and is noted
+  only. A NAMESPACE'S NAMES ARE ITS OWN SCOPE'S, ITS BLOCKS ONE (1.6.28; [namespace.def]/2; `cpp_kind_walk_ns/4`): `int
+  t();` and `int t;` in two blocks of one namespace, or in one, built, and are refused so now; a nested namespace is its
+  own scope. The driver gate's ten bodies and ten. (1.6.24, 1.6.28)
 - IN C++ A SECOND DEFINITION AT FILE SCOPE IS REFUSED (1.6.24; [basic.def.odr]/1; `cpp_redef_walk/3`, beside the walk
   above), in clang++'s words at the second one's line, among the program's own items of the global scope and of its
   `extern "C"` blocks: a function of one name and one list of parameter types (`cpp_redef_sig/3`: each type adjusted as
@@ -4680,8 +4684,17 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   TEMPLATE that the static road refused is the set's words, the template's qualifiers its method's (1.6.27;
   `cpp_mt_quals/2`): `S::g()` over a static member template was `undeclared('S.g')`, and a plain member beside a
   template had the plain one's count words. `test/cpp/run/qualthis.cpp`, which clang++ 23 and g++ print alike, and
-  `staticmt.cpp`, static member templates that the static road takes; the driver gate's seven bodies and four. (0.44,
-  0.73, 1.6.26, 1.6.27)
+  `staticmt.cpp`, static member templates that the static road takes; the driver gate's seven bodies and four. A STATIC
+  MEMBER FUNCTION'S BODY NAMES NO `this`, NO MEMBER THAT IS NOT STATIC, AND CALLS NO MEMBER FUNCTION THAT IS NOT STATIC
+  (1.6.28; [class.static.mfct]/2, [expr.prim.this]/3, [expr.prim.id.general]/4; `cpp_static_body_now/1`), bare, named
+  with its class or a base, defined out of its class, a member object or a pointer member called, a template's:
+  clang++'s `invalid use of 'this' outside of a non-static member function`, `invalid use of member 'a' in static member
+  function` and `call to non-static member function without an object argument`. Each built: the desugaring gives a
+  static method a `this` of its own, which the call passes as null. The mark is the signature of the walk's own class --
+  a local class's member function and a lambda's, a static one too, are walked in their own --, in the program's code,
+  and sizeof's and decltype's operands are unevaluated; a static member of a base, an empty one's too, is a static
+  member (`cpp_static_held/3`: `staticbase.cpp`'s call of `get_base` was refused by the rule's first form). The driver
+  gate's twenty-five bodies. (0.44, 0.73, 1.6.26, 1.6.27, 1.6.28)
 - A member template called bare with explicit arguments passes `this`, a null one only where it is static
   (`cpp_static_member_template`). Why: `__lower_upper_bound_unique_impl<true>(__v)` inside `__tree`. (0.79)
 - A static member function takes a null `this` (`cpp_static_method`). Named as a value it is a `this`-less thunk
@@ -7471,9 +7484,15 @@ is in `test/cpp/run/`.
   constant, or an integer (no `bool`) for a pointer, an array or a function (`cpp_int_ptr_misfit/2`) -- `no matching
   function for call to 'f'`, clang++'s words for an unqualified call. The road after `cpp_fn_best/4` took such a call as
   C takes one: `f(1, 2, 3)` of `int f(int, int)` handed its third argument on as a variadic tail, `g(5)` of `int g(char
-  *)` passed the pointer 5, and `f()` of `int f(int a, int b = 2)` passed nothing for `a`. ANOTHER MISFIT GOES ON TO
-  THAT ROAD, as it went: it converts a generic lambda to a function pointer (`genericfp.cpp`), which the candidates'
-  filter finds no conversion operator for, and refuses a struct for a scalar in its own words, `no conversion from
+  *)` passed the pointer 5, and `f()` of `int f(int a, int b = 2)` passed nothing for `a`. THE OTHER MISFITS OF AN
+  ARGUMENT BY ITS TYPE are the rule's too (1.6.28; [conv], [over.best.ics]; `cpp_type_misfit_pair/2`,
+  `cpp_misfit_kinds/3`), and the rule is asked after the best overload's choice, which took the only candidate: a plain
+  struct, or a class with no conversion function, for a scalar, a floating value and a pointer for each other, a pointer
+  to another object type, its qualifiers aside, and an integer or another enumeration for an enumeration -- `f(c)` of
+  `int f(int *)` over a char array built and read four characters as one int, `f(1)` of `int f(E)` built, and the rest
+  were the lowering's `no conversion from 'S' to 'int'`; the driver gate's twelve bodies. ANOTHER MISFIT GOES ON TO THAT
+  ROAD, as it went: it converts a generic lambda to a function pointer (`genericfp.cpp`), which the candidates' filter
+  finds no conversion operator for, and refuses a struct for a scalar in its own words, `no conversion from
   'optional_int' to 'double'`. The rule's first form refused every call that no candidate fitted, and the C++ pool and
   the ccllib gate found the three. A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION OF ANOTHER COUNT THAN ITS
   TYPE'S ([expr.call]/7; `cpp_callee_count_wrong/3`) -- a local pointer, a struct's pointer member by `.` and `->`, any
@@ -7490,12 +7509,15 @@ is in `test/cpp/run/`.
   yet: arity_mismatch` at no line. A QUALIFIED NAME FINDS NO LOCAL (1.6.27; [basic.lookup.qual]; `cpp_qualified_name/2`,
   `cpp_qualified_hides/1`): the desugaring flattens `n::g(2)`, `::g(2)` and `std::puts("x")` to a call of the bare name,
   and while it resolves, a local of the name is none to `cpp_local/1` in the scope it was called in; the lowering calls
-  the file's function where the bare name's local is no function and no pointer to one (`ir_callable_type/1`), and a C
-  function's declaration for its call is the file scope's (`cpp_c_decl_current/2`). `double g = 1.5; return n::g(2);`
-  was `not lowered yet: call(id(g))`, a template's call too, and after `int puts = 4; ::puts("x");` a `return puts;`
-  named the function. `test/cpp/run/qualshadow.cpp`, which clang++ 23 and g++ print alike. The driver gate's twenty-four
-  bodies against clang++ 23; `test/cpp/run/castcalls.cpp` holds the counts, the defaults and the ellipses that C++
-  takes. (0.302, 1.6.26)
+  the file's function where the bare name's local is no function and no pointer to one (`ir_callable_type/1`). `double g
+  = 1.5; return n::g(2);` was `not lowered yet: call(id(g))`, a template's call too, and after `int puts = 4;
+  ::puts("x");` a `return puts;` named the function -- 1.6.27 also declared the C function at file scope for its call, a
+  mend that held nothing beside the two rules, as 1.6.27's broken copies found, and 1.6.28 took it out.
+  `test/cpp/run/qualshadow.cpp`, which clang++ 23 and g++ print alike, with the two forms that 1.6.27's broken copies
+  needed (1.6.28): an instance's own local of its name that it calls, a closure, which the mark's scope keeps -- without
+  it the instance called itself --, and a local pointer to a function named as the file's, called through, which the
+  type test keeps. The driver gate's twenty-four bodies against clang++ 23; `test/cpp/run/castcalls.cpp` holds the
+  counts, the defaults and the ellipses that C++ takes. (0.302, 1.6.26, 1.6.27, 1.6.28)
 
 ### Constness, value category and reference binding
 
@@ -13316,25 +13338,28 @@ in the first topic (The ccllib gate).
   `double`, has been refused since 0.288. A `const int` zero is no null pointer constant in C and is refused, as clang
   refuses it. An `enum`'s type is spelled `enum e` (`ck_c_spec_text/2`), where its term was. C alone. The driver gate
   holds seven forms. Lowering 169. (0.302)
-- **THE OPERANDS THAT AN OPERATOR TAKES** (1.6.1; C17 6.5.3.3/1, 6.5.5/2, 6.5.6/2 and /3, 6.5.7/2, 6.5.10/2 to
-  6.5.12/2; `ir_binary_operands/7` in `ir_binary/9` and `ir_assign_new/8`, `ir_unary_operand/3`): `*` and `/` take
-  arithmetic operands; `%`, `<<`, `>>`, `&`, `^` and `|` integer ones; `+` two arithmetic ones, or a pointer and an
-  integer; `-` those, a pointer less an integer, and two pointers to compatible types, their qualifiers aside
-  (`ck_same_type/2`); unary `-` and `+` an arithmetic one, `~` an integer one. Another operand is refused in clang's
-  words at the operator's line: `invalid operands to binary expression ('int' and 'const char *')`, `'int *' and 'char
-  *' are not pointers to compatible types`, `invalid argument type 'int *' to unary expression`; a compound assignment
-  by its two sides' types, a binary expression's array operand by its own type, `'int[3]'` (`ir_operand_shown/3`). An
-  operand's kind is its LLVM type's (`ir_operand_kind/3`), a decimal's its C type's; a vector's operands are its own
-  rules' (0.162), and an operand of a kind not named here (a complex value's pair) is not asked. A pointer to a
-  function plus an integer builds, as clang takes it (GNU's arithmetic). Unary `+` gives the promoted operand
-  (6.5.3.3/2), the type that `ccl_type_of/2` gives it. THE BINARY PAIRS ARE ASKED IN C ALONE: a type that C++'s
-  desugaring gives is not always the program's (Not done), and libc++ 22's `__to_buffer` adds to a pointer an `auto`
-  that the reader types as one -- asked in C++, the rule refused programs over `<format>` that clang++ builds
-  (`autoptrdiff.cpp`). The unary rules hold in C++ too, where `+` brings no class and no pointer to the lowering (the
-  Classes topic's operators). Through 1.6.0 each form was lowered over the operands' bits with no word: `1 << s` over a
-  `const char *` shifted by the pointer, `p * 2` multiplied an address, and `cout << "a" << 1 << endl` -- whose first
-  `<<` gives an int -- shifted that int by `endl`. The driver gate holds 31 forms; `test/c/run/operands.c` the forms
-  that C takes. Lowering 175. (1.6.1)
+- **THE OPERANDS THAT AN OPERATOR TAKES** (1.6.1; C17 6.5.3.3/1, 6.5.5/2, 6.5.6/2 and /3, 6.5.7/2, 6.5.10/2 to 6.5.12/2;
+  `ir_binary_operands/7` in `ir_binary/9` and `ir_assign_new/8`, `ir_unary_operand/3`): `*` and `/` take arithmetic
+  operands; `%`, `<<`, `>>`, `&`, `^` and `|` integer ones; `+` two arithmetic ones, or a pointer and an integer; `-`
+  those, a pointer less an integer, and two pointers to compatible types, their qualifiers aside (`ck_same_type/2`);
+  unary `-` and `+` an arithmetic one, `~` an integer one. Another operand is refused in clang's words at the operator's
+  line: `invalid operands to binary expression ('int' and 'const char *')`, `'int *' and 'char *' are not pointers to
+  compatible types`, `invalid argument type 'int *' to unary expression`; a compound assignment by its two sides' types,
+  a binary expression's array operand by its own type, `'int[3]'` (`ir_operand_shown/3`). An operand's kind is its LLVM
+  type's (`ir_operand_kind/3`), a decimal's its C type's; a vector's operands are its own rules' (0.162), and an operand
+  of a kind not named here (a complex value's pair) is not asked. A pointer to a function plus an integer builds, as
+  clang takes it (GNU's arithmetic). Unary `+` gives the promoted operand (6.5.3.3/2), the type that `ccl_type_of/2`
+  gives it. THE BINARY PAIRS ARE ASKED IN C ALONE, BUT THOSE THAT NO GUESS OF THE READER'S MAKES (1.6.28;
+  `ir_cpp_operands_bad/3`: `*` and `/` over a pointer, `%`, the shifts and the bitwise operators over a pointer or a
+  floating value, a pointer and a floating value, an integer less a pointer, which were `type(unknown)`, LLVM's words or
+  built, and are clang++'s words in C++ too; the driver gate's twenty-one bodies): a type that C++'s desugaring gives is
+  not always the program's (Not done), and libc++ 22's `__to_buffer` adds to a pointer an `auto` that the reader types
+  as one -- asked in C++, the rule refused programs over `<format>` that clang++ builds (`autoptrdiff.cpp`). The unary
+  rules hold in C++ too, where `+` brings no class and no pointer to the lowering (the Classes topic's operators).
+  Through 1.6.0 each form was lowered over the operands' bits with no word: `1 << s` over a `const char *` shifted by
+  the pointer, `p * 2` multiplied an address, and `cout << "a" << 1 << endl` -- whose first `<<` gives an int -- shifted
+  that int by `endl`. The driver gate holds 31 forms; `test/c/run/operands.c` the forms that C takes. Lowering 175.
+  (1.6.1)
 - **A RECORD WHERE C TAKES A SCALAR** (1.6.1, the forms beside; C17 6.5.3.3/1, 6.5.13/2, 6.5.14/2, 6.5.15/2, 6.8.4.1/1,
   6.8.5/2, 6.5.2.4/1; `ir_scalar_expr/2`, `ir_scalar_pair/2`, `ir_step/6`): a struct or a union after `!`, beside `&&`
   or `||`, as the condition of `?:`, `if`, `while`, `do` or `for`, and under `++` or `--` is refused in clang's words:
@@ -13467,14 +13492,16 @@ in the first topic (The ccllib gate).
   `sizeof` of such a name, in C and in C++, `not lowered yet: sizeof(id(nowhere))`. In C++ an argument that names
   nothing is refused so before the call's roads meet it (`cpp_undeclared_args/1`): a template's deduction refused
   `cannot_deduce('T')` at no line. A QUALIFIED NAME THAT NOTHING DECLARES (1.6.27; [namespace.qual]/2;
-  `cpp_declared_nowhere/2`) is clang++'s `no member named 'nowhere' in namespace 'n'`, `in namespace 'a::b'`, `in the
-  global namespace` -- `std::ref(c)` with no `<functional>` among them, as libc++ 23 has it, which was what met the
-  call's value, `auto(r)` --, where it was the lowering's `undeclared(nowhere)`. The driver gate holds six forms, and
-  thirteen in C++. Lowering 174, 196. A LIBRARY FUNCTION THAT CLANG KNOWS BY NAME has clang's words and its note of the
-  header (1.6.24; `dr_lib_fn/3`, forty of them, each type as clang 23 spells it): `call to undeclared library function
-  'printf' with type 'int (const char *, ...)'; ...` and `note: include the header <stdio.h> or explicitly provide a
-  declaration for 'printf'`; `puts`, which clang does not know so, keeps a call's words. The driver gate's four bodies.
-  (1.1.2, 1.6.24)
+  `cpp_declared_nowhere/2`: a name in no namespace's key -- an anonymous namespace's function among them -- and of no
+  function, object, typedef, tag, enumerator or template's head -- a namespace's function template declared alone; five
+  more guards held nothing, 1.6.28) is clang++'s `no member named 'nowhere' in namespace 'n'`, `in namespace 'a::b'`,
+  `in the global namespace` -- `std::ref(c)` with no `<functional>` among them, as libc++ 23 has it, which was what met
+  the call's value, `auto(r)` --, where it was the lowering's `undeclared(nowhere)`. The driver gate holds six forms,
+  and thirteen in C++. Lowering 174, 196. A LIBRARY FUNCTION THAT CLANG KNOWS BY NAME has clang's words and its note of
+  the header (1.6.24; `dr_lib_fn/3`, forty of them, each type as clang 23 spells it): `call to undeclared library
+  function 'printf' with type 'int (const char *, ...)'; ...` and `note: include the header <stdio.h> or explicitly
+  provide a declaration for 'printf'`; `puts`, which clang does not know so, keeps a call's words. The driver gate's
+  four bodies. (1.1.2, 1.6.24)
 ### Control flow and defer
 
 - `defer` is scope-bound and static, with no runtime (owner's rule). `ir_defer_push/1` registers a body in its scope's
@@ -13576,17 +13603,20 @@ in the first topic (The ccllib gate).
 - IN C++ A CONST-QUALIFIED PLACE IS NO MODIFIABLE LVALUE EITHER (1.6.23; [expr.ass]/1, [expr.pre.incr]/1;
   `cpp_const_assign/2` in `cpp_assignable/1`): an assignment, a compound assignment and a step of one in the program's
   own code are refused in the desugaring by C's rule over the desugared place (`ir_c_const_place/2`), whose words are
-  clang++'s too -- a const variable, a place through a pointer to const, a const member, a member of a const object,
-  and a reference to const by its own type, `cannot assign to variable 'cr' with const-qualified type 'const int &'`
+  clang++'s too -- a const variable, a place through a pointer to const, a const member, a member of a const object, and
+  a reference to const by its own type, `cannot assign to variable 'cr' with const-qualified type 'const int &'`
   (`cpp_const_words/3`), through a member of it too, `b.data = ...` over `const Buf &b` (1.6.24: the referent's type was
   named, `constrefslot.cpp`'s words, which 1.6.23's net found); each built and ran. A class with a const member assigned
   whole is the deleted copy assignment's words, `object of type 'C' cannot be assigned because its copy assignment
   operator is implicitly deleted` (1.6.24: C's `with const-qualified data member` came first, `delconstassign.cpp`). A
-  constructor's member initializers are the desugaring's own assignments,
-  which pass no assignment's clause; a const global's, a static member's and a static local's dynamic initialization
-  are assignments of its own too, in the walk of the unit's initialization function, which is marked
-  (`cpp_ginit_walk/3`, `'$cpp_in_ginit'`). A place through `this` is the rule below, and a library's body keeps its
-  own. The driver gate's eight bodies. (1.6.23, 1.6.24)
+  constructor's member initializers are the desugaring's own assignments, which pass no assignment's clause; a const
+  global's, a static member's and a static local's dynamic initialization are assignments of its own too, in the walk of
+  the unit's initialization function, which is marked (`cpp_ginit_walk/3`, `'$cpp_in_ginit'`). A place through `this` is
+  the rule below, and a library's body keeps its own. A CONST PLACE THAT A CALL GIVES (1.6.28; `cpp_assignable_named/2`)
+  is clang++'s `cannot assign to return value because function 'operator[]' returns a const value`, by the function's
+  name as the program wrote the call -- a span of const elements, an `operator[]`'s, a member's and a free function's
+  const reference --, where it was C's `read-only variable is not assignable`. The driver gate's eight bodies and six.
+  (1.6.23, 1.6.24, 1.6.28)
 - C++: A CONST MEMBER FUNCTION WRITES NO MEMBER BUT A MUTABLE ONE (1.6.24; [class.this]/1, [dcl.stc]/9; the second clause
   of `cpp_const_assign/2`): in a const member function a write of a member through `this` -- the member, an element of
   an array member, a member of it, a base's member through its subobject (`cpp_this_path/3`, `cpp_member_kept/3`) -- is
@@ -13609,8 +13639,13 @@ in the first topic (The ccllib gate).
   an lvalue of type 'int *'` (a string literal's type its array's, `'const char[4]'`), an integer, a bool or an
   enumerator for a pointer, and `; take the address with &` where an lvalue's address would be the place's type. Each
   built, the address's bits the integer: C's rule is C's alone (`ir_int_ptr_check/4`), since the desugared C mixes the
-  two where C++ means it. A bool takes a pointer; a literal 0, `nullptr` and `NULL` are null pointers. The driver gate's
-  eleven bodies. (1.6.24)
+  two where C++ means it. A bool takes a pointer; a literal 0, `nullptr` and `NULL` are null pointers. A POINTER TO
+  ANOTHER TYPE AND A FLOATING VALUE FOR A POINTER (1.6.28; [conv.ptr]; `cpp_pointees_misfit/2`) are the rule's too, at
+  the three sites: `cannot initialize a variable of type 'int *' with an lvalue of type 'char[4]'`, `incompatible
+  pointer types assigning to 'int *' from 'char *'`, `assigning to 'int *' from incompatible type 'double'`; each built,
+  the last the lowering's `no conversion from`. A void pointee on either side, a base class's and the qualifiers fit: a
+  void pointer for another and a pointer that drops a qualifier are C's, which ccllib's programs and texts are, built as
+  C++ too (Not done). The driver gate's eleven bodies and seven. (1.6.24, 1.6.28)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
@@ -16806,17 +16841,14 @@ Declarations topic of the C++ reader).
    `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no gate's, and
    `gnuasm.c` and `gnuasm.cpp` name its sections and its symbols' underscore without a run there.
 - THE CONSTRAINTS OF A CALL AND OF AN ASSIGNMENT (0.302; the lowering's topics of a call's count and of an integer and a
-  pointer): what is left. POINTERS OF INCOMPATIBLE TYPES are refused in C since 1.6.23 (the lowering's topic). In C++
-  they are not: `f(c)` of `int f(int *)` over a `char` array builds and reads four characters as one `int`, where
-  clang++ says `no matching function for call to 'f'`. A C++ CALL'S MISFIT other than the count and an integer and a
-  pointer -- a struct for a scalar, a `double` for a pointer -- has the words of the road after the overloads, `no
-  conversion from 'S' to 'int'`, where clang++ says `no matching function for call to 'f'`. A FUNCTION DEFINED WITH `()`
-  and called with arguments is taken (undefined behaviour, C17 6.5.2.2/6; clang warns, `too many arguments in call to
-  'f'`): the mark of no prototype does not tell its definition from a declaration. The type a call reads is the table's
-  last of the name, so a call before a later definition with a prototype is held to it (undefined behaviour that clang
-  does not name), and a block's declaration of an unnamed parameter gives place to a later definition's named one in the
-  words, `expected single argument 'a'` for clang's `expected 1, have 2`. WHERE THE SAFE PART REFUSES FIRST its words
-  come first: `char *q = 5; return q == 0;` is `plain pointer not consumed: 'q'`. A qualified C++ call of one function,
+  pointer): what is left. POINTERS OF INCOMPATIBLE TYPES are refused in C since 1.6.23 and in C++ since 1.6.28 (the
+  lowering's topic, the overloads' topic), and so is a C++ call's misfit by its type. A FUNCTION DEFINED WITH `()` and
+  called with arguments is taken (undefined behaviour, C17 6.5.2.2/6; clang warns, `too many arguments in call to 'f'`):
+  the mark of no prototype does not tell its definition from a declaration. The type a call reads is the table's last of
+  the name, so a call before a later definition with a prototype is held to it (undefined behaviour that clang does not
+  name), and a block's declaration of an unnamed parameter gives place to a later definition's named one in the words,
+  `expected single argument 'a'` for clang's `expected 1, have 2`. WHERE THE SAFE PART REFUSES FIRST its words come
+  first: `char *q = 5; return q == 0;` is `plain pointer not consumed: 'q'`. A qualified C++ call of one function,
   `std::printf()`, has clang++'s count words since 1.6.26 (the overloads' topic).
 
 - AN `#include` INSIDE AN ITEM, AND A TABLE'S BOUND (0.310; the Preprocessor's topic of the user's file, the C reader's
@@ -16964,18 +16996,20 @@ Declarations topic of the C++ reader).
   definitions of one name on one line the plain one marks both. A throw caught in a constant evaluation (C++26's P3068)
   and a construction through a VTT (a class with a virtual base, which has no constexpr constructor) are refused in a
   static assertion, as clang++ 22 refuses them: no limit.
-- A NAME OF THE PROGRAM'S OWN HEADER DECLARED AGAIN AS ANOTHER KIND OF SYMBOL IN C++ (0.298's probes, narrowed at 1.6.24,
-  which refuses it among the file's own items): a header's items stand inside its `#include` in the read, and the walk
-  takes the file's own top level alone, so `int t(void);` in the program's header and `int t;` in its file build, where
-  clang++ refuses them; so does a pair in two namespaces' blocks of one namespace.
-- THE OPERANDS OF C++'S BINARY OPERATORS ARE NOT ASKED (1.6.1): the pairs that C refuses in clang's words (the
-  lowering's topic) build in C++ over the operands' bits, as through 1.6.0, since a type that the desugaring gives is
-  not always the program's. The reader types `auto d = p - f()`, whose f's result is `auto`, as p's pointer --
-  `ccl_type_of/2` takes `p - x` for a pointer where x's type is not known -- and libc++ 22's `__to_buffer` writes
-  `auto __diff = __r.ptr - std::to_address(__first); return __first + __diff;`: asked, the rule refused programs over
-  `<format>` that 1.6.0 built, and that print clang++'s lines because the lowering adds the second pointer's bits, the
-  difference that they hold. A rule over the inference's type, `p - x` of no known type where x's is not known, did not
-  cure the reduction and broke another program (HISTORY.md's 1.6.1). `autoptrdiff.cpp` holds the form.
+- A NAME OF THE PROGRAM'S OWN HEADER DECLARED AGAIN AS ANOTHER KIND OF SYMBOL IN C++, WHAT 1.6.28 LEAVES (0.298's probes,
+  narrowed at 1.6.24 and 1.6.28, which refuse it among the file's own items, the program's headers' before them and a
+  namespace's blocks): a clash inside a header of the program's builds, since its line is no line of the file that the
+  words give.
+- THE OPERANDS OF C++'S BINARY OPERATORS ARE NOT ALL ASKED (1.6.1, narrowed at 1.6.28, which asks the pairs that no
+  guess makes): two pointers added, two pointers to incompatible types subtracted, and a pointer compared with an
+  integer, which C refuses in clang's words (the lowering's topic), build in C++ over the operands' bits, as through
+  1.6.0, since a type that the desugaring gives is not always the program's. The reader types `auto d = p - f()`, whose
+  f's result is `auto`, as p's pointer -- `ccl_type_of/2` takes `p - x` for a pointer where x's type is not known -- and
+  libc++ 22's `__to_buffer` writes `auto __diff = __r.ptr - std::to_address(__first); return __first + __diff;`: asked,
+  the rule refused programs over `<format>` that 1.6.0 built, and that print clang++'s lines because the lowering adds
+  the second pointer's bits, the difference that they hold. A rule over the inference's type, `p - x` of no known type
+  where x's is not known, did not cure the reduction and broke another program (HISTORY.md's 1.6.1). `autoptrdiff.cpp`
+  holds the form.
 
 
 ### libc++ modules
@@ -17105,11 +17139,20 @@ Declarations topic of the C++ reader).
   1.6.22 (`cpp_builtin_op_words/4`, `cpp_cond_bool/2`, the topic of C++'s operators), and a cast of a floating value to
   a pointer and back since 1.6.26 (the lowering's topic of a record for another type); a library's body keeps the terms
   its substitution failures read, `no conversion from 'const double' to 'int *'` of a cast among them.
-- C++: A QUALIFIED MEMBER CALL, WHAT 1.6.27 LEAVES (the topic of methods and calls; a member template named with its
-  class that no count fits has clang++'s words since 1.6.27): a STATIC MEMBER FUNCTION that calls a member that is not
-  static by its class, `static int k() { return S::m(1); }`, builds, where clang++ says `call to non-static member
-  function without an object argument`; and a closure that captured nothing has those words, where clang++ says `'this'
-  cannot be implicitly captured in this context`.
+- C++: A QUALIFIED MEMBER CALL, WHAT 1.6.28 LEAVES (the topic of methods and calls; a member template named with its
+  class that no count fits has clang++'s words since 1.6.27, and a static member function's body since 1.6.28): a
+  closure that captured nothing has the words of a call with no object, where clang++ says `'this' cannot be implicitly
+  captured in this context`.
+- C++: A VOID POINTER FOR ANOTHER AND A POINTER THAT DROPS A QUALIFIER BUILD (found at 1.6.28): `int *p = malloc(4);`,
+  `f(&cx)` of `int f(int *)` over a `const int`, where clang++ says `cannot initialize a variable of type 'int *' with an
+  rvalue of type 'void *'` and `no matching function for call to 'f'`. They are C's, and ccllib's programs, C, are built
+  as C++ too, its modules' texts among them -- 1.6.28's first form refused `visit<show>(*v)` over a const variant and
+  `shared_ptr`'s text, which gives malloc's result to a typed pointer. A rule of C++'s own would tell the program's C++
+  from a C file built as C++.
+- C++: A QUALIFIED CALL BESIDE A LOCAL POINTER TO A FUNCTION OF ITS NAME CALLS THE LOCAL (found at 1.6.28, by the broken
+  copies of 1.6.27's rule): `int (*k)(int) = dbl; return ::k(6);` calls `dbl`, where clang++ calls the file's `k`. The
+  desugaring flattens the qualified name to the bare one, and the lowering takes a local that is a function or a pointer
+  to one as the callee (`ir_callable_type/1`): there is no node for the file's function beside such a local.
 - A LIBRARY HEADER'S `__FILE__` IS ITS PATH UNDER `$LLVM` (found at 1.6.10): clang++ finds libc++'s headers through its
   binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
   compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints
@@ -17387,11 +17430,10 @@ Declarations topic of the C++ reader).
   initializer, which the desugaring writes as an assignment and so names as one. A call's count and a pointer and an
   integer in each other's place in a call are the overloads' `no matching function for call to 'f'` in C++ (seen at
   1.6.22).
-- C++: A WRITE THROUGH A SPAN OF CONST ELEMENTS (found by 0.295; 1.6.24 refuses a const member function's writes and
-  makes a constexpr pointer const): `c[0] = 7` over a `span<const int>` is the C rule's `read-only variable is not
-  assignable`, where clang++ names the operator's const result. A `mutable` member of a base that is not the primary one
-  is not found, so its write in a const member function builds as a write of any other such base's member does, where
-  clang++ refuses the second. (0.295, 1.6.10, 1.6.22, 1.6.23, 1.6.24)
+- C++: A MUTABLE MEMBER OF A BASE THAT IS NOT THE PRIMARY ONE (found by 0.295; 1.6.24 refuses a const member function's
+  writes and makes a constexpr pointer const, and 1.6.28 names a span's const result as clang++ does): a `mutable`
+  member of a base that is not the primary one is not found, so its write in a const member function builds as a write
+  of any other such base's member does, where clang++ refuses the second. (0.295, 1.6.10, 1.6.22, 1.6.23, 1.6.24)
 - A PAIR'S, A TUPLE'S, AN OPTIONAL'S AND A VARIANT'S RELATIONS OVER A PLAIN STRUCT ARE REFUSED IN THE MODULE'S TEXT (found
   at 0.308): `a == b` over two `variant<point, int>` meets the struct's `==` in the module's function, `variant_point_int_eq`
   in C, where C++ refuses it too, in its own words, since the struct has no `operator==`; and C++'S `*s` OVER A PLAIN

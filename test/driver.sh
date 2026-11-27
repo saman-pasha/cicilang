@@ -308,14 +308,51 @@ intptr4.c:1: error: incompatible pointer to integer conversion assigning to 'lon
 intptr5.c:1: error: incompatible pointer to integer conversion returning 'char *' from a function with result type 'int'
 intptr6.c:1: error: incompatible integer to pointer conversion returning 'int' from a function with result type 'char *'
 intptr7.c:1: error: incompatible pointer to integer conversion passing 'char *' to parameter of type 'enum e'"
-check "... and in C++, a call that no overload fits by its count or by an integer and a pointer, in clang++'s words, another misfit in the words of the road after the overloads, and a call through a pointer of another count (0.302)" "$(n=0; for body in 'static int f(int a, int b) { return a + b; } int main() { return f(1, 2, 3); }' 'static int g(char *p) { return p == 0; } int main() { return g(5); }' 'static int f(int a, int b = 2) { return a * b; } int main() { return f(); }' 'static int f(int a, int b) { return a + b; } int main() { int (*g)(int, int) = f; return g(1); }' 'struct S { int (*op)(int); }; static int one(int a) { return a; } int main() { S s = {one}; return s.op(1, 2); }' 'static int f(int a, int b) { return a + b; } static int f(char *p) { return p != 0; } int main() { return f(5); }' 'static long f(long v) { return v; } int main() { int x = 3; return (int)f(&x); }' 'struct S { int a; }; static int f(int v) { return v; } int main() { S s = {1}; return f(s); }'; do n=$((n + 1)); printf '%s\n' "$body" > callpp$n.cpp; "$ROOT/bin/cicilang++" -c callpp$n.cpp -o callpp$n.o 2>&1 | head -1; done)" "callpp1.cpp:1: error: no matching function for call to 'f'
+check "... and in C++, a call that no overload fits by its count or by an integer and a pointer, in clang++'s words, a struct for an int as the overloads' words too (1.6.28), and a call through a pointer of another count (0.302)" "$(n=0; for body in 'static int f(int a, int b) { return a + b; } int main() { return f(1, 2, 3); }' 'static int g(char *p) { return p == 0; } int main() { return g(5); }' 'static int f(int a, int b = 2) { return a * b; } int main() { return f(); }' 'static int f(int a, int b) { return a + b; } int main() { int (*g)(int, int) = f; return g(1); }' 'struct S { int (*op)(int); }; static int one(int a) { return a; } int main() { S s = {one}; return s.op(1, 2); }' 'static int f(int a, int b) { return a + b; } static int f(char *p) { return p != 0; } int main() { return f(5); }' 'static long f(long v) { return v; } int main() { int x = 3; return (int)f(&x); }' 'struct S { int a; }; static int f(int v) { return v; } int main() { S s = {1}; return f(s); }'; do n=$((n + 1)); printf '%s\n' "$body" > callpp$n.cpp; "$ROOT/bin/cicilang++" -c callpp$n.cpp -o callpp$n.o 2>&1 | head -1; done)" "callpp1.cpp:1: error: no matching function for call to 'f'
 callpp2.cpp:1: error: no matching function for call to 'g'
 callpp3.cpp:1: error: no matching function for call to 'f'
 callpp4.cpp:1: error: too few arguments to function call, expected 2, have 1
 callpp5.cpp:1: error: too many arguments to function call, expected 1, have 2
 callpp6.cpp:1: error: no matching function for call to 'f'
 callpp7.cpp:1: error: no matching function for call to 'f'
-callpp8.cpp:1: error: no conversion from 'S' to 'int'"
+callpp8.cpp:1: error: no matching function for call to 'f'"
+check "C++: a call whose argument fits no candidate by its type is the overloads' words (1.6.28; [conv], [over.best.ics]): a plain struct for a scalar, a floating value and a pointer for each other, a pointer to another type, an integer and another enumeration for an enumeration -- two of them built and read the wrong bits, and the rest had the lowering's words -- after what fits and builds, first: a base's pointer, a void pointer, an added const, a class's conversion" "$(n=0; for src in 'enum E { A, B };
+static int f(E e) { return e; }
+int main() { return f(B) - 1; }' 'static int g(int v) { return v; }
+static int f(int (*p)(int)) { return p(1); }
+int main() { return f(g) - 1; }' 'template <class T> struct W { T v; };
+static int f(W<int> *p) { return p->v; }
+int main() { W<int> w = {0}; return f(&w); }' 'struct B {}; struct D : B {};
+static int f(B *p) { return p != 0; }
+int main() { D d; return f(&d); }' 'static int f(void *p) { return p != 0; }
+int main() { int x = 0; return f(&x); }' 'static int f(int *p) { return p != 0; }
+int main() { void *v = 0; return f((int *)v) + f(static_cast<int *>(v)); }' 'static int f(const int *p) { return p != 0; }
+int main() { int x = 0; return f(&x); }' 'struct S { operator int() const { return 3; } };
+static int f(int v) { return v; }
+int main() { S s; return f(s); }' 'struct S { int a; };
+static int f(int v) { return v; }
+int main() { S s = {1}; return f(s); }' 'static int f(int *p) { return p != 0; }
+int main() { char c[4] = {0}; return f(c); }' 'static int f(const char *p) { return p != 0; }
+int main() { double d = 1; return f(d); }' 'static double f(double v) { return v; }
+int main() { int x = 0; return (int)f(&x); }' 'static int f(long *p) { return p != 0; }
+int main() { int x = 0; return f(&x); }' 'enum E { A };
+static int f(E e) { return e; }
+int main() { return f(1); }' 'enum E { A }; enum F { B };
+static int f(E e) { return e; }
+int main() { return f(B); }'; do n=$((n + 1)); printf "$src\n" > misfit$n.cpp; "$ROOT/bin/cicilang++" -c misfit$n.cpp -o misfit$n.o 2>&1 | head -1; done)" "misfit9.cpp:3: error: no matching function for call to 'f'
+misfit10.cpp:2: error: no matching function for call to 'f'
+misfit11.cpp:2: error: no matching function for call to 'f'
+misfit12.cpp:2: error: no matching function for call to 'f'
+misfit13.cpp:2: error: no matching function for call to 'f'
+misfit14.cpp:3: error: no matching function for call to 'f'
+misfit15.cpp:3: error: no matching function for call to 'f'"
+check "C++: a pointer to another type and a floating value for a pointer, at an initializer, an assignment and a return, in clang++'s words (1.6.28; [conv.ptr]): each built, but the floating value, the lowering's no conversion -- after what C++ takes, first: a base's pointer, a void pointer, an added const, a cast" "$(n=0; for src in 'struct B {}; struct D : B {};
+int main() { D d; B *b = &d; void *v = b; const B *cb = b; return v != cb; }' 'int main() { int x = 0; long *p = (long *)&x; return p != 0; }' 'int main() { char c[4] = {0}; int *p = c; return p != 0; }' 'int main() { char c[4] = {0}; char *q = c; int *p = 0; p = q; return p != 0; }' 'static int *f(char *q) { return q; }
+int main() { return f(0) != 0; }' 'int main() { double d = 1; int *p = &d; return *p; }' 'int main() { int *p = 0; double d = 2; p = d; return 0; }'; do n=$((n + 1)); printf "$src\n" > ptrsite$n.cpp; "$ROOT/bin/cicilang++" -c ptrsite$n.cpp -o ptrsite$n.o 2>&1 | head -1; done)" "ptrsite3.cpp:1: error: cannot initialize a variable of type 'int *' with an lvalue of type 'char[4]'
+ptrsite4.cpp:1: error: incompatible pointer types assigning to 'int *' from 'char *'
+ptrsite5.cpp:1: error: cannot initialize return object of type 'int *' with an lvalue of type 'char *'
+ptrsite6.cpp:1: error: cannot initialize a variable of type 'int *' with an rvalue of type 'double *'
+ptrsite7.cpp:1: error: assigning to 'int *' from incompatible type 'double'"
 check "C++: a qualified call of one function with another count, in clang++'s words by its count, its defaults and its ellipsis (1.6.26): a C function through std:: and ::, a namespace's, one a using names, a static member's -- each was the overloads' no matching function --, an overload set and a bare name as the overloads', a template's misfit by name, and a pointer's count alone" "$(n=0; for src in '#include <cstdio>\nint main() { return std::printf(); }' '#include <cstdio>\nint main() { return std::puts(); }' '#include <cstdio>\nint main() { return std::puts("a", "b"); }' '#include <cstring>\nint main() { return (int)std::strcmp("a"); }' 'namespace n { void f(int); }\nint main() { n::f(); }' 'extern "C" void f(int);\nnamespace n { using ::f; }\nint main() { n::f(); }' 'void f(int a);\nint main() { ::f(); }' 'namespace n { void f(int a, int b); }\nint main() { n::f(1); }' 'namespace n { void f(int a, ...); }\nint main() { n::f(); }' 'namespace n { void f(int a, int b = 2); }\nint main() { n::f(); }' 'namespace n { void f(int a, int b = 2); }\nint main() { n::f(1, 2, 3); }' 'namespace n { void f(int a = 1); }\nint main() { n::f(1, 2); }' 'namespace n { void f(int, int = 2); }\nint main() { n::f(); }' 'namespace n { void f(); }\nint main() { n::f(1); }' 'namespace n { void f(int a); }\nint main() { n::f(1, 2); }' 'namespace n { void f(int a, int b, ...); }\nint main() { n::f(1); }' 'namespace n { void f(int a); void f(double); }\nint main() { n::f(); }' 'void f(int);\nint main() { f(); }' 'namespace n { template <class T> void f(T); }\nint main() { n::f(); }' 'struct S { static int g(int a, int b = 1); };\nint main() { return S::g(); }' 'struct S { static int g(int a, ...); };\nint main() { return S::g(); }' 'struct S { static int g(int a); static int g(double); };\nint main() { return S::g(); }' 'struct S { static int g(int a, int b = 1, int c = 2); };\nint main() { return S::g(1, 2, 3, 4); }' 'static int h(int a, int b) { return a + b; }\nint main() { int (*p)(int, int) = h; return p(1); }'; do n=$((n + 1)); printf "$src\n" > qcount$n.cpp; "$ROOT/bin/cicilang++" -c qcount$n.cpp -o qcount$n.o 2>&1 | head -1; done)" "qcount1.cpp:2: error: too few arguments to function call, at least argument '__format' must be specified
 qcount2.cpp:2: error: too few arguments to function call, single argument '__s' was not specified
 qcount3.cpp:2: error: too many arguments to function call, expected single argument '__s', have 2 arguments
@@ -351,6 +388,91 @@ check "C++: a subscript over a plain struct, in clang++'s words by its left oper
 subrec2.cpp:2: error: type 'int' does not provide a subscript operator
 subrec3.cpp:2: error: no viable overloaded operator[] for type 'int *'
 subrec4.cpp:3: error: type 'S' does not provide a subscript operator"
+check "C++: the operand pairs of a built-in binary operator that no guess of the reader's makes, in clang++'s words (1.6.28; [expr.mul], [expr.add], [expr.shift], [expr.bit.and]): * and / over a pointer, the integer operators over a pointer or a floating value, a pointer and a floating value, an integer less a pointer -- they were type(unknown), LLVM's words or built -- after the pairs that C++ takes, first" "$(n=0; for src in 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p - q); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p + 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(d / 2); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(x %% 3); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(x * 2.0); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p * 2); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p / 2); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p %% 2); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p & 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p | 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p ^ 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p << 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(d %% 2); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(d & 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(d << 1); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(1 << d); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(2 - p); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p + 1.5); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(p - 1.5); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(1.5 + p); return 0; }' 'int main() { int x = 0; int *p = &x, *q = &x; double d = 1.0; (void)(d >> 1); return 0; }'; do n=$((n + 1)); printf "$src\n" > pairs$n.cpp; "$ROOT/bin/cicilang++" -c pairs$n.cpp -o pairs$n.o 2>&1 | head -1; done)" "pairs6.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs7.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs8.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs9.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs10.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs11.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs12.cpp:1: error: invalid operands to binary expression ('int *' and 'int')
+pairs13.cpp:1: error: invalid operands to binary expression ('double' and 'int')
+pairs14.cpp:1: error: invalid operands to binary expression ('double' and 'int')
+pairs15.cpp:1: error: invalid operands to binary expression ('double' and 'int')
+pairs16.cpp:1: error: invalid operands to binary expression ('int' and 'double')
+pairs17.cpp:1: error: invalid operands to binary expression ('int' and 'int *')
+pairs18.cpp:1: error: invalid operands to binary expression ('int *' and 'double')
+pairs19.cpp:1: error: invalid operands to binary expression ('int *' and 'double')
+pairs20.cpp:1: error: invalid operands to binary expression ('double' and 'int *')
+pairs21.cpp:1: error: invalid operands to binary expression ('double' and 'int')"
+check "C++: a const place that a call gives, assigned, in clang++'s words by the function's name (1.6.28; [expr.ass]/1): a span of const elements, an operator[] and a member that give a const reference, a free function's, a compound assignment -- C's read-only words -- after a place that is not const, first" "$(n=0; for src in 'struct V { int &operator[](int i) { static int x = 0; return x; } };
+int main() { V v; v[0] = 7; return v[0] - 7; }' '#include <span>
+int main() { int a[2] = {1, 2}; std::span<const int> c(a); c[0] = 7; return c[0]; }' 'struct V { const int &operator[](int i) const { static int x = 0; return x; } };
+int main() { V v; v[0] = 7; return 0; }' 'struct V { const int &at(int i) const { static int x = 0; return x; } };
+int main() { V v; v.at(0) = 7; return 0; }' 'static const int &g() { static int x = 0; return x; }
+int main() { g() = 3; return 0; }' 'struct V { const int &at(int i) const { static int x = 0; return x; } };
+int main() { V v; v.at(0) += 7; return 0; }' 'struct V { const int &at(int i) const { static int x = 0; return x; } };
+int main() { V v; V *p = &v; p->at(0) = 7; return 0; }'; do n=$((n + 1)); printf "$src\n" > constret$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c constret$n.cpp -o constret$n.o 2>&1 | head -1; done)" "constret2.cpp:2: error: cannot assign to return value because function 'operator[]' returns a const value
+constret3.cpp:2: error: cannot assign to return value because function 'operator[]' returns a const value
+constret4.cpp:2: error: cannot assign to return value because function 'at' returns a const value
+constret5.cpp:2: error: cannot assign to return value because function 'g' returns a const value
+constret6.cpp:2: error: cannot assign to return value because function 'at' returns a const value
+constret7.cpp:2: error: cannot assign to return value because function 'at' returns a const value"
+check "C++: what 1.6.27's broken copies of its rules needed, in clang++'s words (1.6.28): an enumerator named as an argument, through a using of its namespace and to a template, and a function of an anonymous namespace named with its enclosing one and with :: -- which a name that nothing declares took without the guard of an enumerator and of a namespace's key --, then a percent sign written twice before a conversion, and a set with a member template that a plain member's count fits" "$(n=0; for src in 'namespace n { enum C { red = 3 }; }
+static int f(int v) { return v; }
+int main() { using namespace n; return f(red) - 3; }' 'template <class T> int g(T v) { return (int)v; }
+enum C { red = 3 };
+int main() { return g(red) - 3; }' 'namespace app { namespace { int hidden(int x) { return x; } } }
+int main() { return app::hidden(1) - 1; }' 'namespace { int g(int x) { return x; } }
+int main() { return ::g(1) - 1; }' '#include <cstdio>
+static void v() {}
+int main() { printf("%%%%d %%s", v()); return 0; }' 'struct S { static int m(int v) { return v; } template <class T> static int m(T a, T b) { return 0; } };
+int main() { return S::m("x"); }' 'struct S { int m(int v) { return v; } template <class T> int m(T a, T b) { return 0; } int k() { return S::m("x"); } };
+int main() { S s; return s.k(); }'; do n=$((n + 1)); printf "$src\n" > needs8$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c needs8$n.cpp -o needs8$n.o 2>&1 | head -1; done)" "needs85.cpp:3: error: cannot pass expression of type 'void' to variadic function; expected type from format string was 'char *'
+needs86.cpp:2: error: no matching function for call to 'm'
+needs87.cpp:1: error: no matching member function for call to 'm'"
+check "C++: a static member function's body names no this, no member that is not static and calls no member function that is not static, in clang++'s words (1.6.28; [class.static.mfct]/2, [expr.prim.this]/3, [expr.prim.id.general]/4): bare, named with its class or a base, defined out of its class, a member object and a pointer member called, a template's -- each built, the call with a null this -- after what C++ takes, first: an object's member, a static member, an unevaluated operand, a lambda's and a local class's own members, a pointer to member, a base's static member, an empty one's too" "$(n=0; for src in 'struct S { int m(int v) { return v; } static int k(S &s) { return s.m(1); } static int j() { S s; return S::k(s); } };
+int main() { return S::j() - 1; }' 'struct S { static int n(int v) { return v; } static int k() { return S::n(1) + n(0); } };
+int main() { return S::k() - 1; }' 'struct S { int m(int v) { return v; } int k() { return S::m(1); } };
+int main() { S s; return s.k() - 1; }' 'struct S { int a = 1; static int k() { return sizeof(a); } };
+int main() { return S::k() - 4; }' 'struct S { static int n; static int k() { return n + S::n; } };
+int S::n = 1;
+int main() { return S::k() - 2; }' 'struct S { int a = 1; static int k() { auto l = [](S &s) { return s.a; }; S s; return l(s); } };
+int main() { return S::k() - 1; }' 'struct S { int a = 1; static int k() { struct L { int b = 2; int g() { return b + this->b; } }; L l; return l.g(); } };
+int main() { return S::k() - 4; }' 'struct S { int a = 1; static int k() { return decltype(a)(1); } };
+int main() { return S::k() - 1; }' 'struct S { int a = 1; static int k() { S s; return s.a + sizeof(S::a); } };
+int main() { return S::k() - 5; }' 'template <class T> struct W { T a{}; int m() { return 1; } static int k() { W w; return w.m(); } };
+int main() { return W<int>::k() - 1; }' 'struct S { int m() { return 1; } static int k() { return (&S::m != nullptr) ? 1 : 0; } };
+int main() { return S::k() - 1; }' 'struct B { static int m(int v) { return v; } };
+struct S : B { static int k() { return S::m(1) + m(1) + B::m(1); } };
+int main() { return S::k() - 3; }' 'struct E { static int m(int v) { return v; } };
+template <class C> struct H : protected E { static int k(C c) { return m((int)c); } };
+int main() { return H<char>::k(1) - 1; }' 'struct S { int m(int v) { return v; } static int k() { return S::m(1); } };
+int main() { return S::k() - 1; }' 'struct S { int m(int v) { return v; } static int k() { return m(1); } };
+int main() { return S::k() - 1; }' 'struct S { int a = 1; static int k() { return a; } };
+int main() { return S::k() - 1; }' 'struct S { int a = 1; static int k() { return S::a; } };
+int main() { return S::k() - 1; }' 'struct S { int a = 1; static int k() { return this->a; } };
+int main() { return S::k() - 1; }' 'struct B { int m(int v) { return v; } };
+struct S : B { static int k() { return B::m(1); } };
+int main() { return S::k() - 1; }' 'struct S { int m(int v) { return v; } static int k(); };
+int S::k() { return m(1); }
+int main() { return S::k() - 1; }' 'struct S { struct F { int operator()(int v) const { return v; } } f; static int k() { return f(1); } };
+int main() { return S::k() - 1; }' 'template <class T> struct W { T a; static int k() { return a; } };
+int main() { return W<int>::k(); }' 'struct S { virtual int m() { return 1; } static int k() { return m(); } };
+int main() { return S::k() - 1; }' 'struct S { int (*p)(int) = nullptr; static int k() { return p(1); } };
+int main() { return S::k(); }' 'struct B { int m(int v) { return v; } };
+struct S : B { static int k() { return S::m(1); } };
+int main() { return S::k() - 1; }'; do n=$((n + 1)); printf "$src\n" > statics$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c statics$n.cpp -o statics$n.o 2>&1 | head -1; done)" "statics14.cpp:1: error: call to non-static member function without an object argument
+statics15.cpp:1: error: call to non-static member function without an object argument
+statics16.cpp:1: error: invalid use of member 'a' in static member function
+statics17.cpp:1: error: invalid use of member 'a' in static member function
+statics18.cpp:1: error: invalid use of 'this' outside of a non-static member function
+statics19.cpp:2: error: call to non-static member function without an object argument
+statics20.cpp:2: error: call to non-static member function without an object argument
+statics21.cpp:1: error: invalid use of member 'f' in static member function
+statics22.cpp:1: error: invalid use of member 'a' in static member function
+statics23.cpp:1: error: call to non-static member function without an object argument
+statics24.cpp:1: error: invalid use of member 'p' in static member function
+statics25.cpp:2: error: call to non-static member function without an object argument"
 check "C++: a void value through a local's or a member's pointer or reference to a function, as an argument, in clang++'s words (1.6.27): a bare name's overloading takes no candidate, where the lowering worded it as a parameter's initialization, and a qualified name's and an ellipsis's keep their words" "$(n=0; for src in 'static void h() {}
 static int g(int a) { return a; }
 int main() { void (*fp)() = h; return g(fp()); }' 'static void h() {}
@@ -671,6 +793,36 @@ kind7.cpp: builds
 kind8.cpp: builds
 kind9.cpp: builds
 kind10.cpp: builds"
+check "C++: a name of the file scope or of a namespace declared again as another kind of symbol, through the program's own header and through two blocks of a namespace, in clang++'s words (1.6.28; [basic.scope.declarative]/4, [namespace.def]/2): each built -- after what C++ takes, first: a pair in two namespaces, a struct's tag and an object, a header's declaration and the file's definition" "$(printf 'int t(void);\n' > kind1.h; printf 'int t;\n' > kind2.h; printf 'struct q { int a; };\n' > kind3.h; printf 'int u(int);\n' > kind4.h; printf '#include "kind1.h"\n' > kind5.h; printf 'extern "C" { int t(void); }\n' > kind6.h; n=0; for src in 'namespace n { int t; }
+namespace m { int t(); }
+int main() { return 0; }' '#include "kind3.h"
+int q;
+int main() { return 0; }' '#include "kind4.h"
+int u(int a) { return a; }
+int main() { return u(0); }' '#include "kind1.h"
+int t;
+int main() { return 0; }' '#include "kind2.h"
+int t(void);
+int main() { return 0; }' 'namespace n { int t(); }
+namespace n { int t; }
+int main() { return 0; }' 'namespace n { int t; }
+namespace n { int t(); }
+int main() { return 0; }' 'namespace n { int t; int t(); }
+int main() { return 0; }' 'namespace n { namespace in { int t; } int t(); }
+int main() { return 0; }' 'namespace n { enum E { t }; }
+namespace n { int t(); }
+int main() { return 0; }' '#include "kind5.h"
+int t;
+int main() { return 0; }' '#include "kind6.h"
+int t;
+int main() { return 0; }'; do n=$((n + 1)); printf "$src\n" > kind$n.cpp; "$ROOT/bin/cicilang++" -c kind$n.cpp -o kind$n.o 2>&1 | head -1; done)" "kind4.cpp:2: error: redefinition of 't' as different kind of symbol
+kind5.cpp:2: error: redefinition of 't' as different kind of symbol
+kind6.cpp:2: error: redefinition of 't' as different kind of symbol
+kind7.cpp:2: error: redefinition of 't' as different kind of symbol
+kind8.cpp:1: error: redefinition of 't' as different kind of symbol
+kind10.cpp:2: error: redefinition of 't' as different kind of symbol
+kind11.cpp:2: error: redefinition of 't' as different kind of symbol
+kind12.cpp:2: error: redefinition of 't' as different kind of symbol"
 # C: A LIBRARY FUNCTION THAT NOTHING DECLARES HAS CLANG'S WORDS AND ITS NOTE OF THE HEADER (1.6.24; dr_lib_fn/3), the
 # type as clang 23 spells it; a name that clang does not know so has a call's words
 check "C: a library function that nothing declares is refused in clang's words, with the header in a note (1.6.24)" "$(n=0; for c in 'printf("x")' 'exit(0)' 'double d = sqrt(2.0); (void)d' 'puts("x")'; do n=$((n + 1)); printf 'int main(void) {\n  %s;\n  return 0;\n}\n' "$c" > lib$n.c; "$CICILI" -fsyntax-only lib$n.c 2>&1 | grep -v '^cicilang:'; done)" "lib1.c:2: error: call to undeclared library function 'printf' with type 'int (const char *, ...)'; ISO C99 and later do not support implicit function declarations

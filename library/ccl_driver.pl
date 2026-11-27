@@ -432,6 +432,7 @@ dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_value_text(W, Ps), !, dr_err
 dr_diag(F, not_lowered(ptr_conversion(K, Site, A, B)), where(_, line(L))) :- !, dr_int_conv_site(Site, A, B, Ps), ( K == function -> W = 'incompatible function pointer types ' ; W = 'incompatible pointer types ' ), dr_error(F, L, [W|Ps]).   % C: pointers of incompatible types, in clang's words (1.6.23, ir_ptr_clash/4)
 dr_diag(F, not_lowered(no_viable_assign(Op)), where(_, line(L))) :- !, dr_error(F, L, ['no viable overloaded ''', Op, '''']).   % C++: an assignment over a class that no operator= takes (1.6.24)
 dr_diag(F, not_lowered(site_conversion(S, A, B, H)), where(_, line(L))) :- !, dr_site_words(S, A, B, Ps0), ( H == remove_amp -> append(Ps0, ['; remove &'], Ps) ; Ps = Ps0 ), dr_error(F, L, Ps).   % C: a value of another type at a site, in clang's words (1.6.26)
+dr_diag(F, not_lowered(incompatible_ptr_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['incompatible pointer types assigning to ''', A, ''' from ''', B, '''']).   % C++: a pointer to another type (1.6.28)
 dr_diag(F, not_lowered(incompatible_assign(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['assigning to ''', A, ''' from incompatible type ''', B, '''']).   % C++: an array or a function for an integer (1.6.24)
 dr_diag(F, not_lowered(init_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize a variable of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
 dr_diag(F, not_lowered(return_mismatch(A, Cat, B)), where(_, line(L))) :- !, dr_error(F, L, ['cannot initialize return object of type ''', A, ''' with an ', Cat, ' of type ''', B, '''']).
@@ -516,7 +517,10 @@ dr_value_text(void_cast(K, B), [S, ' from ''void'' to ''', B, ''' is not allowed
 dr_value_text(void_cast_pointer(B), ['cannot cast from type ''void'' to pointer type ''', B, '''']).
 dr_value_text(no_member_in(F, global), ['no member named ''', F, ''' in the global namespace']).   % C++'s qualified name that nothing declares (1.6.27)
 dr_value_text(no_member_in(F, ns(T)), ['no member named ''', F, ''' in namespace ''', T, '''']).
+dr_value_text(const_return(F), ['cannot assign to return value because function ''', F, ''' returns a const value']).   % C++ (1.6.28)
 dr_value_text(nonstatic_no_object, ['call to non-static member function without an object argument']).   % C++ (1.6.26)
+dr_value_text(static_this, ['invalid use of ''this'' outside of a non-static member function']).   % C++ (1.6.28)
+dr_value_text(static_member_use(N), ['invalid use of member ''', N, ''' in static member function']).   % C++ (1.6.28)
 dr_value_text(this_not_captured, ['''this'' cannot be implicitly captured in this context']).
 dr_value_text(no_subscript(T), ['type ''', T, ''' does not provide a subscript operator']).   % C++'s subscript over a plain struct (1.6.26)
 dr_value_text(no_viable_subscript(T), ['no viable overloaded operator[] for type ''', T, '''']).

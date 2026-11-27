@@ -112,6 +112,8 @@ cpp_kind_clashes([unit(Is)|Us]) :- !, cpp_kind_walk(Is, [], _), cpp_redef_walk(I
 cpp_kind_clashes([_|Us]) :- cpp_kind_clashes(Us).
 cpp_kind_walk([], K, K).
 cpp_kind_walk([extern_c(_, Js)|Is], K0, K) :- !, cpp_kind_walk(Js, K0, K1), cpp_kind_walk(Is, K1, K).
+cpp_kind_walk([include(_, local(_), file(P, _, unit(Js)))|Is], K0, K) :- atom(P), \+ cpp_system_path(P), !, cpp_kind_seed(Js, K0, K1), cpp_kind_walk(Is, K1, K).   % THE PROGRAM'S OWN HEADER (1.6.28): its items noted first
+cpp_kind_walk([namespace(_, Nm, Js)|Is], K0, K) :- atom(Nm), is_list(Js), !, cpp_kind_walk_ns([Nm], Js, K0, K1), cpp_kind_walk(Is, K1, K).   % A NAMESPACE'S ITEMS (1.6.28), its blocks one scope
 cpp_kind_walk([I|Is], K0, K) :- findall(N-Kd-L, cpp_item_kind(I, N, Kd, L), NKs), cpp_kind_note(NKs, K0, K1), cpp_kind_walk(Is, K1, K).
 cpp_item_kind(function(L, _, _, N, _, _, _), N, fn, L) :- atom(N).
 cpp_item_kind(template(_, _, function(L, _, _, N, _, _, _)), N, fn, L) :- atom(N).
@@ -119,8 +121,23 @@ cpp_item_kind(declaration(L, _, B, Vs), N, Kd, L) :- ( member(var(N, T, _), Vs),
 cpp_item_kind(declare(L, B), N, enumerator, L) :- cpp_base_enumerator(B, N).
 cpp_item_kind(typedef(L, Vs), N, type, L) :- member(var(N, _, _), Vs), atom(N).
 cpp_base_enumerator(base(_, [enum(_, Es)]), N) :- is_list(Es), member(enumerator(N, _), Es), atom(N).
+%% ... A HEADER OF THE PROGRAM'S OWN, `#include "h.h"', is noted before the items after it, with no refusal of its own --
+%% its clash would stand at a line of the header, which the words give for the file (1.6.28): `int t(void);' in the header
+%% and `int t;' in the file built, where clang++ refuses the file's at its line
+cpp_kind_seed([], K, K).
+cpp_kind_seed([I|Is], K0, K) :- ( I = include(_, local(_), file(P, _, unit(Js))), atom(P), \+ cpp_system_path(P) -> cpp_kind_seed(Js, K0, K1)
+    ; I = extern_c(_, Js) -> cpp_kind_seed(Js, K0, K1)
+    ; findall(N-Kd, cpp_item_kind(I, N, Kd, _), NKs), foldl(cpp_kind_first, NKs, K0, K1) ), cpp_kind_seed(Is, K1, K).
+cpp_kind_first(N-Kd, K0, K) :- ( memberchk(N-_, K0) -> K = K0 ; K = [N-Kd|K0] ).
+%% ... AND A NAMESPACE'S, ITS BLOCKS ONE SCOPE (1.6.28; [namespace.def]/2: a namespace's later blocks extend it): each name
+%% keyed by its namespace, `ns([n], t)', and refused by its own name, `int t();' in one block of n and `int t;' in another
+%% as in one, which built; a nested namespace is its own scope
+cpp_kind_walk_ns(_, [], K, K).
+cpp_kind_walk_ns(P, [namespace(_, Nm, Js)|Is], K0, K) :- atom(Nm), is_list(Js), !, append(P, [Nm], P1), cpp_kind_walk_ns(P1, Js, K0, K1), cpp_kind_walk_ns(P, Is, K1, K).
+cpp_kind_walk_ns(P, [extern_c(_, Js)|Is], K0, K) :- !, cpp_kind_walk_ns(P, Js, K0, K1), cpp_kind_walk_ns(P, Is, K1, K).
+cpp_kind_walk_ns(P, [I|Is], K0, K) :- findall(ns(P, N)-Kd-L, cpp_item_kind(I, N, Kd, L), NKs), cpp_kind_note(NKs, K0, K1), cpp_kind_walk_ns(P, Is, K1, K).
 cpp_kind_note([], K, K).
-cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> throw(error(not_lowered(kind_redefinition(N)), where(file, line(L)))) ; true ),   % before the desugaring's state: no trace to note it in
+cpp_kind_note([N-Kd-L|T], K0, K) :- ( memberchk(N-Kd0, K0), Kd0 \== Kd -> ( N = ns(_, N1) -> true ; N1 = N ), throw(error(not_lowered(kind_redefinition(N1)), where(file, line(L)))) ; true ),   % before the desugaring's state: no trace to note it in
     ( memberchk(N-_, K0) -> K1 = K0 ; K1 = [N-Kd|K0] ), cpp_kind_note(T, K1, K).
 %% ... AND A SECOND DEFINITION (1.6.24; [basic.def.odr]/1: no translation unit holds two definitions of a variable, a
 %% function, a class or an enumeration), in clang++'s words, `redefinition of 'f'': a function of one name and one list of
