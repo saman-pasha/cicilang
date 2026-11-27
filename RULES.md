@@ -7651,15 +7651,24 @@ is in `test/cpp/run/`.
   takes another count of arguments, or has a parameter that is a pointer for an integer argument that is no null pointer
   constant, or an integer (no `bool`) for a pointer, an array or a function (`cpp_int_ptr_misfit/2`) -- `no matching
   function for call to 'f'`, clang++'s words for an unqualified call. The road after `cpp_fn_best/4` took such a call as
-  C takes one: `f(1, 2, 3)` of `int f(int, int)` handed its third argument on as a variadic tail, `g(5)` of `int g(char
-  *)` passed the pointer 5, and `f()` of `int f(int a, int b = 2)` passed nothing for `a`. THE OTHER MISFITS OF AN
-  ARGUMENT BY ITS TYPE are the rule's too (1.6.28; [conv], [over.best.ics]; `cpp_type_misfit_pair/2`,
+  C takes one: `f(1, 2, 3)` of `int f(int, int)` handed its third argument on as a variadic tail, `g(5)` of `int
+  g(char *)` passed the pointer 5, and `f()` of `int f(int a, int b = 2)` passed nothing for `a`. THE OTHER MISFITS OF
+  AN ARGUMENT BY ITS TYPE are the rule's too (1.6.28; [conv], [over.best.ics]; `cpp_type_misfit_pair/2`,
   `cpp_misfit_kinds/3`), and the rule is asked after the best overload's choice, which took the only candidate: a plain
   struct, or a class with no conversion function, for a scalar, a floating value and a pointer for each other, a pointer
   to another object type, its qualifiers aside, and an integer or another enumeration for an enumeration -- `f(c)` of
   `int f(int *)` over a char array built and read four characters as one int, `f(1)` of `int f(E)` built, and the rest
-  were the lowering's `no conversion from 'S' to 'int'`; the driver gate's twelve bodies. A CAPTURELESS GENERIC LAMBDA'S
-  CLOSURE converts out (1.6.31; `cpp_converts_out/1` over `cpp_generic_closure/1`), and THE DESUGARING'S OWN CALL OF AN
+  were the lowering's `no conversion from 'S' to 'int'`; the driver gate's twelve bodies. AN RVALUE FOR A NON-CONST
+  LVALUE REFERENCE is a misfit of the rule since 1.6.49 ([dcl.init.ref]/5; `cpp_rvalue_lref_pair/2`,
+  `cpp_binds_rvalue/1`): a prvalue or an xvalue of a scalar or a pointer type -- a literal, a call's value,
+  `static_cast<int &&>(a)` -- for `int &`, `int *&`, `int (&)[3]` or `volatile int &` is clang++'s `no matching function
+  for call to 'r'`. Each built, the reference bound to a temporary, and the array's met LLVM's parser, `invalid cast
+  opcode for cast from 'i32' to '[3 x i32]'`. A const reference, `const int &`, `int *const &` or `const char (&)[6]`
+  for a string literal, binds the rvalue, and an argument of a class is not asked: a class's prvalue may give an lvalue
+  through its conversion function, `operator int &()`. A call whose arguments bind its references takes an earlier road
+  of the desugaring, so that no lvalue reaches the rule; the driver gate's two checks hold seven refused bodies and an
+  lvalue of every form beside a const reference's rvalues, run as clang++'s. A CAPTURELESS GENERIC LAMBDA'S CLOSURE
+  converts out (1.6.31; `cpp_converts_out/1` over `cpp_generic_closure/1`), and THE DESUGARING'S OWN CALL OF AN
   ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is no program's call (1.6.31; `cpp_alloc_sym/3` in
   `cpp_no_overload_fits/2`): 1.6.28's nets found `genericfp.cpp`'s `apply([](auto v) { return v * 3; }, 5)` and
   `alignnew.cpp`'s `delete[] w` over the program's aligned `operator delete[]`, which hands its alignment as an integer,
@@ -17379,16 +17388,18 @@ Declarations topic of the C++ reader).
   the desugaring's since 1.6.24, over the file's own items and, since 1.6.42, its own headers' as the run kept them: a
   namespace's two definitions are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own
   since 1.6.38.)
-- C++: WHAT 1.6.44 FOUND BESIDE GCC'S `error` (the C reader's topic of the attribute, the overloads' topic). A PRVALUE
-  FOR A NON-CONST LVALUE REFERENCE PARAMETER ([dcl.init.ref]/5: such a reference binds an lvalue alone), `r(0)` or
-  `r(g())` of `void r(int &)` over `int g()` and `r(0)` of `void r(int *&)`, builds, where clang++ says `no matching
-  function for call to 'r'`; of a reference to an array, `void r(int (&a)[3])`, it meets LLVM's parser, `invalid cast
-  opcode for cast from 'i32' to '[3 x i32]'`. 1.6.6 refuses it for a free operator's parameter alone. A CALL OF A
-  FUNCTION THAT THE PROGRAM DECLARES `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor
-  waits, where clang++ makes it a plain call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's
-  `error` on such a function is refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in
-  GCC's `error` words, where clang++ names the template's instance, `std::__1::basic_string<char,
-  std::__1::char_traits<char>, std::__1::allocator<char>>&`.
+- C++: WHAT 1.6.44 FOUND BESIDE GCC'S `error` (the C reader's topic of the attribute, the overloads' topic; narrowed at
+  1.6.49, whose rule refuses a prvalue for a free function's non-const lvalue reference). AN RVALUE FOR A `const
+  volatile int &` PARAMETER builds, where clang++ refuses it: the road of a const reference's temporary takes the call
+  before the rule. A MEMBER FUNCTION'S, `s.m(0)` of `void m(int &)`, builds, where clang++ says `non-const lvalue
+  reference to type 'int' cannot bind to a temporary of type 'int'` for one candidate and `no matching member function
+  for call to 'm'` for an overload set. A CALL THAT TWO OVERLOADS FIT ALIKE, `rv(x)` beside `void rv(int)` and `void
+  rv(int &)`, takes the by-value one, where clang++ says `call to 'rv' is ambiguous`. AN ARRAY PRVALUE, `A3{1, 2, 3}`
+  over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. A CALL OF A FUNCTION THAT THE PROGRAM DECLARES
+  `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor waits, where clang++ makes it a plain
+  call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such a function is refused by
+  clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where clang++ names the
+  template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>&`.
 - C++: A CONST OBJECT OF A CLASS WITH NO INITIALIZER BUILDS (found at 1.6.43, whose rule takes the types that are no
   class; the C reader's topic): `struct P { int a; }; const P pp;` is clang++'s `default initialization of an object of
   const type 'const P' without a user-provided default constructor`, where a class with a user-provided default

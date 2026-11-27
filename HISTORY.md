@@ -365,6 +365,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.46 | the object's CPU is clang's default | an object's CPU is clang's default for its triple, the host's on -march=native, and -march= and -mcpu= name it as clang takes them (reader 221, lowering 213) |
 | 1.6.47 | clang's library builtins in C, and their counts in C++ | `__builtin_memcpy`, `__builtin_floor` and kin are the C library's functions with no declaration, the math ones that clang lowers so LLVM's intrinsics; C++ declares them and counts their arguments (reader 221, lowering 214) |
 | 1.6.48 | the CPU flags as clang reads them | -mcpu= on x86 is clang's error, -march= on aarch64 gives clang 23's features of the architecture, what clang refuses is refused in its words, and a flag's error stops the build; the chain over 1.6.47 (reader 221, lowering 214) |
+| 1.6.49 | C++: an rvalue for a non-const lvalue reference | a prvalue or an xvalue for a free function's non-const lvalue reference parameter is clang++'s no matching function; it bound a temporary (reader 221, lowering 215) |
 
 ## M5 — the C++ mode
 
@@ -27149,3 +27150,53 @@ strict GREEN. No CI job ran, by the owner's rule of 0.271.
   CLAUDE.md (the versions).
 
 The module 1.6.48, the reader 221 and the lowering 214.
+
+## 1.6.49 — C++: an rvalue for a non-const lvalue reference
+
+**1.6.49: at the user's word "then next", after 1.6.48: a part of Not done's record of what 1.6.44 found beside GCC's
+`error` closed against clang++ 23 -- a prvalue for a non-const lvalue reference parameter, which built -- and four forms
+beside it recorded. The step was committed with its nets and its broken copies; the chain ran over 1.6.47's commit
+(1.6.48's entry), and this step claims nothing GREEN of the chain.**
+
+1. C++: AN RVALUE FOR A NON-CONST LVALUE REFERENCE PARAMETER MISFITS (lowering 215; `cpp_rvalue_lref_pair/2` in
+   `cpp_int_ptr_misfit/2`, `cpp_binds_rvalue/1`; [dcl.init.ref]/5): a prvalue or an xvalue of a scalar or a pointer type
+   -- a literal, a call's value, `static_cast<int &&>(a)` -- for `int &`, `int *&`, `int (&)[3]` or `volatile int &` is
+   clang++'s `no matching function for call to 'r'`, where every overload misfits so (`cpp_no_overload_fits/2`). Each
+   built, the reference bound to a temporary, and the array's met LLVM's parser, `invalid cast opcode for cast from
+   'i32' to '[3 x i32]'`; 1.6.6 refused it for a free operator's parameter alone. A const reference, `const int &`, `int
+   *const &` or `const char (&)[6]` for a string literal, binds the rvalue, and an argument of a class is not asked,
+   since a class's prvalue may give an lvalue through its conversion function, `operator int &()`. The lowering's
+   version moves, since a kept IR of such a call would be served still.
+2. FOUND: an rvalue for a `const volatile int &` builds, since the road of a const reference's temporary takes the call
+   before the rule; a member function's, `s.m(0)` of `void m(int &)`, builds, where clang++ says `non-const lvalue
+   reference to type 'int' cannot bind to a temporary of type 'int'`; a call that two overloads fit alike, `rv(x)`
+   beside `void rv(int)` and `void rv(int &)`, takes the by-value one, where clang++ says `call to 'rv' is ambiguous`;
+   and an array prvalue, `A3{1, 2, 3}` over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. Not done
+   records them.
+
+The driver gate's two checks hold item 1: seven bodies refused as clang++ 23 refuses them, and a program of every
+lvalue's form -- a name, a reference's call, an element, a member through `.` and `->`, a dereference, a conditional, an
+assignment, a prefix step, parentheses, an operator's reference result, a cast to the reference, a reference's name, an
+rvalue reference's name, a class's prvalue through its conversion -- beside a const reference's and a const pointer
+reference's rvalues and an overload by value, built and run as clang++'s.
+
+THE NETS. Over the copy: the flow gate GREEN in 963 s, the reader gate GREEN in 5 s (173 ok), the compile gate GREEN in
+38 s (483 ok), the driver gate GREEN in 293 s (204 ok); the pool of 107 C++ run fixtures that the rule can reach, each
+built as the C++ gate builds it over a HOME of its own, 107 the same, in 230 s. The first pool, before the array clause
+came back, was 106 of 107, `strlit.cpp` refused (below); the reader and the compile gate, which read C alone, ran before
+it. THE BROKEN COPIES: nine, each run from a copy of the copy over a fresh HOME. Six were caught by the two checks: the
+rule out of the misfits, the const test always and never, a class's argument asked, the pointer's const and the
+reference's type. LR6, which took the array clause of the const test away, was caught by no check, and the clause was
+taken out; the C++ pool then found `strlit.cpp`'s `len("hello")` of `int len(const char (&a)[6])` refused, `no matching
+function for call to 'len'` -- a string literal for a const reference to an array, which binds it. The clause is back,
+and the C++ gate's `strlit.cpp` holds it. LR2, which took the test of an lvalue away, and LR5, which took the test of
+`volatile` beside `const` away, were caught by nothing: a call whose arguments bind its references takes an earlier road
+of the desugaring, so that no lvalue reaches the rule, and the road of a const reference's temporary takes a `const
+volatile` one; both tests stay, the rule's guards should a call reach it so, and this entry records them. Over the work
+tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_cpp_expr.pl` (`cpp_int_ptr_misfit/2`, `cpp_rvalue_lref_pair/2`, `cpp_binds_rvalue/1`);
+  `library/ccl_ir.pl` (the lowering 215); `test/driver.sh` (two checks); the module's version.
+- RULES.md (the rule in the overloads' topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.49, the reader 221 and the lowering 215.

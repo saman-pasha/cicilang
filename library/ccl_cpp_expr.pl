@@ -1294,7 +1294,7 @@ cpp_names_overloads(N) :- ( catch(cpp_template(N, _, _), _, fail) -> true ; find
 cpp_void_to_ellipsis(N, K) :- ( catch('$cpp_fn'(N, _, Ps, _, O), _, fail), cpp_fn_variadic(O) ; catch(ccl_declared(N, fn(_, Ps, V)), _, fail), ( V == true ; nonvar(V), V = q(W, _), W == true ) ),
     length(Ps, NP), NP < K, !.
 cpp_int_ptr_misfit([P|Ps], [A|As]) :-
-    (   ( P = param(PT0, _) ; P = param(PT0, _, _) ), ( catch(cpp_int_ptr_pair(PT0, A), _, fail) ; catch(cpp_type_misfit_pair(PT0, A), _, fail) ) -> true
+    (   ( P = param(PT0, _) ; P = param(PT0, _, _) ), ( catch(cpp_int_ptr_pair(PT0, A), _, fail) ; catch(cpp_type_misfit_pair(PT0, A), _, fail) ; catch(cpp_rvalue_lref_pair(PT0, A), _, fail) ) -> true
     ;   cpp_int_ptr_misfit(Ps, As) ).
 cpp_int_ptr_pair(PT0, A) :- cpp_param_ref(PT0, PT), \+ cpp_null_to_pointer(PT, A), ccl_resolve_type(PT, RT), cpp_arg_type(A, AT), AT \== unknown,
     ccl_unref(AT, AT1), ccl_resolve_type(AT1, RA),
@@ -1318,6 +1318,16 @@ cpp_misfit_kinds(RT, RA, _) :- ccl_is_float(RT), ( RA = ptr(_, _) ; RA = arr(_, 
 cpp_misfit_kinds(ptr(_, P0), RA, _) :- ( RA = ptr(_, A0) ; RA = arr(_, A0) ), ccl_resolve_type(P0, P), ccl_resolve_type(A0, A1), cpp_pointees_misfit(P, A1), !.
 cpp_misfit_kinds(RT, RA, _) :- cpp_enum_type(RT, E), ( cpp_enum_type(RA, E1) -> E1 \== E ; ccl_is_integer(RA) ), !.
 cpp_scalar_kind(R) :- ( R = ptr(_, _) -> true ; R = base(_, S), ( ccl_is_integer(R) ; ccl_is_float(R) ; memberchk(bool, S) ) ), !.
+%% ... AND AN RVALUE FOR A NON-CONST LVALUE REFERENCE (1.6.49; [dcl.init.ref]/5: an lvalue reference to a type that is not const,
+%% or const and volatile, binds an lvalue alone): `r(0)' and `r(g())' of `void r(int &)' over `int g()', `r(std::move(a))', `r(0)'
+%% of `void r(int *&)' and of `void r(int (&)[3])' and of `void r(const volatile int &)' -- a prvalue or an xvalue of a scalar, a
+%% pointer or an array type. They built, the reference bound to a temporary, and the array's met LLVM's parser, `invalid cast
+%% opcode for cast from 'i32' to '[3 x i32]''. An argument of a class is not asked: a class's prvalue may give an lvalue through
+%% its conversion function, `operator int &()'
+cpp_rvalue_lref_pair(PT0, A) :- ccl_resolve_type(PT0, ref(_, T0)), ccl_resolve_type(T0, T), \+ cpp_binds_rvalue(T),
+    cpp_arg_type(A, AT), AT \== unknown, ccl_unref(AT, AT1), \+ cpp_record_type(AT1), \+ cpp_arg_lvalue(A), !.
+cpp_binds_rvalue(arr(_, E0)) :- !, ccl_resolve_type(E0, E), cpp_binds_rvalue(E).
+cpp_binds_rvalue(T) :- ( T = base(Q, _) ; T = ptr(Q, _) ), memberchk(const, Q), \+ memberchk(volatile, Q), !.
 %% ... the pointees, their qualifiers aside: a void pointer for another and a pointer that drops a qualifier are C's, which
 %% ccllib's programs and texts are, built as C++ too -- `visit<show>(*v)' over a const variant handed its address to a plain
 %% pointer, and a module's text gives malloc's result to a typed pointer (Not done)
