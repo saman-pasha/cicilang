@@ -368,6 +368,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.49 | C++: an rvalue for a non-const lvalue reference | a prvalue or an xvalue for a free function's non-const lvalue reference parameter is clang++'s no matching function; it bound a temporary (reader 221, lowering 215) |
 | 1.6.50 | C++: a const object of a class with no initializer | a const object of a class that is not const-default-constructible, with no initializer, is clang++'s words; it built (reader 221, lowering 216) |
 | 1.6.51 | C++: a member's rvalue and an lvalue of another type for an lvalue reference | a member function's rvalue for a non-const lvalue reference, and an lvalue of another type or of more qualifiers for an lvalue reference, are clang++'s words; each built (reader 221, lowering 217) |
+| 1.6.52 | C++: the program's exact overloads ranked by their reference bindings | of the program's own overloads that take the arguments exactly the best by [over.ics.rank]/3.2 is taken, and a call that none is best for is clang++'s ambiguous call; each took the first declared (reader 221, lowering 218) |
 
 ## M5 — the C++ mode
 
@@ -27353,3 +27354,75 @@ work tree after the port: the toolchain check strict GREEN. No CI job ran, by th
 - RULES.md (the rule in the overloads' topic; Not done: two records narrowed), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.51, the reader 221 and the lowering 217.
+
+## 1.6.52 — C++: the program's exact overloads ranked by their reference bindings
+
+**1.6.52: at the user's word "then next", after 1.6.51: two parts of Not done's records closed against clang++ 23 -- of
+two overloads that take an lvalue exactly the less qualified reference, and a call that two overloads fit alike, which
+took the first declared -- a fault of 1.6.50's rule that this step's pool found mended, and three forms beside them
+recorded. The step was committed with its nets and its broken copies; the chain ran over 1.6.47's commit (1.6.48's
+entry), and this step claims nothing GREEN of the chain.**
+
+1. C++: OF THE PROGRAM'S OWN OVERLOADS THAT TAKE THE ARGUMENTS EXACTLY, THE BEST BY THE REFERENCE BINDINGS, OR NONE
+   (lowering 218; `cpp_exact_ranked/4` in `cpp_fn_exact/4`, `cpp_exact_keyed/3`, `cpp_exact_better/3`, `cpp_ics_cmps/4`,
+   `cpp_ics_cmp/4`, `cpp_ics_ref/3`, `cpp_cv_fewer/2`; [over.match.best]/2, [over.ics.rank]/3.2.3 and 3.2.6): each
+   conversion of an exact match is the identity, and one binding is better than another only where both bind references
+   -- an rvalue reference to an rvalue beside an lvalue reference, and a reference to the less qualified of one type.
+   The overload better than every other is taken; else the call is clang++'s `call to 'f' is ambiguous`. `f(const int
+   &)` declared before `f(int &)` took an `int` by the first, and `f(const volatile int &)` before `f(const int &)` so;
+   `f(int)` beside `f(int &)`, `f(const int &)` or `f(int &&)`, `f(S)` beside `f(const S &)`, `volatile int &` beside
+   `const int &`, two parameters that each favour another overload, prototypes, an argument's namespace's overloads and
+   a qualified call's took the first declared or the rvalue reference. A key noted twice, a prototype and its
+   definition, is one function. A set whose every key the program defines is asked; the library's sets are as they were.
+2. C++: ... AND OF THE PROGRAM'S OWN CLASS'S MEMBERS (`cpp_member_exact_ranked/6` in `cpp_method/5`, `cpp_mq/2`,
+   `cpp_mexact_keyed/3`): of the members of one qualification that take the arguments exactly, the best by the same
+   rule, or clang++'s `call to member function 'm' is ambiguous` (`call to 'm' is ambiguous` of a static one) -- through
+   an object and in a member's own call; a const member beside a plain one is chosen by the object as before.
+3. C++: A POINTER IS EXACT FOR A REFERENCE TO ITS TYPE WITH ITS OWN QUALIFIERS ADDED (`cpp_ptr_top_same/2` in
+   `cpp_arg_exact/2`; [over.ics.ref]/1): `f(int *)` beside `f(int *const &)` took an `int *` by the first alone, where
+   clang++ says the call is ambiguous; the program's code alone.
+4. C++: 1.6.50'S RULE ASKS AN OBJECT'S CONST FIRST, AND NO CLASS THAT CANNOT BE LOOKED UP YET
+   (`cpp_const_class_default/2`): the pool of every C++ run fixture found `sentbase.cpp` refused, `not lowered yet:
+   template_without_body(sent)` -- the rule looked up the class of a block's `tv<vec>::sent<true> s0;`, an object that
+   is no const, before the member class template's definition out of its class was there to instantiate. The const test
+   comes first now, and a lookup or a test of the class that is not lowered yet asks nothing; 1.6.50's pools held no
+   such fixture, and the chain over 1.6.47 ran before 1.6.50.
+5. FOUND: an overload of default arguments, `f(int x, int y = 0)` beside `f(int &)`, takes no part in the exact road's
+   ranking, so that `f(a)` takes the reference, where clang++ says `call to 'f' is ambiguous`; two conversions of one
+   rank, `f(long)` beside `f(const long &)` over an `int`, take the first, the plain overloads' road, where clang++ says
+   it is ambiguous; and a using-declaration's overload, `using N::f;` beside `f(int &)`, is another name to the road, so
+   that `f(a)` takes `N::f`. Not done records them.
+
+The driver gate's two checks hold items 1 to 3, and `sentbase.cpp` item 4, each as clang++ 23 refuses or builds it:
+sixteen ambiguous bodies -- twelve free, an argument's namespace's and a qualified call's among them, and four of a
+member -- and a program of the best, run as clang++'s: the less qualified reference declared after the other or before,
+an rvalue reference for an rvalue beside an lvalue one, two parameters of which one tells them apart, a prototype and
+its definition as one function, a pointer's reference, a value beside a reference for an rvalue, a conversion beside an
+exact one, a pointer beside a reference to another pointer type, and a member's, its const overload by the object's
+qualifier. Before the step three of its values were the first declared's.
+
+THE NETS. Over the copy: the flow gate GREEN in 484 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+38 s (483 ok), the driver gate GREEN in 309 s (213 ok); the pool of every C++ run fixture, 930, each built as the C++
+gate builds it over a HOME of its own, 929 the same, in 2213 s, `sentbase.cpp` refused (item 4). After the mend: the
+flow gate GREEN in 1018 s, the driver gate GREEN in 314 s (213 ok), and the pool of 1.6.50's 107 fixtures and
+`sentbase.cpp`, 108 the same, in 214 s. THE BROKEN COPIES: eighteen, each run from a copy of the copy over a fresh HOME
+and asked the step's two checks, 28 s in all; thirteen caught: the ranking taken out of the free road and of the
+member's, the refusal of each turned to the first declared, the rank of an rvalue reference for an rvalue and the rank
+of the qualifiers, the qualifiers' rank turned round, a pointer's own qualifiers, the static member's words, the
+member's qualification, the rule's `better` and its `not worse`, and pointers of another type. Five were caught by
+nothing. RK6 took the deduplication by key away: the comparison leaves out a candidate equal to the best, so that a
+prototype's entry and its definition's are one already; it stays, the words' `one function`. RK7 took away the test that
+every key is the program's own definition, RK8 the library's guard, RK14 the library class's, and RK15 the leaving out
+of an ellipsis twin, which 1.6.38's refusal of a twin comes before: guards, which hold nothing that the checks reach,
+and stay. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of
+0.271.
+
+- `library/ccl_cpp_library.pl` (`cpp_fn_exact/4`, `cpp_exact_ranked/4`, `cpp_exact_keyed/3`, `cpp_exact_better/3`,
+  `cpp_ics_cmps/4`, `cpp_ics_cmp/4`, `cpp_ics_ref/3`, `cpp_cv_fewer/2`, `cpp_arg_exact/2`, `cpp_ptr_top_same/2`);
+  `library/ccl_cpp_overload.pl` (`cpp_method/5`, `cpp_member_exact_ranked/6`, `cpp_mq/2`, `cpp_mexact_keyed/3`);
+  `library/ccl_cpp.pl` (`cpp_const_class_default/2`); `library/ccl_ir.pl` (the lowering 218); `test/driver.sh` (two
+  checks); the module's version.
+- RULES.md (the rule in the overloads' topic, 1.6.50's in the C reader's; Not done: two records narrowed), HISTORY.md,
+  CLAUDE.md (the versions).
+
+The module 1.6.52, the reader 221 and the lowering 218.

@@ -42,8 +42,9 @@ cpp_method(C, M, Args, Name, Hops) :-
     %% where the context is the caller's or none at all -- libc++ gives `operator+=' an overload taking
     %% `initializer_list<value_type>', and scoring it outside the class made an instance keyed by the free name
     %% `value_type'. The rule a member template's signature has had since 0.51, for the plain overloads too.
-    (   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_fit(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) ))
-    ->  cpp_member_va_ambiguous(M, [C1|Cs], Qs1-Ps1), cpp_mangle_q(C, M, Qs1, Ps1, Name), Hops = [], cpp_use_member(C, Name)
+    (   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_fit(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs0-Ps0) ))
+    ->  cpp_member_va_ambiguous(M, [C1|Cs], Qs0-Ps0), cpp_as_callee(C, cpp_member_exact_ranked(C, M, [C1|Cs], Args, Qs0-Ps0, Qs1-Ps1)),
+        cpp_mangle_q(C, M, Qs1, Ps1, Name), Hops = [], cpp_use_member(C, Name)
     ;   cpp_member_template_call(C, M, [], Args, Name) -> Hops = []                              % a member template, deduced from the arguments
     ;   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_no_clash(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) )), cpp_member_va_ambiguous(M, [C1|Cs], Qs1-Ps1)   % THE ARITY ALONE IS THE LAST RESORT, after every template (0.63's rule, which cpp_ctor had and this road did not): basic_string's `compare(const _Tp &)' template takes a string_view, and the arity-only `compare(const basic_string &)' took it first and called itself
     ->  cpp_mangle_q(C, M, Qs1, Ps1, Name), Hops = [], cpp_use_member(C, Name)
@@ -57,6 +58,21 @@ cpp_method(C, M, Args, Name, Hops) :-
 cpp_member_va_ambiguous(M, Cands, Qs1-Ps1) :- cpp_params_key(Ps1, K), member(Q2-P2, Cands), cpp_params_key(P2, K),
     ( memberchk(ellipsis_twin, Qs1) -> \+ memberchk(ellipsis_twin, Q2) ; memberchk(ellipsis_twin, Q2) ), !, cpp_refuse_prog(ambiguous_member(M)).
 cpp_member_va_ambiguous(_, _, _).
+%% ... AND OF THE PROGRAM'S OWN CLASS'S MEMBERS OF ONE QUALIFICATION THAT TAKE THE ARGUMENTS EXACTLY, THE BEST BY
+%% [over.ics.rank]/3.2 OR NONE (1.6.52, cpp_exact_ranked/4): `s.m(a)' beside `int m(int)' and `int m(int &)' took the first,
+%% where clang++ says `call to member function 'm' is ambiguous' (`call to 'm' is ambiguous' of a static one), and `m(const
+%% int &)' declared before `m(int &)' took an `int' by the first
+cpp_member_exact_ranked(C, M, Cands, Args, Q0-P0, Best) :- nb_getval('$cpp_in_lib', no), \+ cpp_lib_class(C), length(Args, N),
+    \+ memberchk(ellipsis_twin, Q0), cpp_mq(Q0, MQ0),
+    findall(K-(Q-P), ( member(Q-P, Cands), \+ memberchk(ellipsis_twin, Q), cpp_mq(Q, MQ0), length(P, N), cpp_exact_params(P, Args), cpp_params_key(P, K) ), KQs0),
+    cpp_mexact_keyed(KQs0, [], KQs), KQs = [_, _|_], memberchk(_-(Q0-P0), KQs), !,
+    (   member(_-(QX-X), KQs), forall(( member(_-(_-Y), KQs), Y \== X ), cpp_exact_better(X, Y, Args)) -> Best = QX-X
+    ;   memberchk(static, Q0) -> cpp_refuse_prog(ambiguous_call(M))
+    ;   cpp_refuse_prog(ambiguous_member(M)) ).
+cpp_member_exact_ranked(_, _, _, _, Best, Best).
+cpp_mq(Q, MQ) :- findall(X, ( member(X, Q), ( X == const ; X == 'volatile' ; X == 'static' ; X = refq(_) ) ), MQ0), msort(MQ0, MQ).
+cpp_mexact_keyed([], Ks, Ks).
+cpp_mexact_keyed([K-QP|Cs], Ks0, Ks) :- ( memberchk(K-_, Ks0) -> Ks1 = Ks0 ; append(Ks0, [K-QP], Ks1) ), cpp_mexact_keyed(Cs, Ks1, Ks).
 %% A DELETED MEMBER THAT THE ARGUMENTS CHOOSE IS REFUSED (0.257; [dcl.fct.def.delete]/2, [over.match]/2): the class's record drops a
 %% member `= delete' (cpp_norm_members_/3), so a call chose among the others -- `s.f(1)' over `void f(int) = delete; int f(long)'
 %% called f(long) and ran. Its deleted members of the name, noted with the class ('$cpp_mem_del'), are ranked beside the

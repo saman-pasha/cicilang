@@ -261,8 +261,10 @@ cpp_const_scalar(base(Q, S)) :- memberchk(const, Q), ( ccl_is_integer(base([], S
 cpp_const_class_defaults(L, Sto, Vs) :- ( Sto \== extern, nb_getval('$cpp_in_lib', no), member(var(N, T, none), Vs), atom(N), cpp_const_class_default(T, W) -> cpp_refuse(L, W) ; true ).
 cpp_const_class_default(T0, W) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail),
     ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail), K = array ; E = R, K = object ),
-    E = base(Q, S), ( memberchk(struct(_, _), S) -> true ; memberchk(union(_, _), S) -> true ; cpp_class_of_type(E, _) ), memberchk(const, Q),
-    \+ cpp_const_constructible(E), cpp_const_class_words(T0, E, A),
+    E = base(Q, S), memberchk(const, Q),   % THE CONST TEST FIRST, AND A CLASS THAT CANNOT BE LOOKED UP YET IS NOT ASKED (1.6.52): a block's `tv<vec>::sent<true> s0;' was
+    %% `not lowered yet: template_without_body(sent)', the class of an object that is no const looked up before the member template's out-of-class definition
+    ( memberchk(struct(_, _), S) -> true ; memberchk(union(_, _), S) -> true ; catch(cpp_class_of_type(E, _), error(not_lowered(_), _), fail) ),
+    \+ catch(cpp_const_constructible(E), error(not_lowered(_), _), true), cpp_const_class_words(T0, E, A),
     ( K == array -> W = default_const_init(A) ; W = default_const_class(A) ).
 %% the type as clang++ names it: its own spelling, and a template's instance, which that spelling does not name, by its class
 cpp_const_class_words(T0, E, A) :- ( catch(ir_type_aka(T0, A0), _, fail), atom(A0) -> A = A0 ; cpp_class_of_type(E, C), dr_class_spelled(C, A1), atom_concat('const ', A1, A) ).

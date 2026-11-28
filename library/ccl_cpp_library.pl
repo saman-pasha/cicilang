@@ -28,7 +28,7 @@ cpp_builtin_word(W) :- memberchk(W, [void, char, short, int, long, float, double
 %% to any template), else the one whose parameters fit best (cpp_pick, the methods')
 cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
     findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
-    cpp_prefer_rvalue(Cs1, C1, As, Ps), cpp_fn_defined(F, Ps, D), !.
+    ( cpp_exact_ranked(F, As, Cs, Ps1) -> Ps = Ps1 ; cpp_prefer_rvalue(Cs1, C1, As, Ps) ), cpp_fn_defined(F, Ps, D), !.
 %% A PLAIN OVERLOAD'S PARAMETERS NAME NO FREE TEMPLATE PARAMETER (0.136): a template's raw signature among the noted
 %% overloads of a name (`duration<_Rep, _Period> abs(duration<_Rep, _Period>)' beside `int abs(int)') is the template's
 %% to deduce; resolved here, it instantiated `duration' over the free names, and ratio's arithmetic over `_Period::num'
@@ -46,6 +46,33 @@ cpp_prefer_rvalue([C|Cs], Best, As, Out) :- ( cpp_rvalue_binds(C, As, K1), cpp_r
 cpp_rvalue_binds([], [], 0).
 cpp_rvalue_binds([P|Ps], [A|As], K) :- ( P = param(T, _) ; P = param(T, _, _) ), !, ( T = rref(_, _), \+ cpp_arg_lvalue(A) -> K1 = 1 ; K1 = 0 ), cpp_rvalue_binds(Ps, As, K0), K is K0 + K1.
 cpp_rvalue_binds(_, _, 0).
+%% OF THE PROGRAM'S OWN OVERLOADS THAT TAKE THE ARGUMENTS EXACTLY, THE BEST BY [over.ics.rank]/3.2, OR NONE (1.6.52): each
+%% conversion is the identity, and one binding is better than another only where both bind references -- an rvalue
+%% reference to an rvalue beside an lvalue reference (/3.2.3), and a reference to the less qualified of one type
+%% (/3.2.6). `f(const int &)' declared before `f(int &)' took an `int' by the first, where clang++ takes the second; `f(int)'
+%% beside `f(int &)', `f(const int &)' or `f(int &&)', and `f(S)' beside `f(const S &)', took the first declared or the
+%% rvalue reference, where clang++ says `call to 'f' is ambiguous'. A key noted twice, a prototype and its definition, is
+%% one function; a set whose every key the program defines is asked, the library's sets as they were
+cpp_exact_ranked(F, As, Cs, Ps) :- nb_getval('$cpp_in_lib', no), cpp_exact_keyed(Cs, [], Ks), Ks = [_, _|_],
+    forall(member(K-_, Ks), '$cpp_fn'(F, K, _, _, own(_))),
+    (   member(_-X, Ks), forall(( member(_-Y, Ks), Y \== X ), cpp_exact_better(X, Y, As)) -> Ps = X
+    ;   cpp_refuse_prog(ambiguous_call(F)) ).
+cpp_exact_keyed([], Ks, Ks).
+cpp_exact_keyed([C|Cs], Ks0, Ks) :- cpp_params_key(C, K), ( memberchk(K-_, Ks0) -> Ks1 = Ks0 ; append(Ks0, [K-C], Ks1) ), cpp_exact_keyed(Cs, Ks1, Ks).
+cpp_exact_better(X, Y, As) :- cpp_ics_cmps(X, Y, As, Rs), \+ memberchk(worse, Rs), memberchk(better, Rs), !.
+cpp_ics_cmps([P|Ps], [Q|Qs], [A|As], [R|Rs]) :- !, ( P = param(PT, _) ; P = param(PT, _, _) ), !, ( Q = param(QT, _) ; Q = param(QT, _, _) ), !,
+    cpp_ics_cmp(PT, QT, A, R), cpp_ics_cmps(Ps, Qs, As, Rs).
+cpp_ics_cmps(_, _, _, []).
+cpp_ics_cmp(PT, QT, A, R) :- cpp_ics_ref(PT, KP, RP), cpp_ics_ref(QT, KQ, RQ), !,
+    (   KP == rref, KQ == ref, \+ cpp_arg_lvalue(A) -> R = better
+    ;   KP == ref, KQ == rref, \+ cpp_arg_lvalue(A) -> R = worse
+    ;   KP == KQ, cpp_cv_quals(RP, QP), cpp_cv_quals(RQ, QQ), cpp_cv_fewer(QP, QQ) -> R = better
+    ;   KP == KQ, cpp_cv_quals(RP, QP), cpp_cv_quals(RQ, QQ), cpp_cv_fewer(QQ, QP) -> R = worse
+    ;   R = same ).
+cpp_ics_cmp(_, _, _, same).
+cpp_ics_ref(T0, K, R) :- cpp_type_or_self(T0, T1), catch(once(ccl_resolve_type(T1, T)), _, fail),
+    ( T = ref(_, R0) -> K = ref ; T = rref(_, R0) -> K = rref ), catch(once(ccl_resolve_type(R0, R)), _, fail).
+cpp_cv_fewer(Q1, Q2) :- forall(member(Q, Q1), memberchk(Q, Q2)), member(Q, Q2), \+ memberchk(Q, Q1), !.
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
     findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
     cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
@@ -89,7 +116,7 @@ cpp_arg_exact(PT, A) :- ccl_type_of(A, AT), ccl_resolve_type(AT, fn(R2, Ps2, V2)
 cpp_arg_exact(PT0, A) :- ccl_type_of(A, AT), AT \== unknown,
     cpp_type_or_self(PT0, PT),                                                              % the parameter as WRITTEN, resolved: a program's `operator<<(std::ostream &, const P &)' is noted raw, and `std::ostream' is nothing to the inference
     ccl_unref(PT, PT1), ccl_unref(AT, AT1), ccl_resolve_type(PT1, R1), ccl_resolve_type(AT1, R2),
-    cpp_bare_type(R1, B1), cpp_bare_type(R2, B2), ( B1 == B2 -> true ; cpp_memptr_key_same(B1, B2) ),
+    cpp_bare_type(R1, B1), cpp_bare_type(R2, B2), ( B1 == B2 -> true ; cpp_memptr_key_same(B1, B2) -> true ; cpp_ptr_top_same(R1, R2) ),
     \+ cpp_category_mismatch(PT, A),                                                          % an rvalue reference takes no lvalue ([dcl.init.ref]/5; 0.122)
     \+ cpp_lref_drops_cv(PT, R1, R2, A).                                                      % ... and a non-const one no object of more qualifiers, a const object's member among them (1.6.51)
 %% A NON-CONST LVALUE REFERENCE IS NO EXACT MATCH FOR AN OBJECT OF MORE QUALIFIERS (1.6.51; [dcl.init.ref]/5): `r(a)' of
@@ -101,6 +128,10 @@ cpp_lref_drops_cv(PT, R1, R2, _) :- nb_getval('$cpp_in_lib', no), PT = ref(_, _)
 %% over a `const P p' took the exact road and built (cpp_obj_const/2, as cpp_arg_type/2 reads it; a mutable member is not)
 cpp_lref_drops_cv(PT, R1, R2, A) :- nb_getval('$cpp_in_lib', no), PT = ref(_, _), ( A = member(_, _) ; A = arrow(_, _) ), \+ cpp_type_const(R2),
     catch(cpp_obj_const(A, const), _, fail), catch(ccl_add_quals([const], R2, R2c), _, fail), cpp_lref_dropped(R1, R2c, [_|_]), !.
+%% ... AND A POINTER IS ITS TYPE, ITS OWN QUALIFIERS ASIDE (1.6.52; [over.ics.ref]/1 binds `int *const &' to an `int *'
+%% directly): the program's `f(int *)' beside `f(int *const &)' took an `int *' by the first alone, where clang++ says
+%% `call to 'f' is ambiguous'; the qualifiers that a reference would drop are cpp_lref_drops_cv/3's
+cpp_ptr_top_same(ptr(_, P1), ptr(_, P2)) :- nb_getval('$cpp_in_lib', no), P1 == P2, !.
 cpp_bare_type(base(_, S), base([], S1)) :- !, cpp_canon_specs(S, S1).   % `unsigned' IS `unsigned int', `long' `long int': one spelling, or the member `operator<<(unsigned int)' was no exact match for an `unsigned' and the free `unsigned char' template took it
 cpp_bare_type(T, T).
 cpp_canon_specs(S, S1) :- ( cpp_int_spelling(S, S0) -> S1 = S0 ; msort(S, S1) ).
