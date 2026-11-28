@@ -354,6 +354,7 @@ cpp_obj_const(Obj, K) :- ( ccl_type_of(Obj, T), T \== unknown -> ( cpp_type_cons
 %% ... unless the member is a REFERENCE, whose referent keeps its own constness; a member the class's own list does not hold (a base's) inherits
 cpp_member_own_const(ptr(P), M, K) :- !, ( ccl_type_of(P, T), T \== unknown, ccl_resolve_type(T, ptr(_, PT)), cpp_class_of_type(PT, C) -> cpp_member_own_const_(C, M, K) ; K = inherit ).
 cpp_member_own_const(obj(O), M, K) :- ( cpp_class_of_type_of(O, C) -> cpp_member_own_const_(C, M, K) ; K = inherit ).
+cpp_member_own_const_(C, M, nonconst) :- nb_getval('$cpp_in_lib', no), catch(cpp_class(C, cls(_, _, Ms, _, _, _)), _, fail), memberchk(mutable(M), Ms), !.   % a MUTABLE member is no const object's ([dcl.stc]/10; 1.6.51): 1.6.51's rule refused `r(p.v)' of `void r(int &)' over a `const P p' and a `mutable int v'
 cpp_member_own_const_(C, M, K) :- ( cpp_class_l(C, cls(_, Data, _, _, _)), member(member(T, M, _), Data), ( T = ref(_, _) ; T = rref(_, _) ) -> ( cpp_type_const(T) -> K = const ; K = nonconst ) ; K = inherit ).
 cpp_ptr_const(P, K) :- ( ccl_type_of(P, T), T \== unknown, ccl_resolve_type(T, ptr(_, PT)) -> ( cpp_type_const(PT) -> K = const ; K = nonconst ) ; K = none ).
 cpp_type_const(base(Q, _)) :- memberchk(const, Q), !.
@@ -404,6 +405,7 @@ cpp_param_ref(T0, T) :- ( catch(cpp_type(T0, T1), _, fail) -> true ; T1 = T0 ), 
 cpp_param_ref_(T0, T) :- \+ ( T0 = ref(_, _) ; T0 = rref(_, _) ), ccl_resolve_type(T0, R), ( R = ref(_, _) ; R = rref(_, _) ), !, T = R.
 cpp_param_ref_(T, T).
 cpp_arg_fit_(PT, A, 0) :- cpp_category_mismatch(PT, A), !.                                    % an rvalue reference binds no lvalue, a plain one no rvalue
+cpp_arg_fit_(PT, A, 0) :- nb_getval('$cpp_in_lib', no), ( catch(cpp_rvalue_lref_pair(PT, A), _, fail) ; catch(cpp_lvalue_lref_pair(PT, A), _, fail) ), !.   % ... a non-const lvalue reference no rvalue, and an lvalue reference no lvalue of another type or of more qualifiers (1.6.51): `f(a)' over a `const int a' took `f(int &)' before `f(long)', and `f(0)' `f(int *&)'
 cpp_arg_fit_(PT, A, S) :- cpp_fn_template_ref(A, F), !, ( cpp_fn_target(PT, FnT), cpp_target_deduces(F, FnT) -> S = 3 ; S = 0 ).   % a template's name: exact where the parameter's target type deduces it, no fit otherwise
 cpp_arg_fit_(PT, init(Items), S) :- !, ccl_unref(PT, PT1),                                   % A BRACED LIST fits a class it constructs (an aggregate, or a constructor over its items) and an initializer_list<T> whose every item fits T; nothing else ([over.ics.list])
     (   cpp_class_of_type(PT1, C)
@@ -482,7 +484,7 @@ cpp_pointee_kind(T, class(N)) :- ccl_resolve_type(T, base(_, [union(N, _)])), at
 cpp_pointee_kind(T, arith) :- ccl_resolve_type(T, R), ccl_is_arith(R), !.
 cpp_pointee_kind(_, other).   % A POINTER TO A CLASS TAKES A POINTER TO THAT CLASS OR A CLASS DERIVED FROM IT ([conv.ptr]; 0.94): any class pointer took any, so libc++ 18's `__has_destroy<allocator<__tree_node>, string *>' held, `allocator<__tree_node>::destroy(__tree_node *)' ran the NODE's destructor on the string's address, and the string it destroyed lay eight bytes past the block (stdset3, a set of strings, nondeterministic)
 cpp_category_mismatch(rref(_, _), A) :- cpp_arg_lvalue(A), !.   % an lvalue by its desugared form too, a member of an xvalue none (0.121)
-cpp_category_mismatch(ref(Q, base(Q2, _)), A) :- \+ memberchk(const, Q), \+ memberchk(const, Q2), \+ cpp_lvalue(A), \+ A = move(_), !.
+cpp_category_mismatch(ref(Q, base(Q2, _)), A) :- \+ memberchk(const, Q), ( \+ memberchk(const, Q2) ; memberchk(volatile, Q2), nb_getval('$cpp_in_lib', no) ), \+ cpp_lvalue(A), \+ A = move(_), !.   % a `const volatile' one binds no rvalue either ([dcl.init.ref]/5; 1.6.51): `r(0)' of `void r(const volatile int &)' took the exact road
 %% a reference parameter takes the object: `move(x)' handed to `C &&' is x itself (its address), the move being the callee's
 cpp_ref_args(Name, As, As1) :- ccl_declared(Name, fn(_, Ps, _)), !, ( cpp_raw_params(Ps) -> As1 = As ; cpp_ref_args_(Ps, As, As1) ).   % the table's ONE type of a name may be a template's raw signature (`abs' after <chrono>): no pass is read off it (0.136)
 cpp_ref_args(Name, As, As1) :- atom(Name), cpp_callee_params(id(Name), Ps), !, cpp_ref_args_(Ps, As, As1).   % a pointer or a reference to function named by a local, a parameter or a global

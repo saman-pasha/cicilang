@@ -367,6 +367,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.48 | the CPU flags as clang reads them | -mcpu= on x86 is clang's error, -march= on aarch64 gives clang 23's features of the architecture, what clang refuses is refused in its words, and a flag's error stops the build; the chain over 1.6.47 (reader 221, lowering 214) |
 | 1.6.49 | C++: an rvalue for a non-const lvalue reference | a prvalue or an xvalue for a free function's non-const lvalue reference parameter is clang++'s no matching function; it bound a temporary (reader 221, lowering 215) |
 | 1.6.50 | C++: a const object of a class with no initializer | a const object of a class that is not const-default-constructible, with no initializer, is clang++'s words; it built (reader 221, lowering 216) |
+| 1.6.51 | C++: a member's rvalue and an lvalue of another type for an lvalue reference | a member function's rvalue for a non-const lvalue reference, and an lvalue of another type or of more qualifiers for an lvalue reference, are clang++'s words; each built (reader 221, lowering 217) |
 
 ## M5 — the C++ mode
 
@@ -27258,3 +27259,97 @@ the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
 - RULES.md (the rule in the C reader's topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.50, the reader 221 and the lowering 216.
+
+## 1.6.51 — C++: a member's rvalue and an lvalue of another type for an lvalue reference
+
+**1.6.51: at the user's word "then next", after 1.6.50: a part of Not done's record of what 1.6.44 found beside GCC's
+`error` closed against clang++ 23 -- a member function's rvalue for a non-const lvalue reference, and an rvalue for a
+`const volatile int &` -- with the lvalue of another type or of more qualifiers that the probes found beside them, which
+built for a free function too, a const object's member among them, and six forms beside them recorded. The step was
+committed with its nets and its broken copies; the chain ran over 1.6.47's commit (1.6.48's entry), and this step claims
+nothing GREEN of the chain.**
+
+1. C++: A MEMBER FUNCTION'S RVALUE FOR A NON-CONST LVALUE REFERENCE IS clang++'s WORDS (lowering 217;
+   `cpp_member_lref_check/4` after the defaults of the member and arrow roads, the static's qualified call and a
+   member's own call, `cpp_lref_misfit/5`, `cpp_lref_words/5`; [dcl.init.ref]/5): `s.m(0)` of `void m(int &)`, through
+   `.`, `->`, `S::m(0)` and a member's `m(3)`, is `non-const lvalue reference to type 'int' cannot bind to a temporary
+   of type 'int'` where the class has the one member of the name -- `volatile lvalue reference to type 'const volatile
+   int' ...` where the reference is volatile (`cpp_lref_word/2`) -- and `no matching member function for call to 'm'`
+   where it has more. Each built, the reference bound to a temporary.
+2. C++: AN RVALUE FOR A `const volatile` LVALUE REFERENCE MISFITS (`cpp_category_mismatch/2`): `r(0)` of `void r(const
+   volatile int &)` took the exact road, the reference const, and built, where clang++ says `no matching function for
+   call to 'r'`; beside `f(long)` it takes that one, and a const volatile reference's lvalues bind it still.
+3. C++: AN LVALUE OF ANOTHER TYPE OR OF MORE QUALIFIERS FOR AN LVALUE REFERENCE MISFITS (`cpp_lvalue_lref_pair/2` in
+   `cpp_int_ptr_misfit/2`, `cpp_lvalue_lref_kind/3`, `cpp_lref_related/2`, `cpp_lref_similar/2`, `cpp_deep_unqual/2`,
+   `cpp_lref_dropped/3`, `cpp_cv_quals/2`; `cpp_lref_drops_cv/3` in `cpp_arg_exact/2`; a fit of 0 in `cpp_arg_fit_/3`):
+   an lvalue reference binds an lvalue of its own type with no fewer qualifiers, and a const one, not volatile, a
+   temporary of an unrelated type, which an object of its own type with more qualifiers is not. `r(a)` of `void r(double
+   &)` over an `int a` bound the int's bytes as a double, and `long long &` over a long, `int &` over a `const int`, an
+   `unsigned`, an enumeration and a float's `double &`, `const int &` over a `volatile int`, `int *&` over an `int
+   *const` and over an array, `const int *&` over an `int *`, `char (&)[4]` over a string literal and `int (&)[3]` over
+   an `int[4]` built: clang++'s `no matching function for call to 'r'`. A member's is clang++'s words of its kind --
+   `... cannot bind to a value of unrelated type 'int'`, `binding reference of type 'int' to value of type 'const int'
+   drops 'const' qualifier`, `drops 'const volatile' qualifiers` for two, of an array for a const reference `reference
+   to type 'const int[3]' could not bind to an lvalue of type 'volatile int[3]'`, of a pointer whose lower levels'
+   qualifiers differ, `const int *&` over an `int *`, `binding reference of type 'const int *' to value of type 'int *'
+   not permitted due to incompatible qualifiers` ([conv.qual]/2), and a volatile reference's `volatile lvalue reference
+   to type 'volatile int' cannot bind to a value of unrelated type 'long'`. The exact road took an object of more
+   qualifiers, the bare types alike, and the ranking took `f(int &)` before `f(long)` for a `const int` and `f(int *&)`
+   before `f(long)` for `f(0)`: each misfit is a fit of 0 now. A class on either side is not asked: a derived class
+   binds its base's reference, and a class converts by its functions. The program's code alone, as the misfits' rule.
+4. C++: A MEMBER OF A CONST OBJECT IS CONST TO THE RULE, A MUTABLE ONE NOT (`cpp_lref_drops_cv/4` in `cpp_arg_exact/2`,
+   `cpp_member_own_const_/3`; [expr.ref]/6.2, [dcl.stc]/10): `r(p.v)` of `void r(int &)` over a `const P p`, through a
+   pointer to const, a const reference and a member of a member, took the exact road, the inference's type of the member
+   not const, and built, where clang++ says `no matching function for call to 'r'`; a const member function's own member
+   is so too. The rule's first form took a mutable member of a const object as const, `cpp_obj_const/2` knowing no
+   `mutable(N)` mark, and refused a program that clang++ builds; a mutable member is the object's own now, in the
+   program's code.
+5. FOUND: a lambda's call, `l(a)` of `[](int &x)` over a long, builds, where clang++ says `no matching function for call
+   to object of type '(lambda at ...)'`; a template's, `f(a, b)` of `template <class T> void f(T &, int &)` over a long,
+   is `not lowered yet: argument_mismatch`; of two overloads that take an lvalue exactly, `f(const int &)` declared
+   before `f(int &)`, the first takes an `int`, where clang++ takes the less qualified ([over.ics.rank]/3.2.6); and a
+   candidate whose argument misfits is ranked still, its fit 0 beside an ellipsis's, so that `f(a)` of `f(double &)`
+   beside `f(...)` over an `int a` takes the first, where clang++ takes the ellipsis -- of a member, `s.m(a)` of
+   `m(double &)` beside `m(...)`, the rule refuses it, `no matching member function for call to 'm'`, where it built and
+   bound an int's bytes; and a scalar lvalue for a non-const reference to a class, `f(x)` of `void f(S &)` over an `int
+   x`, builds, where clang++ says `no matching function for call to 'f'`: the rule asks no class on the parameter's side
+   (BL16, below). Not done records them, and the cause of 1.6.50's `static constexpr int x;`: the reader gives such a
+   member `const` for `constexpr`.
+
+The driver gate's six checks hold items 1 to 4, each as clang++ 23 refuses or builds it: eight bodies of a member's
+rvalue, an overload by value beside the reference run, 30 bodies of an lvalue of another type or of more qualifiers and
+of an rvalue for a volatile reference -- fourteen of a free function, sixteen of a member -- and a program of the
+lvalues that bind, run as clang++'s: an overload that drops a qualifier lost to one by value and to the const one, a
+volatile reference, a const array's, a typedef's, a function's, a base's, a const reference's temporary of another type,
+`int64_t`'s and `long int`'s, an enumeration's, a reference's name, an element, a member's own call, `f(int *&)` and
+`f(const volatile int &)` beside `f(long)` for `f(0)`, a const volatile reference's lvalues, and a const reference to a
+pointer of fewer qualifiers; eight bodies of a const object's member, free and member, and a program of mutable members
+of const objects and of a const member function's members, run as clang++'s.
+
+THE NETS. Over the copy: the flow gate GREEN in 1022 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+38 s (483 ok), the driver gate GREEN in 309 s (211 ok); the pool of 88 C++ run fixtures whose functions take a
+reference, each built as the C++ gate builds it over a HOME of its own, 88 the same, in 269 s. THE BROKEN COPIES:
+thirty, each run from a copy of the copy over a fresh HOME and asked the step's six checks, 125 s in all; 26 caught. The
+member's road (BM1 to BM6: each of the four roads' calls, the overload set's words, the rvalue's kind) and the lvalue's
+rule (BL1 to BL8, BL10 to BL15, BL17 to BL20, BL22 and BL23: the misfit's pair, the related types always and never, the
+volatile qualifier, the arrays' clauses, the count of an array, an array's qualifiers, the words of an array's lvalue,
+the fit of 0 and its rvalue's half, the exact road's qualifiers, the plural of the qualifiers, the words of an unrelated
+type, the class on the argument's side, the similar pointers and their lower levels, the volatile reference's words, the
+const volatile rvalue, a const object's member and the mutable member) were each caught. Four were caught by nothing.
+BL9 took the test of an lvalue away from the lvalue's kind: the rvalue's pair is asked first wherever the kind is, so
+that no rvalue reaches it; the test stays, its guard. BL16 took the test of a class on the parameter's side away: no
+check holds a scalar for a class's non-const reference, which the rule leaves (item 5); the test stays, for the probe
+that would ask it is a pool of its own. BL21 and BL24 took the library's guards away, of the const volatile rvalue and
+of the mutable member; they hold nothing that the checks reach, and stay, as the misfits' rules keep theirs. Over the
+work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_cpp_expr.pl` (`cpp_int_ptr_misfit/2`, `cpp_binds_rvalue/1`, `cpp_lvalue_lref_pair/2`,
+  `cpp_lvalue_lref_kind/3`, `cpp_lref_related/2`, `cpp_lref_similar/2`, `cpp_deep_unqual/2`, `cpp_lref_dropped/3`,
+  `cpp_cv_quals/2`, `cpp_member_lref_check/4`, `cpp_lref_misfit/5`, `cpp_lref_words/5`, `cpp_lref_word/2`, four roads of
+  a member's call); `library/ccl_cpp_library.pl` (`cpp_arg_exact/2`, `cpp_lref_drops_cv/4`);
+  `library/ccl_cpp_overload.pl` (`cpp_arg_fit_/3`, `cpp_category_mismatch/2`, `cpp_member_own_const_/3`);
+  `library/ccl_driver.pl` (six texts); `library/ccl_ir.pl` (the lowering 217); `test/driver.sh` (six checks); the
+  module's version.
+- RULES.md (the rule in the overloads' topic; Not done: two records narrowed), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.51, the reader 221 and the lowering 217.

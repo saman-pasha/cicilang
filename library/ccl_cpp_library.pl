@@ -90,7 +90,17 @@ cpp_arg_exact(PT0, A) :- ccl_type_of(A, AT), AT \== unknown,
     cpp_type_or_self(PT0, PT),                                                              % the parameter as WRITTEN, resolved: a program's `operator<<(std::ostream &, const P &)' is noted raw, and `std::ostream' is nothing to the inference
     ccl_unref(PT, PT1), ccl_unref(AT, AT1), ccl_resolve_type(PT1, R1), ccl_resolve_type(AT1, R2),
     cpp_bare_type(R1, B1), cpp_bare_type(R2, B2), ( B1 == B2 -> true ; cpp_memptr_key_same(B1, B2) ),
-    \+ cpp_category_mismatch(PT, A).                                                          % an rvalue reference takes no lvalue ([dcl.init.ref]/5; 0.122)
+    \+ cpp_category_mismatch(PT, A),                                                          % an rvalue reference takes no lvalue ([dcl.init.ref]/5; 0.122)
+    \+ cpp_lref_drops_cv(PT, R1, R2, A).                                                      % ... and a non-const one no object of more qualifiers, a const object's member among them (1.6.51)
+%% A NON-CONST LVALUE REFERENCE IS NO EXACT MATCH FOR AN OBJECT OF MORE QUALIFIERS (1.6.51; [dcl.init.ref]/5): `r(a)' of
+%% `void r(int &)' over a `const int a' took the exact road, the bare types alike, and built, and so did `const int &' over a
+%% `volatile int'; the general road's misfit
+%% (cpp_lvalue_lref_pair/2) is clang++'s `no matching function for call to 'r''. The program's code alone
+cpp_lref_drops_cv(PT, R1, R2, _) :- nb_getval('$cpp_in_lib', no), PT = ref(_, _), cpp_lref_dropped(R1, R2, [_|_]), !.
+%% ... A MEMBER OF A CONST OBJECT IS CONST ([expr.ref]/6.2), which the inference's type is not: `r(p.v)' of `void r(int &)'
+%% over a `const P p' took the exact road and built (cpp_obj_const/2, as cpp_arg_type/2 reads it; a mutable member is not)
+cpp_lref_drops_cv(PT, R1, R2, A) :- nb_getval('$cpp_in_lib', no), PT = ref(_, _), ( A = member(_, _) ; A = arrow(_, _) ), \+ cpp_type_const(R2),
+    catch(cpp_obj_const(A, const), _, fail), catch(ccl_add_quals([const], R2, R2c), _, fail), cpp_lref_dropped(R1, R2c, [_|_]), !.
 cpp_bare_type(base(_, S), base([], S1)) :- !, cpp_canon_specs(S, S1).   % `unsigned' IS `unsigned int', `long' `long int': one spelling, or the member `operator<<(unsigned int)' was no exact match for an `unsigned' and the free `unsigned char' template took it
 cpp_bare_type(T, T).
 cpp_canon_specs(S, S1) :- ( cpp_int_spelling(S, S0) -> S1 = S0 ; msort(S, S1) ).

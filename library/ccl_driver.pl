@@ -678,6 +678,11 @@ dr_value_text(void_value(new_value, B), ['cannot initialize a new value of type 
 dr_value_text(void_value(return_object, B), ['cannot initialize return object of type ''', B, ''' with an rvalue of type ''void''']).
 dr_value_text(void_value(parameter, B), ['cannot initialize a parameter of type ''', B, ''' with an rvalue of type ''void''']).
 dr_value_text(default_const_init(A), ['default initialization of an object of const type ''', A, '''']).   % C++: a const object with no initializer (1.6.43)
+dr_value_text(ref_temp_bind(V, R, A), [V, ' lvalue reference to type ''', R, ''' cannot bind to a temporary of type ''', A, '''']).   % C++: a member's rvalue for a non-const lvalue reference, V `non-const' or `volatile' (1.6.51)
+dr_value_text(ref_unrelated_bind(V, R, A), [V, ' lvalue reference to type ''', R, ''' cannot bind to a value of unrelated type ''', A, '''']).   % ... and its lvalue of another type
+dr_value_text(ref_quals_bind(R, A), ['binding reference of type ''', R, ''' to value of type ''', A, ''' not permitted due to incompatible qualifiers']).   % ... of a pointer's lower qualifiers
+dr_value_text(ref_drops_bind(R, A, Q, N), ['binding reference of type ''', R, ''' to value of type ''', A, ''' drops ''', Q, ''' ', N]).   % ... of more qualifiers
+dr_value_text(ref_lvalue_bind(R, A), ['reference to type ''', R, ''' could not bind to an lvalue of type ''', A, '''']).   % ... an array of more qualifiers for a const reference
 dr_value_text(default_const_class(A), ['default initialization of an object of const type ''', A, ''' without a user-provided default constructor']).   % ... and of a class (1.6.50)
 dr_value_text(constexpr_uninit(N), ['constexpr variable ''', N, ''' must be initialized by a constant expression']).   % ... and a constexpr one
 dr_value_text(param_mismatch(B, Cat, A), ['cannot initialize a parameter of type ''', B, ''' with an ', Cat, ' of type ''', A, '''']).   % C++: a trap's argument (1.6.42)

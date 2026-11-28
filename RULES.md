@@ -7679,9 +7679,33 @@ is in `test/cpp/run/`.
   for a string literal, binds the rvalue, and an argument of a class is not asked: a class's prvalue may give an lvalue
   through its conversion function, `operator int &()`. A call whose arguments bind its references takes an earlier road
   of the desugaring, so that no lvalue reaches the rule; the driver gate's two checks hold seven refused bodies and an
-  lvalue of every form beside a const reference's rvalues, run as clang++'s. A CAPTURELESS GENERIC LAMBDA'S CLOSURE
-  converts out (1.6.31; `cpp_converts_out/1` over `cpp_generic_closure/1`), and THE DESUGARING'S OWN CALL OF AN
-  ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is no program's call (1.6.31; `cpp_alloc_sym/3` in
+  lvalue of every form beside a const reference's rvalues, run as clang++'s. A MEMBER FUNCTION'S RVALUE, AND AN LVALUE
+  OF ANOTHER TYPE OR OF MORE QUALIFIERS, are misfits since 1.6.51 (`cpp_lvalue_lref_pair/2`, `cpp_lvalue_lref_kind/3`,
+  `cpp_lref_related/2`, `cpp_lref_similar/2`, `cpp_lref_dropped/3`; for a member `cpp_member_lref_check/4`,
+  `cpp_lref_misfit/5`, `cpp_lref_words/5`, `cpp_lref_word/2`; `cpp_lref_drops_cv/3` in `cpp_arg_exact/2`; a fit of 0 in
+  `cpp_arg_fit_/3`; a `const volatile` reference's rvalue in `cpp_category_mismatch/2`): an lvalue reference binds an
+  lvalue of its own type with no fewer qualifiers, and a const one, not volatile, a temporary of an unrelated type,
+  which an object of its own type with more qualifiers is not -- `r(a)` of `void r(double &)` over an `int a` bound the
+  int's bytes as a double, and `int &` over a `const int`, `const int &` over a `volatile int`, `const int *&` over an
+  `int *`, `char (&)[4]` over a string literal and `int (&)[3]` over an `int[4]` built. A free function's is `no
+  matching function for call to 'r'`; a member's, through `.`, `->`, a static's qualified call and a member's own call,
+  is clang++'s words of its kind where the class has the one member of the name -- `non-const lvalue reference to type
+  'int' cannot bind to a temporary of type 'int'`, `... to a value of unrelated type 'int'`, `binding reference of type
+  'int' to value of type 'const int' drops 'const' qualifier` (`'const volatile' qualifiers` for two), of an array for a
+  const reference `reference to type 'const int[3]' could not bind to an lvalue of type 'volatile int[3]'`, of a pointer
+  whose lower levels' qualifiers differ ([conv.qual]/2) `binding reference of type 'const int *' to value of type
+  'int *' not permitted due to incompatible qualifiers`, and `volatile lvalue reference to type ...` for a volatile
+  reference's temporary and unrelated type -- and `no matching member function for call to 'm'` where it has more. A
+  `const volatile` reference binds no rvalue either: `r(0)` of `void r(const volatile int &)` took the exact road and
+  built. The exact road took an object of more qualifiers, the bare types alike, and the ranking took `f(int &)` before
+  `f(long)` for a `const int` and `f(int *&)` before `f(long)` for `f(0)`. A class on either side is not asked: a
+  derived class binds its base's reference, and a class converts by its functions. The MEMBER OF A CONST OBJECT is const
+  to the rule, a mutable one not (`cpp_lref_drops_cv/4` in `cpp_arg_exact/2`, `cpp_member_own_const_/3`; [expr.ref]/6.2,
+  [dcl.stc]/10): `r(p.v)` of `void r(int &)` over a `const P p` took the exact road, the inference's type of the member
+  not const, and built; the rule's first form took a mutable member as const and refused a program that clang++ builds.
+  The driver gate's six checks hold 46 refused bodies and three programs run as clang++'s. A CAPTURELESS GENERIC
+  LAMBDA'S CLOSURE converts out (1.6.31; `cpp_converts_out/1` over `cpp_generic_closure/1`), and THE DESUGARING'S OWN
+  CALL OF AN ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is no program's call (1.6.31; `cpp_alloc_sym/3` in
   `cpp_no_overload_fits/2`): 1.6.28's nets found `genericfp.cpp`'s `apply([](auto v) { return v * 3; }, 5)` and
   `alignnew.cpp`'s `delete[] w` over the program's aligned `operator delete[]`, which hands its alignment as an integer,
   refused, `no matching function for call to 'apply'` and `'_ZdaPvmSt11align_val_t'`. 1.6.28's broken copies (1.6.32):
@@ -17401,24 +17425,33 @@ Declarations topic of the C++ reader).
   namespace's two definitions are LLVM's to meet. (A variadic overload beside its plain twin is an overload of its own
   since 1.6.38.)
 - C++: WHAT 1.6.44 FOUND BESIDE GCC'S `error` (the C reader's topic of the attribute, the overloads' topic; narrowed at
-  1.6.49, whose rule refuses a prvalue for a free function's non-const lvalue reference). AN RVALUE FOR A `const
-  volatile int &` PARAMETER builds, where clang++ refuses it: the road of a const reference's temporary takes the call
-  before the rule. A MEMBER FUNCTION'S, `s.m(0)` of `void m(int &)`, builds, where clang++ says `non-const lvalue
-  reference to type 'int' cannot bind to a temporary of type 'int'` for one candidate and `no matching member function
-  for call to 'm'` for an overload set. A CALL THAT TWO OVERLOADS FIT ALIKE, `rv(x)` beside `void rv(int)` and `void
-  rv(int &)`, takes the by-value one, where clang++ says `call to 'rv' is ambiguous`. AN ARRAY PRVALUE, `A3{1, 2, 3}`
-  over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. A CALL OF A FUNCTION THAT THE PROGRAM DECLARES
-  `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor waits, where clang++ makes it a plain
-  call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such a function is refused by
-  clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where clang++ names the
-  template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>&`.
+  1.6.49, whose rule refuses a prvalue for a free function's non-const lvalue reference, and at 1.6.51, whose rule
+  refuses a member's, a `const volatile` reference's rvalue and an lvalue of another type or of more qualifiers). A
+  SCALAR FOR A NON-CONST REFERENCE TO A CLASS, `f(x)` of `void f(S &)` over an `int x`, builds, where clang++ says `no
+  matching function for call to 'f'`: 1.6.51's rule asks no class on the parameter's side. A LAMBDA'S CALL, `l(a)` of
+  `[](int &x)` over a long, builds, where clang++ says `no matching function for call to object of type '(lambda at
+  ...)'`; a template's, `f(a, b)` of `template <class T> void f(T &, int &)` over a long, is `not lowered yet:
+  argument_mismatch`, clang++'s `no matching function for call to 'f'`. OF TWO OVERLOADS THAT TAKE AN LVALUE EXACTLY,
+  `f(const int &)` declared before `f(int &)`, the first takes an `int`, where clang++ takes the less qualified
+  ([over.ics.rank]/3.2.6). A CANDIDATE WHOSE ARGUMENT MISFITS is ranked still, its fit 0 beside an ellipsis's: `f(a)` of
+  `f(double &)` beside `f(...)` over an `int a`, and `f(0)` of `f(int &)` beside it, take the first, where clang++ takes
+  the ellipsis; of a member, `s.m(a)` of `m(double &)` beside `m(...)`, 1.6.51's rule refuses it, `no matching member
+  function for call to 'm'`, where it built and bound an int's bytes. A CALL THAT TWO OVERLOADS FIT ALIKE, `rv(x)`
+  beside `void rv(int)` and `void rv(int &)`, takes the by-value one, where clang++ says `call to 'rv' is ambiguous`. AN
+  ARRAY PRVALUE, `A3{1, 2, 3}` over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. A CALL OF A FUNCTION
+  THAT THE PROGRAM DECLARES `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor waits, where
+  clang++ makes it a plain call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such
+  a function is refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error`
+  words, where clang++ names the template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>,
+  std::__1::allocator<char>>&`.
 - C++: WHAT 1.6.50'S CONST OBJECT OF A CLASS LEAVES (found at 1.6.43; the C reader's topic): a class whose default
   constructor is deleted is the rule's words, where clang++ says `call to deleted constructor of 'const X'`, and one
   with no default constructor `not lowered yet: no_constructor('Y',0)`, where clang++ says `no matching constructor for
   initialization of 'const Y'`; a typedef of an unnamed const struct is named `'CP'`, where clang++ adds `(aka 'const
   struct (unnamed at cc28.cpp:1:15)')`; and a union with a default member initializer is `not lowered yet: class('X2')`,
   a const object of it or not. A static data member declared `static constexpr int x;` in its class, clang++'s
-  `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it builds.
+  `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it builds,
+  and the reader gives such a member `const` for `constexpr` (found at 1.6.51), so that a walk would not see the word.
 - C++: WHAT 1.6.42'S WALK OF A HEADER LEAVES (the C reader's topic of the kinds and of the second definitions). A HEADER
   THAT THE RUN DID NOT RUN IS DESUGARED STILL: a header of the program's own whose guard the file defined first,
   `#define G_H` before `#include "g.h"`, is LLVM's `invalid redefinition of function 'gf'` where the file defines the

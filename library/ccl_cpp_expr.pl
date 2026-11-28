@@ -989,7 +989,7 @@ cpp_call(_, scoped(Path, tmpl(M, TArgs0)), As, E) :- atom(M), cpp_scope_class(Pa
         ( \+ cpp_static_member_template(C, M), nb_getval('$cpp_class_ctx', Ctx), Ctx \== none, cpp_base_hops(Ctx, C, Hops) -> cpp_hops(deref(id(this)), Hops, B), P = addr(B) ; P = nullptr ),   % `Base::f<U>(args)' inside the class: this through the base sub-objects (0.73's rule for a plain method), null for a static
         cpp_object_arg(Name, P, Obj), E = call(id(Name), [Obj|As1]) ; cpp_refuse(0, no_member_template(M)) ).
 cpp_call(Ctx, scoped(Path, M), As, E) :- cpp_scope_class(Path, C), cpp_method(C, M, As, Name, _), !, cpp_check_access(Ctx, C, M),   % X<T>::f(args), C::f(args): a static method (its this null) ...
-    cpp_fill_defaults(Name, As, As1),
+    cpp_fill_defaults(Name, As, As1), cpp_member_lref_check(C, M, Name, As1),
     (   Ctx \== none, \+ cpp_static_held(C, M, Name), cpp_static_body_now(Ctx), cpp_base_hops(Ctx, C, _) -> cpp_refuse_prog(nonstatic_no_object)   % ... and `S::m(1)', `B::m(1)' so (1.6.28)
     ;   Ctx \== none, \+ cpp_static_method(C, M, Name), cpp_base_hops(Ctx, C, Hops)              % ... or, INSIDE A CLASS, a qualified call of its own or a base's method: `this', through the base sub-objects, and never virtual -- libc++'s basic_ios forwards `good()' as `return ios_base::good();', which went out with a null this
     ->  ( Hops == [] -> P = id(this) ; cpp_hops(deref(id(this)), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj)
@@ -1011,7 +1011,7 @@ cpp_call(Ctx, memptr_arrow(X0, F0), As, E) :- !, cpp_expr(Ctx, X0, X), cpp_expr(
 cpp_call(Ctx, member(X0, M), As, E) :- !,
     cpp_expr(Ctx, X0, X),
     (   cpp_class_of_type_of(X, C), length(As, N), cpp_method_on(X, C, M, As, Name, Hops)
-    ->  cpp_check_access_obj(Ctx, C, M), cpp_fill_defaults(Name, As, As1),
+    ->  cpp_check_access_obj(Ctx, C, M), cpp_fill_defaults(Name, As, As1), cpp_member_lref_check(C, M, Name, As1),
         (   cpp_slot_call(C, M, N, Name, Slot), ( \+ cpp_static_object(X) -> true ; cpp_dominated(C, M, Name) ) -> cpp_dispatch(Name, addr(X), C, Slot, As1, E)   % a reference, *p: the dynamic type's -- and a named object whose class finds the method on one path where another path overrides it (0.174): the final overrider, through the table
         ;   Hops \== [], \+ cpp_static_object(X), cpp_hops_class(C, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot) -> cpp_hops(X, Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)
         ;   \+ cpp_static_object(X), cpp_hops_class(C, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot) -> cpp_hops(X, Hops, B), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), addr(B)), V, Slot, As1, E)   % an override of a VIRTUAL base's slot: through that base's table (0.139)
@@ -1030,7 +1030,7 @@ cpp_call(Ctx, member(X0, M), As, E) :- !,
 cpp_call(Ctx, arrow(X0, M), As, E) :- !,
     cpp_expr(Ctx, X0, X00), cpp_arrow_object(X00, X),
     (   cpp_pointee_class_of(X, C), length(As, N), cpp_method_on_ptr(X, C, M, As, Name, Hops)
-    ->  cpp_check_access_obj(Ctx, C, M), cpp_fill_defaults(Name, As, As1),
+    ->  cpp_check_access_obj(Ctx, C, M), cpp_fill_defaults(Name, As, As1), cpp_member_lref_check(C, M, Name, As1),
         (   cpp_slot_call(C, M, N, Name, Slot) -> cpp_dispatch(Name, X, C, Slot, As1, E)
         ;   cpp_hops_class(C, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot) -> ( Hops == [] -> P0 = X ; cpp_hops(deref(X), Hops, B0), P0 = addr(B0) ), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), P0), V, Slot, As1, E)   % an override of a VIRTUAL base's slot (0.139)
         ;   Hops \== [], cpp_hops_class(C, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot) -> cpp_hops(deref(X), Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)   % a virtual method of a BASE the class does not name: that base's table (a virtual base's, the diamond's final overrider behind it)
@@ -1042,7 +1042,7 @@ cpp_call(Ctx, arrow(X0, M), As, E) :- !,
     ;   cpp_callee_count_wrong(arrow(X, M), As, W) -> cpp_refuse_prog(W)   % a pointer member called with another count of arguments than its type's (0.302)
     ;   E = call(arrow(X, M), As) ).
 cpp_call(Ctx, id(M), As, E) :- Ctx \== none, \+ cpp_local(M), length(As, N), cpp_method_on_ptr(id(this), Ctx, M, As, Name, Hops), !,
-    cpp_check_access(Ctx, Ctx, M), ( cpp_static_body_now(Ctx), \+ cpp_static_held(Ctx, M, Name) -> cpp_refuse_prog(nonstatic_no_object) ; true ), cpp_fill_defaults(Name, As, As1),   % a member function that is not static, called in a static one (1.6.28), below
+    cpp_check_access(Ctx, Ctx, M), ( cpp_static_body_now(Ctx), \+ cpp_static_held(Ctx, M, Name) -> cpp_refuse_prog(nonstatic_no_object) ; true ), cpp_fill_defaults(Name, As, As1), cpp_member_lref_check(Ctx, M, Name, As1),   % a member function that is not static, called in a static one (1.6.28), below
     (   cpp_slot_call(Ctx, M, N, Name, Slot) -> cpp_dispatch(Name, id(this), Ctx, Slot, As1, E)
     ;   Hops \== [], cpp_hops_class(Ctx, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot), \+ cpp_static_bare(Ctx, M, Name) -> cpp_hops(deref(id(this)), Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)
     ;   cpp_hops_class(Ctx, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot), \+ cpp_static_bare(Ctx, M, Name) -> ( Hops == [] -> P0 = id(this) ; cpp_hops(deref(id(this)), Hops, B0), P0 = addr(B0) ), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), P0), V, Slot, As1, E)   % an override of a VIRTUAL base's slot (0.139)
@@ -1294,7 +1294,7 @@ cpp_names_overloads(N) :- ( catch(cpp_template(N, _, _), _, fail) -> true ; find
 cpp_void_to_ellipsis(N, K) :- ( catch('$cpp_fn'(N, _, Ps, _, O), _, fail), cpp_fn_variadic(O) ; catch(ccl_declared(N, fn(_, Ps, V)), _, fail), ( V == true ; nonvar(V), V = q(W, _), W == true ) ),
     length(Ps, NP), NP < K, !.
 cpp_int_ptr_misfit([P|Ps], [A|As]) :-
-    (   ( P = param(PT0, _) ; P = param(PT0, _, _) ), ( catch(cpp_int_ptr_pair(PT0, A), _, fail) ; catch(cpp_type_misfit_pair(PT0, A), _, fail) ; catch(cpp_rvalue_lref_pair(PT0, A), _, fail) ) -> true
+    (   ( P = param(PT0, _) ; P = param(PT0, _, _) ), ( catch(cpp_int_ptr_pair(PT0, A), _, fail) ; catch(cpp_type_misfit_pair(PT0, A), _, fail) ; catch(cpp_rvalue_lref_pair(PT0, A), _, fail) ; catch(cpp_lvalue_lref_pair(PT0, A), _, fail) ) -> true
     ;   cpp_int_ptr_misfit(Ps, As) ).
 cpp_int_ptr_pair(PT0, A) :- cpp_param_ref(PT0, PT), \+ cpp_null_to_pointer(PT, A), ccl_resolve_type(PT, RT), cpp_arg_type(A, AT), AT \== unknown,
     ccl_unref(AT, AT1), ccl_resolve_type(AT1, RA),
@@ -1328,6 +1328,53 @@ cpp_rvalue_lref_pair(PT0, A) :- ccl_resolve_type(PT0, ref(_, T0)), ccl_resolve_t
     cpp_arg_type(A, AT), AT \== unknown, ccl_unref(AT, AT1), \+ cpp_record_type(AT1), \+ cpp_arg_lvalue(A), !.
 cpp_binds_rvalue(arr(_, E0)) :- !, ccl_resolve_type(E0, E), cpp_binds_rvalue(E).
 cpp_binds_rvalue(T) :- ( T = base(Q, _) ; T = ptr(Q, _) ), memberchk(const, Q), \+ memberchk(volatile, Q), !.
+%% ... AND AN LVALUE OF ANOTHER TYPE OR OF MORE QUALIFIERS (1.6.51; [dcl.init.ref]/5: an lvalue reference binds an lvalue of its
+%% own type with no fewer qualifiers, and a const one, not volatile, binds a temporary of an unrelated type, which an object of
+%% its own type with more qualifiers is not): `r(a)' of `void r(double &)' over an `int a' bound the int's bytes as a double,
+%% and so did `long long &' over a long, `int &' over a const int and over an enumeration, `const int &' over a volatile int,
+%% `const int *&' over an `int *' and `char (&)[4]' over a string literal -- clang++'s `no matching function for call to 'r''.
+%% A class on either side is not asked: a derived class binds its base's reference, and a class converts by its functions
+cpp_lvalue_lref_pair(PT0, A) :- cpp_lvalue_lref_kind(PT0, A, _).
+cpp_lvalue_lref_kind(PT0, A, K) :- ccl_resolve_type(PT0, ref(_, T0)), ccl_resolve_type(T0, T), \+ cpp_record_type(T),
+    cpp_arg_type(A, AT), AT \== unknown, ccl_unref(AT, AT1), ccl_resolve_type(AT1, U), \+ cpp_record_type(U), cpp_arg_lvalue(A),
+    (   cpp_lref_related(T, U) -> cpp_lref_dropped(T, U, Ds), Ds \== [], ( T = arr(_, _), cpp_binds_rvalue(T) -> K = lvalue ; K = drops(Ds) )
+    ;   \+ cpp_binds_rvalue(T), ( cpp_lref_similar(T, U) -> K = incompatible ; K = unrelated ) ), !.
+cpp_lref_related(arr(N, E0), arr(M, F0)) :- !, N == M, ccl_resolve_type(E0, E), ccl_resolve_type(F0, F), cpp_lref_related(E, F).
+cpp_lref_related(T, U) :- ir_unqual(T, UT), ir_unqual(U, UU), cpp_same_type(UT, UU), !.
+%% two pointers that differ only in the qualifiers of a lower level, `const int *' and `int *' ([conv.qual]/2), are clang++'s
+%% `... not permitted due to incompatible qualifiers' for a member, not `unrelated'
+cpp_lref_similar(T, U) :- cpp_deep_unqual(T, T1), cpp_deep_unqual(U, U1), cpp_same_type(T1, U1), !.
+cpp_deep_unqual(ptr(_, P0), ptr([], P)) :- !, catch(once(ccl_resolve_type(P0, P1)), _, fail), cpp_deep_unqual(P1, P).
+cpp_deep_unqual(base(_, S), base([], S)) :- !.
+cpp_deep_unqual(T, T).
+cpp_lref_dropped(T, U, Ds) :- cpp_cv_quals(T, QT), cpp_cv_quals(U, QU), findall(Q, ( member(Q, [const, volatile]), memberchk(Q, QU), \+ memberchk(Q, QT) ), Ds).
+cpp_cv_quals(arr(_, E0), Qs) :- !, ccl_resolve_type(E0, E), cpp_cv_quals(E, Qs).
+cpp_cv_quals(T, Qs) :- ( ( T = base(Q, _) ; T = ptr(Q, _) ) -> findall(X, ( member(X, Q), memberchk(X, [const, volatile]) ), Qs) ; Qs = [] ).
+%% ... AND A MEMBER FUNCTION'S (1.6.51): the member that the call chose takes such an rvalue for such a parameter -- clang++'s
+%% `non-const lvalue reference to type 'int' cannot bind to a temporary of type 'int'' where the class has the one member of
+%% the name, `no matching member function for call to 'm'' where it has more -- through `.', `->', a static's qualified call
+%% and a member's own call of its class's member; an lvalue of another type is `... cannot bind to a value of unrelated type
+%% 'int'', one of more qualifiers `binding reference of type 'int' to value of type 'const int' drops 'const' qualifier' (of an
+%% array for a const reference, `reference to type 'const int[3]' could not bind to an lvalue of type 'volatile int[3]'').
+%% A pointer of other qualifiers at a lower level is `... not permitted due to incompatible qualifiers', and a volatile
+%% reference's words are `volatile lvalue reference to type ...' where the others' are `non-const lvalue reference'.
+%% Each built, the reference bound to a temporary or to the bytes of the other type. The program's code alone
+cpp_member_lref_check(C, M, Name, As) :-
+    (   nb_getval('$cpp_in_lib', no), catch(ccl_declared(Name, fn(_, [_|Ps], _)), _, fail), cpp_lref_misfit(Ps, As, K, RT, AT)
+    ->  (   findall(x, cpp_class_method(C, M, _, _, _, _), [_, _|_]) -> cpp_refuse_prog(no_matching_member(M))
+        ;   catch(ir_type_aka(RT, RS), _, fail), catch(ir_type_aka(AT, AS), _, fail) -> cpp_lref_words(K, RT, RS, AS, W), cpp_refuse(0, W)
+        ;   cpp_refuse_prog(no_matching_member(M)) )
+    ;   true ).
+cpp_lref_misfit([P|Ps], [A|As], K, RT, AT) :-
+    (   cpp_param_type_of(P, PT0), ( catch(cpp_rvalue_lref_pair(PT0, A), _, fail) -> K = temporary ; catch(cpp_lvalue_lref_kind(PT0, A, K), _, fail) )
+    ->  ccl_resolve_type(PT0, ref(_, RT)), cpp_arg_type(A, AT0), ccl_unref(AT0, AT)
+    ;   cpp_lref_misfit(Ps, As, K, RT, AT) ).
+cpp_lref_words(temporary, RT, R, A, ref_temp_bind(V, R, A)) :- cpp_lref_word(RT, V).
+cpp_lref_words(unrelated, RT, R, A, ref_unrelated_bind(V, R, A)) :- cpp_lref_word(RT, V).
+cpp_lref_words(incompatible, _, R, A, ref_quals_bind(R, A)).
+cpp_lref_words(lvalue, _, R, A, ref_lvalue_bind(R, A)).
+cpp_lref_words(drops(Ds), _, R, A, ref_drops_bind(R, A, Q, N)) :- atomic_list_concat(Ds, ' ', Q), ( Ds = [_] -> N = qualifier ; N = qualifiers ).
+cpp_lref_word(RT, V) :- ( catch(once(ccl_resolve_type(RT, R)), _, fail), cpp_cv_quals(R, Qs), memberchk(volatile, Qs) -> V = 'volatile' ; V = 'non-const' ).   % `volatile' is an operator: quoted
 %% ... the pointees, their qualifiers aside: a void pointer for another and a pointer that drops a qualifier are C's, which
 %% ccllib's programs and texts are, built as C++ too -- `visit<show>(*v)' over a const variant handed its address to a plain
 %% pointer, and a module's text gives malloc's result to a typed pointer (Not done)
