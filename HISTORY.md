@@ -373,6 +373,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.54 | the frame's memory and the complex functions of clang's builtins | `__builtin_alloca` is LLVM's alloca and a borrow of the frame to the safe part, and the complex functions are the library's builtins; each was refused (reader 221, lowering 220) |
 | 1.6.55 | C++: the default constructor and the destructor that are not there | an object whose default constructor or destructor is not there, a user-provided constructor's parts that no initializer names and a deleted function named alone are clang++'s words, a base is named by its template's name, and a union with a default member initializer is a class; each built, or was refused by name (reader 221, lowering 221) |
 | 1.6.56 | C++: references that their arguments do not bind, ambiguous calls, array prvalues and aggregates whose members construct | a class's, an object's call's and a template's non-const lvalue reference takes no argument that it does not bind, an overload of defaults and two twins are ambiguous, a call's result whose destructor is not there is refused, an array's prvalue is a compound literal, and an aggregate whose member constructs, and its default member initializers, take their members' roads; each built, a silent wrong answer among them, or was refused by name (reader 221, lowering 222) |
+| 1.6.57 | A _BitInt across a call as clang passes it, its width's limits, static members' values and a function designator's value | a _BitInt past 32 bits crosses a call on x86-64 in clang's classes, a width past its limits is refused in clang's words, a static member function with an ellipsis is its own value, a static pointer to a function or to a member is a static and its qualified definition reads, a base's statics are named through the derived class, and `(*p)(3)` calls p; each refused, a crash or a wrong value between two compilers' code before (cocolog 3.78.22; reader 222, lowering 223) |
 
 ## M5 — the C++ mode
 
@@ -27771,3 +27772,103 @@ a rule.
   two records narrowed), HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.56, the reader 221 and the lowering 222.
+
+## 1.6.57 — A _BitInt across a call as clang passes it, its width's limits, static members' values and a function designator's value
+
+**1.6.57: at the user's word "Do the not done list": Not done's records of a `_BitInt` past 64 bits across a call and of
+a static member function with an ellipsis taken as a value, and what their probes found beside them -- among them a
+silent wrong answer of C and C++, `(*p)(3)`, which called what eight bytes of the function's code held. cocolog's master
+3.78.22 (5105f74) is taken, and the chain ran over the step's tree before its commit.**
+
+1. A `_BitInt` PAST 32 BITS CROSSES A CALL ON x86-64 AS CLANG PASSES IT (the psABI's classes; `ir_bitint_abi/2` in
+   `ir_abi_nocache/2`): one of 33 to 63 bits is one `i64`, one of 65 to 127 bits two (`{ i64, i64 }` as a result), one
+   of 128 bits an `i128`, in memory whole where fewer than two registers are left (`ir_regs_take_/5`), and one past 128
+   bits `byval([K x i8]) align 8` and `sret`. Each crossed as its `iN`, which LLVM splits otherwise: after five `long`
+   arguments an `i100`'s low half went to `r9` and its high half to the stack, where clang passes it in memory. A value
+   in pieces or in memory is converted to its type first, an argument, a result and a store in memory -- `h48(x / 7, 7)`
+   stored an `i64` as its `i48` --, and `va_arg` of one reads its pieces as an aggregate's, where LLVM's `va_arg` read
+   an `i100` as no caller passes it. On both arm64 machines a `_BitInt` up to 128 bits crosses as its `iN`, as clang's.
+   `test/c/link/bitint.h`, `bitint_main.c` and `bitint_helper.c`: the driver gate builds the main by cicilang over the
+   helper by clang and the other way round, and compares each run with clang's build of both, line for line;
+   `abi_targets.c` holds the conventions on the three machines, 73, 71 and 71 lines.
+2. A `_BitInt`'S WIDTH IS ASKED AT THE READ (C23 6.7.2.1/3; `ccl_bitint_spec_check/1` in `ccl_decl_specs//4`, reader
+   222): at least 1 for an unsigned one and 2 for a signed one, at most `BITINT_MAXWIDTH`, 128 on arm64 and 8388608 on
+   x86-64, in clang's words at clang's line. `unsigned _BitInt(0)` reached LLVM as `i0`, which it refused, and one past
+   128 bits on arm64 was lowered where clang refuses it. The reader gate's k173 over `test/c/bitint_narrow.c`,
+   `bitint_zero.c`, `bitint_wide.c` and `bitint_arm.c`, the last read for arm64 and for x86-64.
+3. A STATIC MEMBER FUNCTION WITH AN ELLIPSIS NAMED AS A VALUE IS ITS OWN BODY WITH NO `this` ([expr.unary.op]/3,
+   [conv.func]; `cpp_static_va_clone/5`, `cpp_static_va_own/1`, a clause of `cpp_static_thunk/4`): the class's emission
+   makes `<Name>.fn` beside the method, in its class and out of it, its body over the named parameters and the ellipsis,
+   a local `this` null before it. It was refused `static_member_ellipsis_value(sum)` since 1.6.38, where clang++ takes
+   it: a thunk over the named parameters passes no argument past them. A template instance's method is made at its first
+   use; of an overload set the target's type chooses. A library class's stays refused by name (Not done).
+   `test/cpp/run/staticvavalues.cpp`; the C++ gate's `va_static_value.cpp`, which builds now, is out of its loop of
+   1.6.38, its form one of the fixture's lines.
+4. A QUALIFIED NAME IN A PARENTHESIZED DECLARATOR, AFTER ITS POINTERS ([dcl.meaning]/1; a clause of `ccl_direct//2`,
+   reader 222): `int (*M::pick)(int) = f;`, `int (*M::tab[2])(int)`, `int (&N::T::ref)(int) = g;` and `int (*N::T::
+   getp(int k))(int) { ... }` were syntax errors. The fixture of item 3 met it first.
+5. A STATIC POINTER TO A FUNCTION AND A STATIC POINTER TO MEMBER ARE STATICS (`cpp_static_type/2` over `fn` and
+   `memptr`): their word `static` stands in their result's or their member's base, and `static int (*pick)(int)` was
+   split as data, a slot in each object, and over item 4's declarator `M::pick(4)` called the global that the definition
+   made; `static int A::*pm` was refused `pointer_to_member_function_read`. Called through an object or a pointer,
+   `m.pick(5)` and `p->pick(5)`, it is the static's value (`cpp_call/4`'s member and arrow clauses), where it was
+   `no_member(pick, M)`.
+6. A BASE'S STATIC MEMBER FUNCTION NAMED THROUGH THE DERIVED CLASS (`cpp_static_method_class/3`; `cpp_static_held/3` in
+   the qualified call): `&D::one` and `D::one` as values were `undeclared('D.one')` and the pointer to member's road,
+   and `D::one(3)` clang++'s `call to non-static member function without an object argument`. A member of the derived
+   class's of the name hides it. Items 4 to 6: `test/cpp/run/staticfnptrs.cpp`.
+7. A FUNCTION DESIGNATOR'S VALUE IS ITS ADDRESS (C17 6.3.2.1/4, 6.5.3.2/4; the first clause of `ir_load_or_decay/4`,
+   `ir_lval_/4`'s indirection over a function): `(*p)(3)` over `int (*p)(int)` loaded eight bytes from the function's
+   code and called what it read -- at 1.6.56 a crash, in C and in C++, of each call written through `*` --, and
+   `(**p)(4)` was `indirection requires pointer operand ('int (int)' invalid)`. `test/c/run/fndesignators.c`, built as C
+   and as C++ (the C++ gate's loop of C fixtures).
+
+THE PROBES. Some 45 forms against clang 23 and clang++ 23, and against 1.6.56's tree; each gives clang's first error,
+its line and its words, or its run's lines. Not done keeps what they found and this step does not do: GCC's alias in C++
+whose target is a program's mangled name, and a struct of an `__int128`, spelled `{ i64, i64 }` where clang's is `i128`
+in the same registers (both recorded before).
+
+THE NEIGHBOURS. cocolog's master moved from b645756 (3.78.21) to 5105f74 (3.78.22): e2ace97 builds on the Mac again
+(`getrlimit()`'s declaration is Linux's alone, `lib/syntax.cicili`), and 5105f74 gives the SBCL transpile of `tools/cc`
+a heap of 8192 MB, where 4096 no longer held it. Both were built, with the schema, the modules and this repository's two
+modules over them; no change of this repository asks for them. Its pin moves in this step's commit.
+
+THE NETS. Over wt37: the flow gate GREEN in 554 s (0 findings). THE BROKEN COPIES: 29 copies, each one edit of the tree
+(DF0 none: the judge over the tree as it is), judged by the driver gate's two checks of the `_BitInt` conventions, the
+builds and runs of `fndesignators.c` as C and as C++, `staticvavalues.cpp` and `staticfnptrs.cpp`, and the reader gate's
+k173. Each was caught but DF0: the classes of the widths (DF1 to DF4), the 128-bit memory (DF5), the conversions of an
+argument, a store in memory and a result (DF6 to DF9), `va_arg` (DF10); the clone and its value (DF11 to DF15); the
+declarator (DF16); the statics' types (DF17, DF18); the calls through an object (DF19, DF20); the base's statics and
+their hiding (DF21 to DF23); the designator's value and its indirection (DF24, DF25); the width's check, its limit on
+arm64, its signed least, and its place (DF26 to DF29). DF8 and DF9 were caught by nothing over the first link pair,
+whose results were of their own type; its helper returns a `long` as a `_BitInt(48)` and as an `unsigned _BitInt(200)`,
+and an `int` as a `_BitInt(65)`, now. DF22 needed a derived class whose own member hides the base's static, which
+`staticfnptrs.cpp` holds.
+
+THE CHAIN, over wt37, LLVM 23 and libc++ 23, the toolchain check strict over the moved pin, a fresh HOME: the toolchain
+check GREEN (17 ok), the flow gate GREEN in 577 s (61 ok, 0 findings), the reader gate GREEN in 4 s (174 ok), the
+compile gate GREEN in 43 s (488 ok), the driver gate GREEN in 400 s (217 ok), the objects gate GREEN in 6 s (29 ok), the
+M0 proof GREEN, the cross gate RED in 353 s (296 ok, 1 FAIL), the library read GREEN in 225 s (24 ok), the C++ gate
+GREEN in 1309 s (1372 ok, 0 FAIL) and the ccllib gate GREEN in 1532 s (625 ok), 4450 s in all. The cross gate's failure
+was item 2's rule, as clang has it: `decbitint.c`'s `_BitInt(200)` is past aarch64's BITINT_MAXWIDTH, and cicilang
+refuses it there now, as clang does; it was built there before. The fixture has `decbitint.needs`, `__BITINT_MAXWIDTH__
+>= 256`, and the cross gate asks each fixture's needs of aarch64 as the compile gate asks them of the box, a fixture
+whose condition fails a `skip` line (the gates' topic). Then the cross gate GREEN in 348 s (296 ok, 1 skip) and the
+compile gate GREEN in 43 s (488 ok, the fixture built for x86-64). On the CI's Apple silicon the compile gate skips it
+by the same condition. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the
+owner's rule of 0.271.
+
+- `library/ccl_ir.pl` (`ir_abi_nocache/2`, `ir_bitint_bits/2`, `ir_bitint_type/1`, `ir_bitint_abi/2`, `ir_regs_take_/5`,
+  `ir_arg_parts/5`, `ir_args_/5`, `ir_stmt_/1`'s return, `ir_expr_/4`'s `va_arg`, `ir_load_or_decay/4`, `ir_lval_/4`,
+  the lowering 223); `library/ccl_syntax.pl` (`ccl_direct//2`, `ccl_decl_specs//4`, `ccl_bitint_spec_check/1`, the
+  reader 222); `library/ccl_cpp.pl` (`cpp_item/2`'s out-of-class method); `library/ccl_cpp_init.pl`
+  (`cpp_member_fns/5`); `library/ccl_cpp_expr.pl` (`cpp_static_thunk/4`, `cpp_static_va_own/1`, `cpp_static_va_clone/5`,
+  `cpp_static_method_class/3`, the static roads of `cpp_expr/3` and of `cpp_call/4`); `library/ccl_cpp_layout.pl`
+  (`cpp_static_type/2`); the fixtures above; `test/driver.sh` (the `_BitInt` pair, the conventions' counts);
+  `test/reader.pl` (k173); `test/cpp.sh` (the loops of 1.6.38 and of the C fixtures); `test/cross.sh` (a fixture's
+  needs) and `test/c/run/decbitint.needs`; `test/toolchain.pins` (cocolog 5105f74, 3.78.22); the module's version.
+- RULES.md (six rules in the C reader's, the C++ reader's, the Static members, the ABI and the lowering's topics, four
+  edited, the cross gate's among them; Not done: one record out, one narrowed), HISTORY.md, CLAUDE.md (the versions, the
+  fixtures).
+
+The module 1.6.57, the reader 222 and the lowering 223.

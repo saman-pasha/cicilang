@@ -851,6 +851,17 @@ k171 :- check('GCC\'s cleanup attribute is refused at its object\'s line with cl
           r('cleanup_twoargs.c', 4, '\'cleanup\' attribute takes one argument'),
           r('mode_attr.c', 3, 'not lowered yet: the \'mode\' attribute, a type of a machine mode\'s size')]),
         ( redef_refused(F, F, L, 17, M), redef_refused(F, F, L, 17, M) ))).
+%% A _BitInt'S WIDTH (1.6.57; C23 6.7.2.1/3): at least 1 unsigned and 2 signed, at most BITINT_MAXWIDTH -- 8388608 on
+%% x86-64, 128 on arm64, where bitint_arm.c is read for the machine and refused, and read whole for x86-64
+k173 :- check('a _BitInt\'s width is refused past its limits, in clang\'s words at its line: a signed one of one bit, an unsigned one of none in a cast, one past 8388608 bits by an enumerator, and one past 128 bits for arm64 alone',
+    ( forall(member(r(F, L, M), [
+          r('bitint_narrow.c', 3, 'signed _BitInt must have a bit size of at least 2'),
+          r('bitint_zero.c', 3, 'unsigned _BitInt must have a bit size of at least 1'),
+          r('bitint_wide.c', 3, 'signed _BitInt of bit sizes greater than 8388608 not supported')]),
+        redef_refused(F, F, L, 23, M)),
+      pp_arch(A0), nb_setval('$pp_arch', arm64),
+      ( redef_refused('bitint_arm.c', 'bitint_arm.c', 3, 23, 'unsigned _BitInt of bit sizes greater than 128 not supported') -> R = yes ; R = no ),
+      nb_setval('$pp_arch', A0), R == yes, c('bitint_arm.c', P), redef_read(P, 23, RX), var(RX) )).
 %% A CLASS'S NAMES LEAVE WITH ITS READ (1.6.9): in C++ a class's member names stand in a frame while its body is read,
 %% and a read that a macro's refusal stops inside a member's body leaves them to no later read of the process --
 %% the println of `ownglobal_next.cpp', read after `ownglobal_left.cpp', is the global macro's, a call of printf
@@ -1184,6 +1195,8 @@ t_checks :-
     k171,
     section('a program\'s own names and the global macros (1.6.9)'),
     k172,
+    section('a _BitInt\'s width (1.6.57)'),
+    k173,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

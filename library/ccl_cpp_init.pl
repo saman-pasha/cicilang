@@ -424,7 +424,7 @@ cpp_member_fns([method(L, Qs, Ret0, M, Ps, V, Body)|Ms], C, B, Ds, [F|Fs]) :- !,
     ;   ( cpp_qs_guarded(C, Qs, Params, Body) -> cpp_nx_wrap(L, Body, BodyG) ; BodyG = Body ), cpp_with_fsig(Sig, cpp_method_body(C, Ret, Params, BodyG, Body1)) -> F = function(L, none, Ret, Name, Params, V, Body1)
     ;   cpp_trace(method_body_failed(C, M)), fail ),
     cpp_note_consteval(C, Qs, Name), cpp_note_nce(C, Qs, Body, Name), cpp_nx_note_member(C, Qs, Ps, [F]),
-    cpp_member_fns(Ms, C, B, Ds, Fs).
+    cpp_static_va_clone(C, M, Qs, F, Extra), cpp_member_fns(Ms, C, B, Ds, Fs0), append(Extra, Fs0, Fs).
 cpp_member_fns([ctor(_, Qs, Ps, _, _)|Ms], C, B, Ds, Fs) :- memberchk(requires(_), Qs), \+ cpp_method_viable(C, Qs, Ps), !, cpp_member_fns(Ms, C, B, Ds, Fs).   % a constructor whose constraints are unmet is not instantiated ([temp.inst]/11; 0.112)
 cpp_member_fns([ctor(L, Qs, Ps, _, none)|Ms], C, B, Ds, [F|Fs]) :- !,                     % DECLARED, not defined: libc++'s bad_alloc() lives in the shipped binary -- a declaration, as a method and a destructor already were
     cpp_mangle(C, C, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, [], [fresh], ThisT), Params = [param(ThisT, this)|Ps1],

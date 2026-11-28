@@ -595,11 +595,12 @@ cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T0, Init)]), [declaration(L
     atomic_list_concat([C, '.', N], Name), cpp_with_access_scope(C, cpp_expr(none, Init, Init1)),   % the initializer is in the class's scope ([basic.scope.class]): its private statics are the program's to name (0.117)
     cpp_static_object_init(C, Sto, Name, T, Init, Init1, Init2),                                    % a class-typed one constructed (0.186)
     cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init2)], Vs1), ( Sto == inline -> Sto1 = linkonce ; Sto1 = Sto ).   % an inline one linkonce (0.192); a const one keeps its class's external linkage
-cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), [function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]) :- cpp_class_l(C, _), !,
+cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), [function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)|Extra]) :- cpp_class_l(C, _), !,
     cpp_sto_quals(Sto, Qs1, Sto0), cpp_member_va_quals(C, M, Ps, V, Qs1, Qs), cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT),
     cpp_pf_decl_quals(C, M, Ps, Qs, FQs0), ( cpp_sto_word(Sto, inline) -> FQs = FQs0 ; FQs = [out_of_line|FQs0] ),   % defined out of its class and not inline: its closures are clang's `$_N' (0.236)
     cpp_with_fsig(fsig(member, C, M, Ret, Ps, V, FQs, none), cpp_method_body(C, Ret, [param(ThisT, this)|Ps1], Body, Body1)),
-    cpp_own_fns([function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]), cpp_note_nce_free(L, M, Name).
+    cpp_own_fns([function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]), cpp_note_nce_free(L, M, Name),
+    cpp_static_va_clone(C, M, Qs, function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1), Extra).
 cpp_item(ctor_def(L, C0, Qs0, Ps, Inits, Body), Out) :- Body \== none, catch(cpp_class_item_name(C0, C), _, fail), cpp_class(C, cls(B, _, _, _, Ds, _)), !,   % A CONSTRUCTOR DEFINED OUT OF ITS CLASS (0.133): `P::P() { v = 3; }', `P::P(int k) : v(k) {}', `Outer::Inner::Inner()' -- the catch-all clause passed the item through raw, the lowering made nothing of it, and every call named `P.P.0', defined nowhere (a link error; no fixture had one). Built as an in-class one is (cpp_ctor_fn: the bases, the table pointer, the member initializers, the body), its declaration in the class a declaration
     cpp_take_pattern(Qs0, _, Qs),
     cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), cpp_nv_twin(C, F, cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F2), F2, Out, []), cpp_own_fns(Out),

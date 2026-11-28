@@ -517,7 +517,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general and the SIMD registers run out) and vectors
   by value both ways (0.162, `test/c/link/vec_*.c`). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the
   sysroot (Debian and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang.
-  `ldconst.c` holds the quad's literals to clang's there. (0.131, 0.154)
+  `ldconst.c` holds the quad's literals to clang's there. A FIXTURE'S `.needs` IS ASKED OF THAT MACHINE (1.6.57), as the
+  compile gate asks it of the box: its condition preprocessed by `cicilang --target=aarch64-linux-gnu -E`, and a fixture
+  whose condition fails is a `skip` line -- `decbitint.c`'s `_BitInt(200)` is past aarch64's `BITINT_MAXWIDTH` of 128,
+  which clang refuses there and cicilang since 1.6.57, and its `decbitint.needs` is `__BITINT_MAXWIDTH__ >= 256`. A run
+  of the preprocessor that does not answer is RED. (0.131, 0.154, 1.6.57)
 - C++ FOR THAT MACHINE (0.161): where its libc++ is under the sysroot -- the tree cicilang++ reads, `$LLVM` or the
   newest `/usr/lib/llvm-NN`, at `/usr/aarch64-linux-gnu` plus that path, where Debian's and Ubuntu's arm64 packages put
   it when extracted there (`dpkg-deb -x` of `libc++-18-dev`, `libc++1-18`, `libc++abi-18-dev`, `libc++abi1-18`,
@@ -2338,6 +2342,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - Declarators are parsed inside out and folded onto the base by `ccl_mk_type/4`, which drops the `constexpr` marker
   (`ccl_constexpr_fold`; a function's result loses its `const` too). (0.95)
+- A `_BitInt`'S WIDTH IS ASKED AT THE READ (1.6.57; C23 6.7.2.1/3, a constraint; reader 222; `ccl_bitint_spec_check/1`
+  in `ccl_decl_specs//4`): at least 1 for an unsigned one and 2 for a signed one, at most `BITINT_MAXWIDTH` -- 128 on
+  both arm64 machines and 8388608 on x86-64, the predefined macro's value (`pp_predef/3`) -- each refused in clang's
+  words at the declaration's line: `signed _BitInt must have a bit size of at least 2`, `unsigned _BitInt must have a
+  bit size of at least 1`, `unsigned _BitInt of bit sizes greater than 128 not supported`. A declaration's, a
+  parameter's, a member's and a type name's specifiers alike, in C and in C++. `unsigned _BitInt(0)` reached LLVM as
+  `i0`, which it refused, and one past 128 bits on arm64 was lowered where clang refuses it. A width that is no constant
+  at the read is the lowering's. The reader gate's k173: `test/c/bitint_narrow.c`, `bitint_zero.c` (a cast's type name),
+  `bitint_wide.c` (the width an enumerator), and `bitint_arm.c`, refused when it is read for arm64 and read whole for
+  x86-64. (1.6.57)
 - IN C AN ARRAY'S SIZE IS FIXED WHERE IT IS DECLARED (6.7.6.2/5; 0.195): a bound that names a constant -- a named
   constant, an enumerator, a block's `constexpr` -- is folded where the declaration is read, at file scope and in a block
   (`ccl_fix_bounds/2`), and a member's bound and bit-field width too (`ccl_fix_member/4`); a bound that names one of the
@@ -3977,6 +3991,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   definition of b, where the braced form's `int k;` defines k. Each such declaration was a definition: `int g = 5;`
   after it was g's second, and g read 0 (`linkdecl.cpp`), and a file-scope asm's definition of the symbol clashed with
   it (`gnuasm.cpp`). (0.71, 0.215)
+- A QUALIFIED NAME IN A PARENTHESIZED DECLARATOR, AFTER ITS POINTERS (1.6.57; [dcl.meaning]/1, [class.static.data]/3;
+  reader 222; the clause of `ccl_direct//2` over `paren(decl(Ptrs, name(Q), Sfx))`): `int (*M::pick)(int) = f;` defines
+  the static data member that its class declares, `int (*M::tab[2])(int)` an array of them, `int (&N::T::ref)(int) = g;`
+  a reference, `int A::*B::pm = &A::w;` a pointer to member, and `int (*N::T::getp(int k))(int) { ... }` the member
+  function whose result is a pointer to a function; the name ends at the parenthesis or at its own suffixes. Each was a
+  syntax error. A name that no pointer comes before is no such declarator, nor one in a block (`ccl_in_block/0`), as the
+  plain qualified declarator's rule has it. `staticfnptrs.cpp`. (1.6.57)
 - A namespace is `namespace(L, N | inline(N), Items)`. `namespace A::B { }` and `namespace A::inline B { }` nest
   (`ccl_ns_segs//1`, `ccl_ns_nest/4`). A namespace alias is `using(L, namespace_alias(N, Q))`, at file scope, in a
   namespace and in a block (a block-declaration, `ccl_block_item//3`; reader 210, 1.6.21: `namespace di = deep::inner;`
@@ -4870,6 +4891,21 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   `_SmallHandler<T>::__handle` makes `__create`, which stores `&_SmallHandler::__handle` -- and noted only after, it was
   emitted twice, a redefinition LLVM refused at every `std::any a = 5;`. `staticfn.cpp`, `stdstringfind.cpp`,
   `staticaddr.cpp`. (0.100, 0.191)
+- A STATIC MEMBER FUNCTION WITH AN ELLIPSIS NAMED AS A VALUE IS ITS OWN BODY WITH NO `this` (1.6.57; [expr.unary.op]/3,
+  [conv.func]): a thunk over the named parameters passes no argument past them, so `int (*p)(int, ...) = &S::sum;` was
+  refused `static_member_ellipsis_value(sum)` since 1.6.38. The emission of the program's class makes `<Name>.fn` beside
+  such a method, in the class (`cpp_member_fns/5`) and out of it (`cpp_item`'s clause of an out-of-class method): the
+  method's desugared body over its named parameters and its ellipsis, a local `this` null before it, as the thunk's call
+  passed one (`cpp_static_va_clone/5`). The value is that function (the clause of `cpp_static_thunk/4` over
+  `cpp_static_va_own/1`), a template instance's method made at its first use (`cpp_use_member/2`); of an overload set
+  with and without the ellipsis the target's type chooses, as at 1.6.38. A LIBRARY class's keeps the thunk over the
+  named parameters, and the program's value of one is refused by name (Not done). `staticvavalues.cpp`. (1.6.57)
+- A BASE'S STATIC MEMBER FUNCTION NAMED THROUGH THE DERIVED CLASS, `&D::one`, `D::one` and `D::one(3)` (1.6.57;
+  [class.member.lookup], [expr.unary.op]/3): its value is the base's thunk (`cpp_static_method_class/3`: the class whose
+  member it is, through the bases, unless the derived class has a member of the name, which hides it), and its call
+  takes a null `this` (`cpp_static_held/3` in `cpp_call/4`'s qualified clause, which looks through the bases). The value
+  was `undeclared('D.one')`, its address took the pointer to member's road, and the call was clang++'s `call to
+  non-static member function without an object argument`. `staticfnptrs.cpp`. (1.6.57)
 - A STATIC MEMBER FUNCTION NAMED BARE AS A VALUE is that thunk too (`cpp_static_fn_value/3`, the identifier road of
   `cpp_expr`): `fn = prep;` in a member's body, `Buf{16, prep}` in a base's initializer, the name found in the class
   being walked, its bases (`cpp_static_fn_owner/3`) and the classes enclosing it, a closure's included. The static
@@ -5821,7 +5857,12 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   `type(unknown)`, as libc++'s `locale(const locale &, Facet *)` met `numpunct<char>::id` over a facet the program
   made, a defect of 0.201 too, which 0.202's probes found. `vdelete.cpp`, `localefacet.cpp`.
 - The word `static` sits in the innermost base's qualifiers, so a static pointer or array member is a static
-  (`cpp_static_type`); else a class of statics was no empty base. `staticbase.cpp`. (0.72)
+  (`cpp_static_type`); else a class of statics was no empty base. `staticbase.cpp`. A STATIC POINTER TO A FUNCTION AND A
+  STATIC POINTER TO MEMBER are statics too, their word in their result's or their member's base (1.6.57; the clauses of
+  `cpp_static_type/2` over `fn` and `memptr`): `static int (*pick)(int)` was split as data, a slot of eight bytes in
+  each object, and `M::pick(4)` called the global that its definition made; `static int A::*pm` was refused
+  `pointer_to_member_function_read`. Its definition out of the class is the C++ reader's (Declarations).
+  `staticfnptrs.cpp`. (0.72, 1.6.57)
 - `cpp_register_class_extras` records the static initializers in `'$cpp_sinit'`, also one defined out of the
   class in its header (`inline constexpr strong_ordering strong_ordering::less(...)`). Such a class-typed static is the
   class's own `linkonce` definition, never an Itanium symbol that nothing ships. (0.101)
@@ -5848,7 +5889,11 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   enumerators so too (`cpp_member_enum/2`): libc++ 18's `__consume_result` writes `enum : char32_t { __ok, __error }
   __status : 1 {__ok};`. `memberenum.cpp`. (0.63, 0.112)
 - A static named through an object, `__ct.space`, is the static: its constant, else its global
-  (`cpp_static_through_object`, in `cpp_expr`'s member and arrow clauses). (0.75)
+  (`cpp_static_through_object`, in `cpp_expr`'s member and arrow clauses). A STATIC POINTER TO A FUNCTION CALLED THROUGH
+  AN OBJECT OR A POINTER, `m.pick(5)` and `p->pick(5)`, calls the static's value (1.6.57; [expr.ref]/6.1; `cpp_call/4`'s
+  member and arrow clauses, where the class has no data member and no member function of the name), its count of
+  arguments asked as a pointer's (`cpp_callee_count_wrong/3`): it was `no_member(pick, M)`. `staticfnptrs.cpp`. (0.75,
+  1.6.57)
 - An `auto` static takes its initializer's type, desugared in its class (`cpp_static_auto` in `cpp_declare_statics`),
   as a namespace-scope `auto` object does (`cpp_vars`). (0.109)
 - A static data member of the PROGRAM's class is declared under its type resolved through the template road in its
@@ -8112,8 +8157,8 @@ is in `test/cpp/run/`.
   and a member template is not marked. An out-of-class definition takes its declaration's mark
   (`cpp_member_va_quals/6`), a member pointer's target its ellipsis, and a call that both fit is `call to member
   function 'm' is ambiguous` (`cpp_member_va_ambiguous/3` in `cpp_method/5`). A static member with an ellipsis taken as
-  a value is refused by name (Not done). `test/cpp/run/varoverload.cpp`; the C++ gate's `va_ambiguous.cpp`,
-  `va_ambiguous_member.cpp`, `va_few_qualified.cpp` and `va_static_value.cpp`. (1.6.38)
+  a value is its own body with no `this` since 1.6.57 (Static members). `test/cpp/run/varoverload.cpp`; the C++ gate's
+  `va_ambiguous.cpp`, `va_ambiguous_member.cpp` and `va_few_qualified.cpp`. (1.6.38, 1.6.57)
 - A PROTOTYPE OF THE PROGRAM'S OWN IS ITS DEFINITION'S FUNCTION, BY THE PARAMETERS' KEY (1.6.38; `cpp_fn_own_def_of/2`
   in `cpp_fn_defined/3`): overloads declared before `main` and defined after it -- `int g(int); int g(double);` -- named
   the bare `g` at the call, which took the prototype's parameters, which name nothing and which no definition has whole,
@@ -9336,10 +9381,26 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `test/c/link/abi_targets.c` for the three machines with cicilang and with clang to IR and compares every function's
   convention (`test/abisig.awk`: its result and parameters, their types and the attributes a call reads -- `signext`,
   `zeroext`, `sret`, `byval` and its alignment) and a table of sizes, offsets and alignments, line for line: 64 lines
-  each. Over the C run fixtures the conventions are clang's on Linux's aarch64 (857 of 128 fixtures) and on Apple's
-  arm64 (809 of 124 fixtures, each preprocessed once for Linux's aarch64 and that text compiled for the Apple machine by
-  both: no Apple SDK is here); on x86-64 the 25 of 867 that differ are spellings of the same registers (Not done).
-  (0.244)
+  each at 0.244, 73 on x86-64 and 71 on each Arm machine since 1.6.57. Over the C run fixtures the conventions are
+  clang's on Linux's aarch64 (857 of 128 fixtures) and on Apple's arm64 (809 of 124 fixtures, each preprocessed once for
+  Linux's aarch64 and that text compiled for the Apple machine by both: no Apple SDK is here); on x86-64 the 25 of 867
+  that differ are spellings of the same registers (Not done). (0.244)
+- A `_BitInt` PAST 32 BITS CROSSES A CALL ON x86-64 AS CLANG PASSES IT (1.6.57; the psABI's classes, as clang's
+  `X86_64ABIInfo` takes a `_BitInt(N)`; `ir_bitint_abi/2` in `ir_abi_nocache/2`): one of 33 to 63 bits is one INTEGER
+  eightbyte, `i64`, whose low bits the callee reads; one of 65 to 127 bits two, `{ i64, i64 }` as a result and two `i64`
+  as an argument; one of 128 bits LLVM's `i128`, in memory whole, `byval` aligned 8, where fewer than two registers are
+  left (`ir_regs_take_/5`); one past 128 bits the MEMORY class, `byval([K x i8]) align 8` and `sret`. A value that
+  crosses in pieces or in memory is converted to its type first, as a scalar is: an argument (`ir_args_/5`), a result
+  (`ir_stmt_/1`'s return) and the store of one in memory (`ir_arg_parts/5`); `va_arg` of one reads it in its pieces as
+  an aggregate's (`ir_expr_/4`'s `va_arg`), where LLVM's `va_arg` read an `i100` as no caller passes it. Until 1.6.57
+  each crossed as its `iN`: LLVM puts an `i100`'s low half in `r9` and its high half on the stack after five `long`
+  arguments, where clang passes it in memory, and a call between this compiler's code and clang's read a wrong value. On
+  both arm64 machines a `_BitInt` up to 128 bits crosses as its `iN`, clang's IR, and one past 128 bits is refused at
+  the read, as clang refuses it (the C reader's Declarators). The driver gate builds `test/c/link/bitint_main.c` by
+  cicilang over `bitint_helper.c` by clang, and the other way round, and compares each run with clang's build of both:
+  widths of 48 to 256 bits as arguments, after five `long` arguments, as results, results of another type converted,
+  through a pointer to a function, through `...` into `va_arg`; `abi_targets.c` holds their conventions on the three
+  machines. (1.6.57)
 - A VARIADIC CALL'S FUNCTION TYPE IS THE CALLEE'S (0.247): its fixed parameters, then `...` -- `call i32 (ptr, ...)
   @printf(ptr @.str, ptr %s, i32 42)`, as clang's -- and the arguments past them follow as the variadic ones
   (`ir_call_/6`; the variadic tail of `ir_args_/5` adds no type to it; a callee of no fixed parameter is `(...)`). The
@@ -14039,6 +14100,14 @@ in the first topic (The ccllib gate).
   Through 1.6.13 a switch over a floating value or a pointer and a subscript of a double ran over their conversions'
   integers, a record was `no conversion from`, `2[a]` and `*1` were `not lowered yet: not_a_pointer(...)`. Lowering 183.
   (1.6.14)
+- **A FUNCTION DESIGNATOR'S VALUE IS ITS ADDRESS** (1.6.57; C17 6.3.2.1/4, 6.5.3.2/4, [conv.func], [expr.unary.op]/1;
+  the first clause of `ir_load_or_decay/4`, and `ir_lval_/4`'s indirection over a function): `*` of a pointer to a
+  function is the function, and its value its address again, so that `(*p)(3)`, `(*getp(1))(2)`, `(*h.fp)(7)` and
+  `(*tab[1])(5)` call what p, getp's result, the member and the element hold, and `*` of a function, `(**p)(4)` and
+  `(***h)(v)`, is the function too. The first loaded eight bytes from the function's code and called what it read, in C
+  and in C++, and the second was `indirection requires pointer operand ('int (int)' invalid)`.
+  `test/c/run/fndesignators.c`, built as C and as C++; a reference to a function bound to `*p` is the same function.
+  Lowering 223. (1.6.57)
 - **A CONDITIONAL OF ONE VOID ARM, AND ONE WITH A THROW ARM** (1.6.14; [expr.cond]/2; `ccl_throw_arm/1`, the inference's
   `ccl_type_of/2` of a conditional, `ir_one_void_arm/4`, `cpp_decltype_of/2`): in C a conditional whose one arm is void
   is void, GNU's as clang's -- both arms evaluated for their effects, `z ? f() : 1;` a statement, `int x = z ? f() : 1;`
@@ -17649,10 +17718,6 @@ Declarations topic of the C++ reader).
   `#include`'s line of the file, where clang++ names the header's line, `./h.h:2:5`.
 ### C++ language
 
-- C++: A STATIC MEMBER FUNCTION WITH AN ELLIPSIS TAKEN AS A VALUE IS REFUSED BY NAME (found at 1.6.38): `not lowered
-  yet: static_member_ellipsis_value(s)`, where clang++ takes it. The value of a static member is a thunk over its named
-  parameters that passes the null `this` (the topic of classes), and a thunk passes no argument past the named ones. In
-  a library's body the thunk is made as before, over the named parameters alone.
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only
   the names that collide in it; 0.218, 0.219 and 0.221 take a qualified and an unqualified CLASS name to its own
   namespace's items -- the class's own namespace among them where a function or an object of the name stands in another
@@ -17672,6 +17737,10 @@ Declarations topic of the C++ reader).
   class and namespace of [basic.lookup.argdep]/3 since 0.229: the arguments', their pointees', their templates'
   arguments', their bases' (0.221), a function type's parameters and result, a member pointer's class and a template
   template argument's namespace (the Overload resolution topic). (0.218, 0.219, 0.221, 0.227, 0.229, 0.233)
+- C++: A LIBRARY CLASS'S STATIC MEMBER FUNCTION WITH AN ELLIPSIS TAKEN AS A VALUE IS REFUSED BY NAME (found at 1.6.38,
+  narrowed at 1.6.57, which takes the program's, Static members): `not lowered yet: static_member_ellipsis_value(s)`.
+  Its body is the library's and is not emitted beside it, so its value would be the thunk over its named parameters,
+  which passes no argument past them. In a library's body the thunk is made as before, over the named parameters alone.
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
@@ -17789,16 +17858,6 @@ Declarations topic of the C++ reader).
   after it in its eightbyte as `i64` (clang's `i32`), a `byval` struct's tail padding, an `__int128` in registers as
   `i128` (clang's two `i64`) -- 25 of 867 conventions over 128 C run fixtures (0.244). `bin/cicilang` refuses three of
   clang's arguments: `-isystem` (a CMake build passes it), `-P` and `-dM`.
-- A `_BitInt` PAST 64 BITS CROSSES A CALL AS ITS `iN` (found at 1.6.21, when `abi_targets.c` took a `_BitInt` past 64
-  bits; older than it, as clang 18 coerces as clang 23 does): on x86-64 one of 65 to 128 bits is `i100`, say, where clang
-  passes and returns two `i64`, the same registers as the first argument but not after five `long` arguments, where one
-  register is left -- LLVM 23's `llc` puts the `i100`'s low half in `r9` and its high half on the stack, and clang's
-  code passes the whole value in memory (`byval`), as the psABI's classification does; one PAST 128 bits is `i129` in
-  registers where the psABI's MEMORY class (clang's `byval` and `sret`) puts it in memory, and on Linux's aarch64 alike,
-  where AAPCS64 passes a composite of more than 16 bytes by reference (clang refuses one there). A call of such a
-  function between this compiler's code and another compiler's reads a wrong value; within one program it is
-  consistent. `abi_targets.c` holds the layouts and an `unsigned _BitInt(128)` after an `int` on the three machines;
-  the conventions past 64 bits are a step of their own. (1.6.21)
 - The Itanium mangler spells the forms the shipped libraries' symbols use (measured at 0.186: libc++ 18's, 21's and 22's
   `libc++.so.1` and `libc++abi.so.1`, and the 27 symbols libc++ 21's `libc++experimental.a` defines strongly), and since
   0.236 the forms a program's type information shows -- `Dp`, `DT` and `Dt`, `B`, `Ul`, `Ut`, `X`, `L_Z`, a local name

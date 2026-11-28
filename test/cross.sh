@@ -29,9 +29,21 @@ QE="qemu-aarch64 -L $SYS"; T=--target=aarch64-linux-gnu; CC="$ROOT/bin/cicilang"
 failures=0
 # AT -O1, AS THE COMPILE GATE BUILDS (0.248): an IR that is undefined only under the optimizer -- a struct's pieces loaded past
 # the end of its temporary, which AAPCS64's `[2 x i64]' of a 12-byte struct made -- ran at -O0 and printed garbage at -O1
+# A FIXTURE'S NEEDS ARE ASKED OF THIS MACHINE (1.6.57), as the compile gate asks them of the box: decbitint.c's _BitInt of 200
+# bits is past aarch64's BITINT_MAXWIDTH of 128, which clang refuses there and cicilang too, and is x86-64's alone
+skips=""
+if ls "$RUN"/*.needs > /dev/null 2>&1; then
+  { echo '#include <limits.h>'; echo 'ccl_needs_ran'
+    for nf in "$RUN"/*.needs; do printf '#if %s\nccl_needs_met_%s\n#endif\n' "$(cat "$nf")" "$(basename "$nf" .needs)"; done
+  } > "$D/needs.c"
+  "$CC" $T -E "$D/needs.c" > "$D/needs.out" 2>&1 < /dev/null
+  grep -qw ccl_needs_ran "$D/needs.out" || { echo "RED: the fixtures' needs were not asked for aarch64: $(tail -3 "$D/needs.out" | tr '\n' ' ')"; exit 1; }
+  for nf in "$RUN"/*.needs; do n=$(basename "$nf" .needs); grep -qw "ccl_needs_met_$n" "$D/needs.out" || skips="$skips $n"; done
+fi
 echo "-- every run fixture, built for aarch64 Linux at -O1 and run under qemu beside clang's build"
 for src in "$RUN"/*.c; do
   n=$(basename "$src" .c); std=""; [ -f "$RUN/$n.std" ] && std=$(cat "$RUN/$n.std")
+  case " $skips " in *" $n "*) printf 'skip %-14s needs %s, which aarch64 does not meet\n' "$n" "$(cat "$RUN/$n.needs")"; continue ;; esac
   ( cd "$RUN" && "$CC" $T -O1 $std "$src" -o "$D/$n" > "$D/$n.log" 2>&1 < /dev/null )
   if [ "$(cat "$RUN/$n.ref" 2>/dev/null)" != expect ] && ( cd "$RUN" && "$CLANG" $T -O1 -w $std "$src" -o "$D/$n.ref" -lm > /dev/null 2>&1 ); then   # NAME.ref's `expect': its .expect, gcc's, on every machine (0.225)
     ( cd "$RUN" && $QE "$D/$n.ref" arg1 arg2 > "$D/$n.want" 2>&1 < /dev/null; echo "exit $?" >> "$D/$n.want" ); how=clang

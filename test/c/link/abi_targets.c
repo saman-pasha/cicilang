@@ -2,8 +2,10 @@
    arm64 -- as clang has them: integers narrower than 32 bits, `_Bool', `char', `long double', aggregates by value and returned
    (small ones, HFAs, ones passed in memory), a variadic definition and variadic calls, the zero-width bit-fields and the
    alignments, and a _BitInt past 64 bits (1.6.21: AAPCS64's quadwords on both arm64 machines, as clang 21 and later lay
-   them, the psABI's eightbytes on x86-64). No header: the driver gate builds it for each machine with cicilang and with
-   clang to IR, and compares the functions' conventions (test/abisig.awk) and the table `sizes' line for line. */
+   them, the psABI's eightbytes on x86-64); a _BitInt's own conventions on x86-64 (1.6.57): one eightbyte of 33 to 63 bits,
+   two of 65 to 128, memory where one register is left, and past 128 bits, which clang takes on x86-64 alone. No header:
+   the driver gate builds it for each machine with cicilang and with clang to IR, and compares the functions' conventions
+   (test/abisig.awk) and the table `sizes' line for line. */
 typedef __SIZE_TYPE__ size_t;
 typedef __WCHAR_TYPE__ wchar_t;
 int printf(const char *, ...);
@@ -72,6 +74,16 @@ enum plain f_ep(enum plain v) { return v; }
 _BitInt(7) f_bi7(_BitInt(7) v) { return v; }
 unsigned _BitInt(17) f_bu17(unsigned _BitInt(17) v) { return v; }
 unsigned _BitInt(128) f_bu128(int pad, unsigned _BitInt(128) v) { (void)pad; return v; }
+_BitInt(48) f_bi48(_BitInt(48) v) { return v; }
+unsigned _BitInt(63) f_bu63(unsigned _BitInt(63) v) { return v; }
+_BitInt(65) f_bi65(_BitInt(65) v) { return v; }
+_BitInt(100) f_bi100(long a, long b, long c, long d, _BitInt(100) v, long e) { (void)a; (void)b; (void)c; (void)d; (void)e; return v; }
+_BitInt(100) f_bi100m(long a, long b, long c, long d, long e, _BitInt(100) v, long f) { (void)a; (void)b; (void)c; (void)d; (void)e; (void)f; return v; }
+_BitInt(128) f_bi128m(long a, long b, long c, long d, long e, _BitInt(128) v) { (void)a; (void)b; (void)c; (void)d; (void)e; return v; }
+#if defined(__x86_64__)
+_BitInt(129) f_bi129(_BitInt(129) v) { return v; }
+unsigned _BitInt(200) f_bu200(int k, unsigned _BitInt(200) v) { (void)k; return v; }
+#endif
 int f_i(int v) { return v; }
 #define OFF(t, m) __builtin_offsetof(t, m)
 struct zb { char a; int : 0; char b; };

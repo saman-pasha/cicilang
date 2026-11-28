@@ -78,7 +78,7 @@ cpp_expr(_, scoped(Path, tmpl(M, TArgs0)), id(Thunk)) :- cpp_member_template_id(
 %% `&C::f' OF A STATIC MEMBER FUNCTION IS AN ORDINARY POINTER TO FUNCTION ([expr.unary.op]/3: a pointer to member is only
 %% for a non-static member; 0.160): the thunk the function's name as a value is (cpp_static_thunk). It took the member
 %% pointer road, `{ ptr, i64 }', and `int (*p)(int, int) = &M::sum;' was an `inttoptr' of a struct that LLVM refused
-cpp_expr(Ctx, addr(scoped(Path, N)), E) :- atom(N), cpp_scope_class(Path, C), cpp_static_method(C, N, Name), !,
+cpp_expr(Ctx, addr(scoped(Path, N)), E) :- atom(N), cpp_scope_class(Path, C0), cpp_static_method_class(C0, N, C), cpp_static_method(C, N, Name), !,
     cpp_check_access(Ctx, C, N), ( cpp_static_set(C, N) -> E = '$staticfn'(C, N) ; cpp_static_thunk(C, N, Name, Thunk), E = addr(id(Thunk)) ).   % several of the name: the target chooses (1.6.38, cpp_static_set/2)
 %% `&C::m' IS A POINTER TO MEMBER ([expr.unary.op]/4): the address of the one function this compiler emits for
 %% that method, wrapped in a cast to the member-pointer type so the deduction and the traits read it for what it
@@ -120,7 +120,7 @@ cpp_expr(_, scoped(Path, N), cast(base([], [typedef(Tag)]), int(V))) :- atom(N),
 cpp_expr(Ctx, scoped(Path, N), E) :- cpp_scope_class(Path, C), !,
     (   cpp_static_value(C, N, V) -> E = V                                                        % C::value, a static const with a constant: the constant
     ;   cpp_static_use(C, N, Name) -> E = id(Name)
-    ;   cpp_static_method(C, N, Name) -> ( cpp_static_set(C, N) -> E = '$staticfn'(C, N) ; cpp_static_thunk(C, N, Name, Thunk), E = id(Thunk) )   % `_Traits::eq' NAMED AS A VALUE: a plain function (below); several of the name wait for the target (1.6.38)
+    ;   cpp_static_method_class(C, N, SC), cpp_static_method(SC, N, Name) -> ( cpp_static_set(SC, N) -> E = '$staticfn'(SC, N) ; cpp_static_thunk(SC, N, Name, Thunk), E = id(Thunk) )   % `_Traits::eq' NAMED AS A VALUE: a plain function (below); several of the name wait for the target (1.6.38)
     ;   cpp_static_body_now(Ctx), cpp_data_member(C, N, _) -> cpp_refuse_prog(static_member_use(N))   % ... and `S::a' so (1.6.28)
     ;   cpp_qualified_data_member(Ctx, C, N, E) -> true
     ;   nb_current('$cpp_uneval', yes), atom(C), cpp_data_member(C, N, Hops) -> cpp_null_object(C, P), cpp_access(P, N, Hops, E)   % AN UNEVALUATED OPERAND'S `S::a' with no object (1.6.31; [expr.prim.id.general]/4): typed through a null S -- in a lambda that captured no `this' it was `undeclared('S.a')'
@@ -517,8 +517,10 @@ cpp_static_thunk(C, M, Name, Thunk) :-
     atom_concat(Name, '.fn', Thunk),
     (   cpp_instance_done(Thunk) -> true
     ;   cpp_making(Thunk) -> true
+    ;   cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, R0, M, Ps0, V0, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps0, Name), V0 == true, cpp_static_va_own(C) -> !,   % WITH AN ELLIPSIS (1.6.57): no thunk passes the arguments past the named ones, so its value is the method's body itself with no `this', which the class's emission makes beside it (cpp_static_va_clone/5); declared here
+        cpp_in_class(C, ( cpp_type_or_self(R0, R), cpp_resolved_params(Ps0, Ps1) )), cpp_thunk_params(Ps1, 1, Ps, _), ccl_declare(Thunk, fn(R, Ps, true)), cpp_instance_note(Thunk, thunk), cpp_use_member(C, Name)   % a lazy class's method made now, its value beside it
     ;   cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, R0, M, Ps0, V0, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps0, Name), !,
-        ( V0 == true, nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(static_member_ellipsis_value(M)) ; true ),   % its thunk passes no argument past the named ones (1.6.38; Not done)
+        ( V0 == true, nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(static_member_ellipsis_value(M)) ; true ),   % a LIBRARY class's, whose body is not the program's: its thunk passes no argument past the named ones (1.6.38; 1.6.57's Not done)
         cpp_in_class(C, ( cpp_type_or_self(R0, R), cpp_resolved_params(Ps0, Ps1) )), cpp_thunk_params(Ps1, 1, Ps, Args),
         ccl_declare(Thunk, fn(R, Ps, false)),
         nb_getval('$cpp_making', K0), nb_setval('$cpp_making', [Thunk|K0]),
@@ -528,6 +530,18 @@ cpp_static_thunk(C, M, Name, Thunk) :-
         ( ccl_resolve_type(R, base(_, [void])) -> Body = block([expr(0, call(id(Name), [nullptr|Args]))]) ; Body = block([return(0, call(id(Name), [nullptr|Args]))]) ),
         cpp_instance_note(Thunk, thunk),
         ( cpp_lib_class(C) -> Lib = yes ; Lib = no ), cpp_as_lib(Lib, cpp_add_instance_items([function(0, none, R, Thunk, Ps, false, Body)])) ).
+%% A STATIC MEMBER FUNCTION WITH AN ELLIPSIS NAMED AS A VALUE IS ITS OWN BODY WITH NO `this' (1.6.57; [expr.unary.op]/3,
+%% [conv.func]): a thunk over the named parameters passes nothing past them, so `int (*p)(int, ...) = &S::sum;' was `not
+%% lowered yet: static_member_ellipsis_value(sum)', where clang++ takes it. The class's emission of the program's such method
+%% makes `<Name>.fn' beside it, the method's desugared body over its named parameters and its ellipsis, a local `this' null
+%% before it, as the thunk's call passes one; in its class and out of it. A library's class keeps the thunk over the named
+%% parameters alone
+cpp_static_va_own(C) :- nb_getval('$cpp_in_lib', no), \+ cpp_lib_class(C).
+cpp_static_va_clone(C, M, Qs, F, [function(L, Sto, Ret, Thunk, Ps1, V, block([declaration(L, none, ThisT, [var(this, ThisT, nullptr)])|Ss]))]) :-
+    F = function(L, Sto, Ret, Name, [param(ThisT, this)|Ps1], V, block(Ss)), V == true, atom(Name),
+    ( memberchk(static, Qs) -> true ; catch('$cpp_sfn'(C, M), _, fail) ), cpp_static_va_own(C), !,
+    atom_concat(Name, '.fn', Thunk), ( catch(ccl_declared(Thunk, _), _, fail) -> true ; ccl_declare(Thunk, fn(Ret, Ps1, V)) ), ( cpp_instance_done(Thunk) -> true ; cpp_instance_note(Thunk, thunk) ).
+cpp_static_va_clone(_, _, _, _, []).
 cpp_consteval_fold(E0, E) :- E0 = call(id(Name), _), atom(Name), '$cpp_consteval'(Name), !,   % a consteval METHOD (the free road folds its own, cpp_free_call)
     ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_immediate_context -> E = E0 ; cpp_refuse(0, consteval_call_not_constant(Name)) ).
 cpp_consteval_fold(E, E).
@@ -998,7 +1012,7 @@ cpp_call(Ctx, scoped(Path, M), As, E) :- cpp_scope_class(Path, C), cpp_method(C,
     ;   \+ cpp_static_held(C, M, Name), cpp_closure_uncaptured(Ctx, EC, K), cpp_base_hops(EC, C, _) -> cpp_unthis_words(K, call, W), cpp_refuse_prog(W)   % ... and in one that captured no `this' (1.6.29)
     ;   Ctx \== none, \+ cpp_static_method(C, M, Name), cpp_closure_this(Ctx, EC), cpp_base_hops(EC, C, Hops)   % ... AND IN A CLOSURE THAT CAPTURED THIS (1.6.26): the object that it keeps, where the call went out with a null this
     ->  cpp_closure_object(Hops, P), cpp_object_arg(Name, P, Obj)
-    ;   \+ cpp_static_method(C, M, Name), M \= operator(_), \+ cpp_lib_class(C), \+ catch('$cpp_mt'(C, M, _, _), _, fail), nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(nonstatic_no_object)   % ... and a member function with no object in the program's code, outside its class, clang++'s words (1.6.26): it was called over a null this
+    ;   \+ cpp_static_held(C, M, Name), M \= operator(_), \+ cpp_lib_class(C), \+ catch('$cpp_mt'(C, M, _, _), _, fail), nb_getval('$cpp_in_lib', no) -> cpp_refuse_prog(nonstatic_no_object)   % ... and a member function with no object in the program's code, outside its class, clang++'s words (1.6.26): it was called over a null this
     ;   cpp_object_arg(Name, nullptr, Obj) ),
     cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]).
 cpp_call(Ctx, scoped(Path, M), As, _) :- catch(cpp_scope_class(Path, C), _, fail), cpp_member_misfit(Ctx, C, M, As, W), !, cpp_refuse_prog(W).   % ... and none of them fits (1.6.26)
@@ -1021,6 +1035,8 @@ cpp_call(Ctx, member(X0, M), As, E) :- !,
     ;   atom(M), cpp_class_of_type_of(X, C), cpp_data_member(C, M, DH), cpp_hops(X, DH, B), XM = member(B, M),   % A DATA MEMBER OF CLASS TYPE CALLED THROUGH AN OBJECT, `c.f(x)': its class's operator() -- the closure a range adaptor holds (0.66's rule named bare, one object further out)
         cpp_class_of_type_of(XM, FC), cpp_method(FC, operator('()'), As, Name, _)
     ->  cpp_fill_defaults(Name, As, As1), cpp_object_lref_check(FC, Name, As1), cpp_object_arg(Name, addr(XM), Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2])
+    ;   atom(M), cpp_class_of_type_of(X, C), \+ cpp_data_member(C, M, _), \+ cpp_class_method(C, M, _, _, _, _), cpp_static_through_object(C, M, F0)   % A STATIC POINTER TO A FUNCTION CALLED THROUGH AN OBJECT, `m.pick(5)' (1.6.57; [expr.ref]/6.1): the static's own value, as `M::pick(5)'; it was no_member(pick, M)
+    ->  ( cpp_callee_count_wrong(F0, As, W) -> cpp_refuse_prog(W) ; E = call(F0, As) )
     ;   atom(M), ( ccl_type_of(X, XT0) -> ccl_unref(XT0, XT) ; XT = unknown ),
         ( XT \== unknown, cpp_class_of_type(XT, XC0), cpp_obj_const(X, const), cpp_class_method(XC0, M, _, _, _, _) -> cpp_refuse(0, non_const_member_on_const(M, XC0))   % a NON-CONST member of a const object is no candidate ([over.match.funcs]/5; 0.127): `c.bump()' over a by-value capture in a lambda that is not mutable
         ; XT \== unknown, ccl_members_of(XT, XMs), \+ memberchk(member(_, M, _), XMs), \+ ccl_anon_route(XT, M, _, _), \+ ( cpp_class_of_type(XT, XC), cpp_data_member(XC, M, _) ) -> cpp_refuse(0, no_member(M, XT))   % (a PLAIN struct's own member is one, 0.168: `h.fp(k)' over `struct H { void (*fp)(int &); }' was refused no_member(fp, H)) a KNOWN type with no such member: a decltype asking for it must refuse, which is the SFINAE that rejects a detection
@@ -1040,6 +1056,8 @@ cpp_call(Ctx, arrow(X0, M), As, E) :- !,
     ;   atom(M), cpp_pointee_class_of(X, C), cpp_data_member(C, M, DH), cpp_hops(deref(X), DH, B), XM = member(B, M),   % ... AND THROUGH A POINTER, `p->f(x)' (1.6.21): `this->m_(a, b)' was `call(arrow(id(this), m_))'
         cpp_class_of_type_of(XM, FC), cpp_method(FC, operator('()'), As, Name, _)
     ->  cpp_fill_defaults(Name, As, As1), cpp_object_lref_check(FC, Name, As1), cpp_object_arg(Name, addr(XM), Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2])
+    ;   atom(M), cpp_pointee_class_of(X, C), \+ cpp_data_member(C, M, _), \+ cpp_class_method(C, M, _, _, _, _), cpp_static_through_object(C, M, F0)   % ... and through a pointer, `p->pick(5)' (1.6.57)
+    ->  ( cpp_callee_count_wrong(F0, As, W) -> cpp_refuse_prog(W) ; E = call(F0, As) )
     ;   atom(M), cpp_scalar_arrow(X, XT) -> cpp_refuse(0, no_member(M, XT))   % `p->f()' over a pointer to a scalar, or over no pointer at all (0.127)
     ;   cpp_callee_count_wrong(arrow(X, M), As, W) -> cpp_refuse_prog(W)   % a pointer member called with another count of arguments than its type's (0.302)
     ;   E = call(arrow(X, M), As) ).
@@ -1686,6 +1704,11 @@ cpp_static_bare(C, M) :- ( cpp_static_method(C, M, _) ; cpp_static_member_templa
 %% the first `reserve' of any `vector<bool>'. The name decides only what to ask; the chosen function decides the object. `vectorbool.cpp'.
 cpp_static_bare(C, M, Name) :- ( cpp_static_method(C, M, Name) ; cpp_static_member_template(C, M) ), !.
 cpp_static_method(C, M, Name) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, M, Ps, _, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps, Name), !.
+%% A BASE'S STATIC MEMBER FUNCTION NAMED THROUGH THE DERIVED CLASS, `&D::one' and `D::one' (1.6.57; [class.member.lookup], [expr.unary.op]/3):
+%% the class whose member it is, found as a call finds it, unless the derived class has a member of the name, which hides it. It
+%% was `undeclared('D.one')' as a value, and its address took the pointer to member's road
+cpp_static_method_class(C, M, C) :- cpp_static_method(C, M, _), !.
+cpp_static_method_class(C, M, O) :- \+ ( cpp_class(C, cls(_, _, Ms, _, _, _)), member(X, Ms), cpp_member_named(X, M) ), cpp_base_scope(C, B), cpp_static_method_class(B, M, O), !.
 %% A STATIC MEMBER FUNCTION'S BODY, in the program's code and evaluated (1.6.28; [class.static.mfct]/2, [expr.prim.this]/3,
 %% [expr.prim.id.general]/4): no `this', no member that is not static and no call of a member function that is not static,
 %% bare or named with its class or a base -- clang++'s `invalid use of 'this' outside of a non-static member function', `invalid

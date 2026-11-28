@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.56 the versions are: the module 1.6.56 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 222 (`ccl_lowering_version/1`,
+At 1.6.57 the versions are: the module 1.6.57 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 222 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 223 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -557,7 +557,9 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             redef_hobj.h and redef_late.h, a second definition at file scope, each refused at its
                             line (1.6.7); cleanup_*.c and mode_attr.c, GCC's cleanup and mode attributes refused,
                             each at its line (1.6.8); loop_unsettled.c and loop_settled7.c, the cap of a loop's
-                            passes, refused and taken, for the driver gate (1.6.19)
+                            passes, refused and taken, for the driver gate (1.6.19); bitint_narrow.c, bitint_zero.c,
+                            bitint_wide.c and bitint_arm.c, a _BitInt's width past its limits, each refused at its line,
+                            the last for arm64 alone (1.6.57)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -568,7 +570,8 @@ test/c/link/                two files linked into one program; the ABI against c
                             with the functions that it calls (vec_a.c, vec_b.c, 0.274); two units over <memory.pl>
                             that share a handle, over the program's one pool (sp_a.c, sp_b.c, 1.6.5); a function and an
                             extern object that a block declares, another unit defining them (blockfn_main.c,
-                            blockfn_def.c, 1.6.14)
+                            blockfn_def.c, 1.6.14); _BitInt values across the calls both ways, as clang passes them
+                            (bitint_main.c and bitint_helper.c over bitint.h, 1.6.57)
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std, NAME.needs (0.224), NAME.ref
                             (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt;
                             ctext.pl, the macro file of ctext.c (0.260); tvector.pl, tvhdr.h and
@@ -652,7 +655,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             braces for arrays of no bound (1.6.39); gnuattrs.c, GCC's weak, alias and section (1.6.40);
                             libbuiltins.c, clang's library builtins, each the C library's function with no declaration,
                             built as C and as C++ (1.6.47); framebuiltins.c, clang's alloca and complex
-                            functions, built as C and as C++ (1.6.54)
+                            functions, built as C and as C++ (1.6.54); fndesignators.c, calls through `*' of a pointer
+                            to a function, built as C and as C++ (1.6.57)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -741,8 +745,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             before a throw whose handler jumps (1.6.17); deleted_twice.cpp and deleted_read.cpp, a plain
                             pointer deleted twice and read after its delete (1.6.32); va_ambiguous.cpp and
                             va_ambiguous_member.cpp, a call that an overload with an ellipsis and its plain twin both
-                            fit, in clang++'s words, va_few_qualified.cpp, a qualified call of too few arguments beside
-                            them, and va_static_value.cpp, a static one's value, refused (1.6.38); complit_static.cpp, a
+                            fit, in clang++'s words, and va_few_qualified.cpp, a qualified call of too few arguments
+                            beside them (1.6.38; a static one's value builds since 1.6.57); complit_static.cpp, a
                             compound literal's storage class, refused (1.6.39); defctor_*.cpp, dtor_*.cpp, ctor_*.cpp,
                             delalone_*.cpp, delmember_two.cpp and delqual_overload.cpp, an object whose default
                             constructor or destructor is not there, a constructor's parts that no initializer names and a deleted function named
@@ -811,7 +815,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             uniondefaults.cpp, unions' default member initializers (1.6.55); arrayprvalues.cpp, an
                             array's prvalue by its type's name, aggconstructs.cpp, aggregates whose members construct
                             and their default member initializers, and overloadfits.cpp, what 1.6.56's reference rules
-                            and ambiguities keep (1.6.56)
+                            and ambiguities keep (1.6.56); staticvavalues.cpp, static member functions with an ellipsis
+                            named as values, and staticfnptrs.cpp, static pointers to functions and to members, defined
+                            out of their classes and called, and a base's statics through a derived class (1.6.57)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

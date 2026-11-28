@@ -203,9 +203,9 @@ if [ "$got" = "exit 10" ]; then echo "ok   templates.cpp, the reader's fixture (
 # not built as C++, since that rule refuses its owner live across make's call (0.307); shadowborrow.c's borrows of an
 # object whose name a block declares again (1.6.33); libbuiltins.c's library builtins, each the C library's function
 # with no declaration, which C++ declares where no header did (1.6.47); framebuiltins.c's alloca and complex functions
-# (1.6.54)
+# (1.6.54); fndesignators.c's calls through `*' of a pointer to a function (1.6.57)
 echo "-- ccllib in cicilang++: a ccllib run fixture of test/c/run built as C++ prints what its C build prints (CCLLIB.md's phase 0.10)"
-for n in ctext autodrop tvector literal operators operators2 born dropassign typednames contswitch loadedptr mirror unread lazy hdrvec regnames regnames23 condarr statret staticrows shadowed ownmacros hdrinst widearr longlit ownundef outparam ownwords staticfree statichide discarded xmacro ownparams shadowborrow loopjoins nullcopies looppasses nulldecls reallocs handout staticrecords arrayreturns globalnames stmtstatics libbuiltins framebuiltins; do
+for n in ctext autodrop tvector literal operators operators2 born dropassign typednames contswitch loadedptr mirror unread lazy hdrvec regnames regnames23 condarr statret staticrows shadowed ownmacros hdrinst widearr longlit ownundef outparam ownwords staticfree statichide discarded xmacro ownparams shadowborrow loopjoins nullcopies looppasses nulldecls reallocs handout staticrecords arrayreturns globalnames stmtstatics libbuiltins framebuiltins fndesignators; do
   got=$(ccl_capped "$CPP_FIXTURE_SECS" "$ROOT/bin/cicilang++" "$ROOT/test/c/run/$n.c" -o "$D/ccl_$n" && { timeout -s KILL "$CPP_RUN_SECS" "$D/ccl_$n" < /dev/null; echo "exit $?"; })
   if [ "$got" = "$(cat "$ROOT/test/c/run/$n.expect")" ]; then echo "ok   $n.c, built as C++ by cicilang++, prints what its C build prints"
   else echo "FAIL $n.c built as C++ by cicilang++"; echo "$got" | diff "$ROOT/test/c/run/$n.expect" - 2>&1 | head -6 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi
@@ -225,8 +225,8 @@ for pair in "cleanup_overload:'cleanup' argument 'bye' is not a single function"
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
-echo "-- and an overload with an ellipsis beside its plain twin: a call that both fit, in clang++'s words, and a static one's value (1.6.38); a compound literal's storage class (1.6.39)"
-for pair in "va_ambiguous:va_ambiguous.cpp:4: error: call to 'f' is ambiguous" "va_ambiguous_member:va_ambiguous_member.cpp:3: error: call to member function 'm' is ambiguous" "va_static_value:va_static_value.cpp:3: error: not lowered yet: static_member_ellipsis_value(s)" "va_few_qualified:va_few_qualified.cpp:5: error: no matching function for call to 'f'" "complit_static:complit_static.cpp:3: error: type name does not allow storage class to be specified"; do
+echo "-- and an overload with an ellipsis beside its plain twin: a call that both fit, in clang++'s words (1.6.38; a static one's value is built since 1.6.57, staticvavalues.cpp); a compound literal's storage class (1.6.39)"
+for pair in "va_ambiguous:va_ambiguous.cpp:4: error: call to 'f' is ambiguous" "va_ambiguous_member:va_ambiguous_member.cpp:3: error: call to member function 'm' is ambiguous" "va_few_qualified:va_few_qualified.cpp:5: error: no matching function for call to 'f'" "complit_static:complit_static.cpp:3: error: type name does not allow storage class to be specified"; do
   n=${pair%%:*}; what=${pair#*:}
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac

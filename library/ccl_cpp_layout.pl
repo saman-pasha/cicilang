@@ -916,6 +916,8 @@ cpp_static_type(base(Q, S), base(Q1, S)) :- memberchk(static, Q), !, ccl_delete_
 cpp_static_type(ptr(Q, T0), ptr(Q, T)) :- !, cpp_static_type(T0, T).
 cpp_static_type(arr(N, T0), arr(N, T)) :- !, cpp_static_type(T0, T).
 cpp_static_type(ref(Q, T0), ref(Q, T)) :- !, cpp_static_type(T0, T).
+cpp_static_type(memptr(C, Q, T0), memptr(C, Q, T)) :- !, cpp_static_type(T0, T).   % ... and a pointer to member, `static int A::*pm' (1.6.57)
+cpp_static_type(fn(R0, Ps, V), fn(R, Ps, V)) :- !, cpp_static_type(R0, R).   % ... AND A POINTER TO A FUNCTION, `static int (*pick)(int)' (1.6.57): its `static' is its result's base's, and it was split as data, a slot in each object
 %% AN INLINE STATIC WITH NO INITIALIZER (0.218; the reader's `inline' beside `static', ccl_inline_statics/3): noted for its
 %% class, '$cpp_sinline'(C, N), and the word taken off its type, which every use of the member reads
 cpp_static_inline_take(N, T1, T) :- cpp_static_inline_type(T1, T), !, ( cpp_class_ctx(C) -> ( catch('$cpp_sinline'(C, N), _, fail) -> true ; assertz('$cpp_sinline'(C, N)) ) ; true ).
