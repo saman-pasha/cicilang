@@ -1725,6 +1725,7 @@ cpp_builtin_call(N, [X], int(P)) :- cpp_popcount_name(N), cpp_popcount(X, P).
 %% did: `__builtin_strcpy', `__builtin_printf', `__builtin_malloc' and `__builtin_abort' were `use of undeclared identifier',
 %% and `__builtin_strlen', `__builtin_memcmp' and `__builtin_memchr' were their functions' calls that no declaration named,
 %% `use of undeclared identifier 'strlen'' in a file that included no <string.h>
+cpp_builtin_call(B, As, call(id(B), As)) :- memberchk(B, ['__builtin_alloca', '__builtin_alloca_uninitialized', '__builtin_alloca_with_align']), !, cpp_lib_arg_count(B, As).   % the frame's memory keeps its name, the lowering's `alloca' (1.6.54, ir_call/4): the C library has no function of the name
 cpp_builtin_call(B, As, call(id(F), As)) :- ccl_lib_builtin(B, F, T), !, cpp_lib_arg_count(B, As), cpp_lib_declared(F, T).
 %% A LIBRARY BUILTIN'S CALL GIVES ITS PROTOTYPE'S COUNT OF ARGUMENTS (1.6.47), in clang++'s words, as C's call does (ir_arg_count/4):
 %% `__builtin_floor()' and `__builtin_memcpy(a, b, 2, 3)' were built from 0.117 on, and ran over what the registers held

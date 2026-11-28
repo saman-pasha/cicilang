@@ -682,6 +682,9 @@ dr_value_text(ref_temp_bind(V, R, A), [V, ' lvalue reference to type ''', R, '''
 dr_value_text(ref_unrelated_bind(V, R, A), [V, ' lvalue reference to type ''', R, ''' cannot bind to a value of unrelated type ''', A, '''']).   % ... and its lvalue of another type
 dr_value_text(ref_quals_bind(R, A), ['binding reference of type ''', R, ''' to value of type ''', A, ''' not permitted due to incompatible qualifiers']).   % ... of a pointer's lower qualifiers
 dr_value_text(ref_drops_bind(R, A, Q, N), ['binding reference of type ''', R, ''' to value of type ''', A, ''' drops ''', Q, ''' ', N]).   % ... of more qualifiers
+dr_value_text(alloca_align_const, ['argument to ''__builtin_alloca_with_align'' must be a constant integer']).   % the frame's memory's alignment (1.6.54, ir_alloca_align/2)
+dr_value_text(alloca_align_pow2, ['requested alignment is not a power of 2']).
+dr_value_text(alloca_align_min, ['requested alignment must be 8 or greater']).
 dr_value_text(ref_lvalue_bind(R, A), ['reference to type ''', R, ''' could not bind to an lvalue of type ''', A, '''']).   % ... an array of more qualifiers for a const reference
 dr_value_text(default_const_class(A), ['default initialization of an object of const type ''', A, ''' without a user-provided default constructor']).   % ... and of a class (1.6.50)
 dr_value_text(constexpr_uninit(N), ['constexpr variable ''', N, ''' must be initialized by a constant expression']).   % ... and a constexpr one

@@ -848,6 +848,7 @@ ck_fail(Kind, Name0, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), 
 %% the words name an object by its own name: an outer object's mark while a block hides its name is taken off (1.6.33, ck_sh_borrows/4)
 ck_unmark('$sh'(X), Y) :- !, ck_unmark(X, Y).
 ck_unmark(T, 'a compound literal') :- atom(T), sub_atom(T, 0, _, _, '$clit'), !.   % a compound literal's key of its block (1.6.37)
+ck_unmark('$alloca', alloca) :- !.   % the frame's memory (1.6.54, ck_borrows_from/3)
 ck_unmark(T, T) :- \+ compound(T), !.
 ck_unmark(T0, T) :- T0 =.. [F|As0], maplist(ck_unmark, As0, As), T =.. [F|As].
 %% a form without a macro's whole expansion in it
@@ -1159,6 +1160,7 @@ ck_tied_state(St, R, S) :-
 %% and a local array's value, which is its address)
 ck_borrows_from(scoped(_, N), St, P) :- !, ck_borrows_from(id(N), St, P).        % C++ (M6): a qualified name is its bare name
 ck_borrows_from(ccast(_, _, E), St, P) :- !, ck_borrows_from(E, St, P).
+ck_borrows_from(call(id(F), _), _, '$alloca') :- memberchk(F, [alloca, alloca_uninitialized, alloca_with_align, '__builtin_alloca', '__builtin_alloca_uninitialized', '__builtin_alloca_with_align']), !.   % THE FRAME'S MEMORY (1.6.54): `__builtin_alloca(n)', `alloca' to the walk (ck_lib_calls/2), is a borrow of no local, the key `$alloca' that no name is (the words' `alloca', ck_unmark/2), which ends with the function -- no owner frees it, and it leaves the function as a local's address would not
 %% A LOCAL THAT HOLDS BORROWS IN ITS STORAGE (0.217, ck_hold_key/6): its value carries what it holds -- a struct with a
 %% pointer member given `&x', a library object handed one --, the borrow that can dangle first; its address is its own
 ck_borrows_from(id(N), St, P) :- ck_holder(N), \+ ck_arrlocal(N), ck_held_borrow(St, N, P), !.

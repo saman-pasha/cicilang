@@ -370,6 +370,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.51 | C++: a member's rvalue and an lvalue of another type for an lvalue reference | a member function's rvalue for a non-const lvalue reference, and an lvalue of another type or of more qualifiers for an lvalue reference, are clang++'s words; each built (reader 221, lowering 217) |
 | 1.6.52 | C++: the program's exact overloads ranked by their reference bindings | of the program's own overloads that take the arguments exactly the best by [over.ics.rank]/3.2 is taken, and a call that none is best for is clang++'s ambiguous call; each took the first declared (reader 221, lowering 218) |
 | 1.6.53 | C++: a candidate that an argument misfits is no candidate | a candidate that an argument misfits is left out where another candidate, or of a member an ellipsis member, takes the call; it tied with an ellipsis and the first declared won (reader 221, lowering 219) |
+| 1.6.54 | the frame's memory and the complex functions of clang's builtins | `__builtin_alloca` is LLVM's alloca and a borrow of the frame to the safe part, and the complex functions are the library's builtins; each was refused (reader 221, lowering 220) |
 
 ## M5 — the C++ mode
 
@@ -27472,3 +27473,55 @@ No CI job ran, by the owner's rule of 0.271.
 - RULES.md (the rule in the overloads' topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.53, the reader 221 and the lowering 219.
+
+## 1.6.54 — the frame's memory and the complex functions of clang's builtins
+
+**1.6.54: at the user's word "then next", after 1.6.53: a part of Not done's record of what 1.6.47 left of clang's
+library builtins closed against clang 23 -- `__builtin_alloca`, its `_uninitialized` and `_with_align` forms, and the
+complex functions. The step was committed with its nets and its broken copies; the chain ran over 1.6.47's commit
+(1.6.48's entry), and this step claims nothing GREEN of the chain.**
+
+1. THE COMPLEX FUNCTIONS ARE THE LIBRARY'S BUILTINS (lowering 220; `ccl_lib_proto/4` over `ccl_cx_fn/2`, the codes `d`,
+   `f`, `e`, `dx`, `fx` and `ex` of `ccl_lib_code/2`; C17 7.3, clang 23's Builtins.td): `__builtin_creal`, `cimag`,
+   `cabs`, `carg`, `conj`, `cproj`, `cexp`, `clog`, `csqrt`, `cpow` and the trigonometric and hyperbolic ones, each in
+   its plain, `f` and `l` forms, call the library's functions by their prototypes -- a real of the complex for the first
+   four, a complex for the rest, `cpow` of two. Each was `call to undeclared function`, where clang builds it.
+2. `__builtin_alloca(n)` IS LLVM'S `alloca` IN THE FRAME (`ir_call/4`; `cpp_builtin_call/3` in C++): `alloca i8, i64 n,
+   align 16`, as clang's, for glibc's `alloca`, a macro of it. The C library has no function of the name, so C++ keeps
+   the builtin's name, where the table's call would not link. `__builtin_alloca_uninitialized` is the same, and
+   `__builtin_alloca_with_align(n, b)` is aligned to b bits, a constant power of 2 of 8 or more -- `align 32` for 256
+   --, else clang's `argument to '__builtin_alloca_with_align' must be a constant integer`, `requested alignment is not
+   a power of 2` and `requested alignment must be 8 or greater` (`ir_alloca_align/2`).
+3. THE FRAME'S MEMORY IS A BORROW OF THE FRAME (`ck_borrows_from/3`, the key `$alloca` that no name is, `alloca` in the
+   words, `ck_unmark/2`): it needs no owner, and it is refused where a local's address is -- returned, `a borrow leaves
+   the function: 'p'`; freed, `a borrow consumed: 'p'`; stored into a global's field, `a borrow stored where it cannot
+   be followed: 'alloca'`. It was the check's `plain pointer not consumed`, and so each use of `alloca` was refused; the
+   free built, and glibc's free met a pointer that no allocation gave. The key is no name, since glibc declares `alloca`
+   as a function too, and a borrow of a global's name leaves a function.
+
+`test/c/run/framebuiltins.c` holds items 1 to 3, built as C and as C++ (the C++ gate) and for aarch64 Linux under qemu
+(the cross gate), each line as clang's and clang++'s: alloca in a function, in a loop's block and of a size that no fold
+takes, each aligned to 16, its two forms, and the complex functions of each width; `test/c/safe/alloca_returned.c`,
+`alloca_freed.c` and `alloca_stored.c` hold the refusals, and the driver gate's check the alignment's four refusals, as
+clang's.
+
+THE NETS. Over the copy: the flow gate GREEN in 496 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+38 s (487 ok), the driver gate GREEN in 300 s (216 ok), the cross gate GREEN in 313 s (296 ok), `framebuiltins.c` built
+for aarch64 Linux and run under qemu among them. THE BROKEN COPIES: fourteen, each run from a copy of the copy over a
+fresh HOME and asked the fixture as C and as C++, the three refusals and the driver gate's check, 18 s in all; thirteen
+caught: the lowering's alloca taken out, the frame's borrow, C++'s name of the builtin, the table's prototype of alloca
+and of the complex functions, the frame's words and its key, a real's result made a complex, the widths' suffixes turned
+round, the complex functions' shapes, the alignment's power of 2, its least of 8 and the alignment of `_with_align`
+ignored. AL10, which aligned alloca to one byte where clang aligns it to 16, was caught by nothing: the fixture's two
+blocks were each aligned to 16 still, since the frame keeps that alignment on these machines; the 16 stays, as clang's
+IR has it. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's rule of
+0.271.
+
+- `library/ccl_infer.pl` (`ccl_lib_proto/4`, `ccl_cx_fn/2`, `ccl_lib_code/2`); `library/ccl_ir.pl` (`ir_call/4`,
+  `ir_alloca_align/2`, the lowering 220); `library/ccl_check.pl` (`ck_borrows_from/3`, `ck_unmark/2`);
+  `library/ccl_cpp_expr.pl` (`cpp_builtin_call/3`); `library/ccl_driver.pl` (three texts); `test/c/run/framebuiltins.c`
+  with its `.expect`, `test/c/safe/alloca_returned.c`, `alloca_freed.c` and `alloca_stored.c` with theirs; `test/cpp.sh`
+  (the fixture built as C++); `test/driver.sh` (one check); the module's version.
+- RULES.md (the rule in the Builtins topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.54, the reader 221 and the lowering 220.

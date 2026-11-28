@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.53 the versions are: the module 1.6.53 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 219 (`ccl_lowering_version/1`,
+At 1.6.54 the versions are: the module 1.6.54 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 220 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -651,7 +651,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             deadbranch.c, branches that clang's code generation drops, and bracedstr.c, string literals in
                             braces for arrays of no bound (1.6.39); gnuattrs.c, GCC's weak, alias and section (1.6.40);
                             libbuiltins.c, clang's library builtins, each the C library's function with no declaration,
-                            built as C and as C++ (1.6.47)
+                            built as C and as C++ (1.6.47); framebuiltins.c, clang's alloca and complex
+                            functions, built as C and as C++ (1.6.54)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -707,7 +708,8 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             local_array_out.c and local_member_array_out.c, what 1.6.35's rules refuse (1.6.35);
                             stmt_static_free.c and stmt_static_copy_free.c, a statement expression's static local
                             freed (1.6.36); complit_block_dead.c, complit_pass_dead.c and complit_copy_dead.c, a
-                            compound literal read after its block (1.6.37)
+                            compound literal read after its block (1.6.37); alloca_returned.c, alloca_freed.c
+                            and alloca_stored.c, alloca's memory returned, freed and stored into a global (1.6.54)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

@@ -829,12 +829,14 @@ ccl_trap_builtin('__builtin_debugtrap', [], 'llvm.debugtrap', goes_on).
 %% table (cpp_math_fn/4). C refused each as `call to undeclared function'; C's lowering calls them (ir_call/4), a call's type is
 %% the prototype's result, and C++'s desugaring takes the ones that its own clauses do not map (cpp_builtin_call/3). A type is a
 %% code: v void, n a void that does not return, i int, z size_t, p `void *', q `const void *', s `char *', c `const char *', l
-%% a va_list
+%% a va_list; d, f and e the reals, dx, fx and ex their complex (1.6.54)
 ccl_lib_builtin(B, F, T) :- atom(B), atom_concat('__builtin_', F, B), ccl_lib_builtin_fn(F, T), !.
 ccl_lib_builtin_fn(F, fn(Ret, Ps, false)) :- cpp_math_fn(F, F, Ret, Ps), !.
 ccl_lib_builtin_fn(F, fn(Ret, Ps, Var)) :- ccl_lib_proto(F, R, Ss, Var), ccl_lib_code(R, Ret), findall(param(T, anon), ( member(S, Ss), ccl_lib_code(S, T) ), Ps).
 ccl_lib_proto(abort, n, [], false).
 ccl_lib_proto(malloc, p, [z], false).           ccl_lib_proto(calloc, p, [z, z], false).        ccl_lib_proto(realloc, p, [p, z], false).
+ccl_lib_proto(alloca, p, [z], false).   % the frame's memory, LLVM's `alloca' (1.6.54, ir_call/4), a borrow of the frame to the check (ck_borrows_from/3)
+ccl_lib_proto(alloca_uninitialized, p, [z], false).  ccl_lib_proto(alloca_with_align, p, [z, z], false).   % ... and its forms, the second's alignment a constant in bits
 ccl_lib_proto(free, v, [p], false).
 ccl_lib_proto(memcpy, p, [p, q, z], false).     ccl_lib_proto(memmove, p, [p, q, z], false).    ccl_lib_proto(memset, p, [p, i, z], false).
 ccl_lib_proto(memcmp, i, [q, q, z], false).     ccl_lib_proto(memchr, p, [q, i, z], false).     ccl_lib_proto(bcmp, i, [q, q, z], false).
@@ -850,10 +852,20 @@ ccl_lib_proto(printf, i, [c], true).            ccl_lib_proto(sprintf, i, [s, c]
 ccl_lib_proto(scanf, i, [c], true).             ccl_lib_proto(sscanf, i, [c, c], true).
 ccl_lib_proto(vprintf, i, [c, l], false).       ccl_lib_proto(vsprintf, i, [s, c, l], false).   ccl_lib_proto(vsnprintf, i, [s, z, c, l], false).
 ccl_lib_proto(vscanf, i, [c, l], false).        ccl_lib_proto(vsscanf, i, [c, c, l], false).
+%% ... AND THE COMPLEX FUNCTIONS (1.6.54; C17 7.3, clang 23's Builtins.td): `__builtin_creal', `__builtin_cabsf',
+%% `__builtin_cexpl' and kin, each the library's function of its name by its prototype -- the real part, the imaginary part,
+%% the magnitude and the angle a real of the complex, the others a complex, `cpow' of two. C refused each as `call to
+%% undeclared function'
+ccl_lib_proto(F, R, Ss, false) :- ccl_cx_fn(F0, Shape), member(Suf-K, [''-d, f-f, l-e]), atom_concat(F0, Suf, F), atom_concat(K, x, KX),
+    ( Shape == real -> R = K, Ss = [KX] ; Shape == cx -> R = KX, Ss = [KX] ; R = KX, Ss = [KX, KX] ).
+ccl_cx_fn(creal, real).  ccl_cx_fn(cimag, real).  ccl_cx_fn(cabs, real).  ccl_cx_fn(carg, real).  ccl_cx_fn(cpow, cx2).
+ccl_cx_fn(F, cx) :- member(F, [conj, cproj, cexp, clog, csqrt, csin, ccos, ctan, casin, cacos, catan, csinh, ccosh, ctanh, casinh, cacosh, catanh]).
 ccl_lib_code(v, base([], [void])).  ccl_lib_code(n, base([noreturn], [void])).  ccl_lib_code(i, base([], [int])).  ccl_lib_code(z, base([], [unsigned, long])).
 ccl_lib_code(p, ptr([], base([], [void]))).  ccl_lib_code(q, ptr([], base([const], [void]))).
 ccl_lib_code(s, ptr([], base([], [char]))).  ccl_lib_code(c, ptr([], base([const], [char]))).
 ccl_lib_code(l, T) :- ccl_va_list_type([], T).   % an array type, which a parameter's lowering makes a pointer
+ccl_lib_code(d, base([], [double])).  ccl_lib_code(f, base([], [float])).  ccl_lib_code(e, base([], [long, double])).   % the reals, and the complex of each (1.6.54)
+ccl_lib_code(dx, base([], ['_Complex', double])).  ccl_lib_code(fx, base([], ['_Complex', float])).  ccl_lib_code(ex, base([], ['_Complex', long, double])).
 ccl_size_type(T) :- ( ccl_typedef_of(size_t, _) -> T = base([], [typedef(size_t)]) ; T = base([], [unsigned, long]) ).
 ccl_sizeof_expr(sizeof(_)).
 ccl_sizeof_expr(sizeof_type(_)).

@@ -14689,6 +14689,22 @@ in the first topic (The ccllib gate).
   clang's and clang++'s words, a builtin beside its header's declaration and a declared one, `__builtin_abort()`'s path,
   and the intrinsics of each floating type on x86_64 and aarch64 Linux and on Apple's arm64 as clang 23's IR names them.
   (1.6.47)
+- **... AND THE COMPLEX FUNCTIONS AND THE FRAME'S MEMORY** (1.6.54, lowering 220; C17 7.3; clang 23's Builtins.td):
+  `__builtin_creal`, `cimag`, `cabs`, `carg`, `conj`, `cproj`, `cexp`, `clog`, `csqrt`, `cpow` and the trigonometric and
+  hyperbolic ones, each in its plain, `f` and `l` forms, are the library's functions by their prototypes -- a real of
+  the complex for the first four, a complex for the rest, `cpow` of two (`ccl_cx_fn/2`, the codes `d`, `f`, `e`, `dx`,
+  `fx` and `ex`); each was `call to undeclared function`. `__builtin_alloca(n)`, glibc's `alloca`, is LLVM's `alloca i8,
+  i64 n, align 16` in the frame, as clang's (`ir_call/4`; the C library has no function of the name, and C++ keeps the
+  builtin's name, `cpp_builtin_call/3`); `__builtin_alloca_uninitialized` is the same, and
+  `__builtin_alloca_with_align(n, b)` is aligned to b bits, a constant power of 2 of 8 or more, else clang's `argument
+  to '__builtin_alloca_with_align' must be a constant integer`, `requested alignment is not a power of 2` and `requested
+  alignment must be 8 or greater` (`ir_alloca_align/2`). Their memory is a borrow of the frame to the safe part
+  (`ck_borrows_from/3`, the key `$alloca` that no name is, `alloca` in the words, `ck_unmark/2`): it needs no owner, and
+  it is refused where a local's address is -- returned, `a borrow leaves the function`; freed, `a borrow consumed`;
+  stored into a global's field, `a borrow stored where it cannot be followed`. It was the check's `plain pointer not
+  consumed`, the free built and glibc's free met a pointer that no allocation gave. `test/c/run/framebuiltins.c`, built
+  as C and as C++ (the C++ gate) and for aarch64 Linux under qemu (the cross gate), and `test/c/safe/alloca_returned.c`,
+  `alloca_freed.c` and `alloca_stored.c`; the driver gate's check of the alignment's four refusals. (1.6.54)
 - THE BYTE SWAPS `__builtin_bswap16`, `32`, `64` and `128` ARE `llvm.bswap.iN` (0.206; `ccl_bswap_builtin/3`, one table,
   which the inference, the lowering's `ir_call/4` and the desugaring's evaluator read): each answers the unsigned integer
   of its width, its argument converted to that width first, and a constant 16- or 32-bit swap folds in a constant
@@ -17722,9 +17738,8 @@ Declarations topic of the C++ reader).
   safe part's topic): one copy takes it at the inner pointer's end since 1.6.35, but with two, `char *p, *r; { char *q =
   malloc(4); p = q; r = q; } free(p);`, it is `plain pointer not consumed: 'q'` at the block's end, where clang builds
   it: which copy gives it back is the program's, and a state that the two share would tell it.
-- CLANG'S LIBRARY BUILTINS, WHAT 1.6.47 LEAVES (the Builtins topic): `__builtin_alloca`, which clang makes an `alloca`
-  of the frame, and the complex functions (`__builtin_cexp`, `creal`, `cabs`, `carg`, `conj` and kin) are no part of the
-  table, still `call to undeclared function`; on Apple's machines clang lowers the math functions that errno would set,
+- CLANG'S LIBRARY BUILTINS, WHAT 1.6.47 LEAVES (the Builtins topic; narrowed at 1.6.54, which takes `__builtin_alloca`,
+  its two forms and the complex functions): on Apple's machines clang lowers the math functions that errno would set,
   `sqrt`, `pow`, `exp` and kin, to LLVM's intrinsics too, where they are the library's calls here, the same values. A
   plain pointer that a library builtin taken as a value, or a name that nothing declares, initializes is the check's
   `plain pointer not consumed` (`void *p = (void *) __builtin_memcpy;`), which runs before the lowering's clang words.
