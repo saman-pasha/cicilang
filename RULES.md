@@ -2837,9 +2837,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `constexpr OptBool none;` (1.6.45: 1.6.43 refused a `constexpr` object of any type, and the chain over 1.6.44 was RED
   at the C++ gate's `within.cpp` and `itaniumlayout.cpp`). They built: `int *const p;` a null pointer, a block's `const
   int x;` and a namespace's; a file's `const int T[3];` before its definition with rows was refused as a second
-  definition (Not done since 0.310). A class's object asks a user-provided default constructor (Not done), and an extern
-  declaration, a pointer to const and a class with a user-provided default constructor or default member initializers
-  build. The driver gate's check of thirteen bodies, as clang++ 23 refuses and builds them. (1.6.43, 1.6.45)
+  definition (Not done since 0.310). An extern declaration and a pointer to const build. The driver gate's check of
+  thirteen bodies, as clang++ 23 refuses and builds them. (1.6.43, 1.6.45)
+- ... AND ONE OF A CLASS THAT IS NOT CONST-DEFAULT-CONSTRUCTIBLE IS clang++'s `default initialization of an object of
+  const type 'const P' without a user-provided default constructor` (1.6.50; [dcl.init.general]/7;
+  `cpp_const_class_default/2`, `cpp_const_constructible/1`, `cpp_const_union_ok/2`, `cpp_const_member_ok/1`; asked in
+  the desugaring, where the class is registered: the file's and a namespace's objects in `cpp_item/2` by
+  `cpp_const_class_defaults/3`, a block's in `cpp_decl_pieces/6`). A class is so where its default constructor is
+  user-provided -- no parameter that needs an argument, not deleted, one defined outside its class among them; one
+  defaulted in the class is the implicit one, no member of the class's record --, or where each of its bases is so and
+  each data member has a default member initializer or is of such a class or an array of one; a plain struct is so by
+  its members alone, and a union, an anonymous one among them, where exactly one variant member has a default member
+  initializer. A `constexpr` object's type is const already, and an array of such a class is an array's words, `... of
+  const type 'const P[2]'`; the type is spelled as the 1.6.43 rule spells it, a template's instance, which that spelling
+  does not name, by its class, `const TT<int>`. Each built, the object zero or what its storage held. The driver gate's
+  check of 27 bodies, as clang++ 23 refuses and builds them. (1.6.50)
 - A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C (1.6.7; C17 6.9/3 and /5, 6.9.2/1, 6.7/3, 6.7.2.3/1 and /2,
   6.7.2.2/3; C23 6.7.2.3/1 and 6.2.7/1; `ccl_redefinitions/3` at the end of the file's read, `ccl_redef_check/5`), in
   clang's words at the second one's line. A FUNCTION'S SECOND BODY AND AN OBJECT'S SECOND INITIALIZER, `redefinition of
@@ -17400,14 +17412,13 @@ Declarations topic of the C++ reader).
   call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such a function is refused by
   clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where clang++ names the
   template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>&`.
-- C++: A CONST OBJECT OF A CLASS WITH NO INITIALIZER BUILDS (found at 1.6.43, whose rule takes the types that are no
-  class; the C reader's topic): `struct P { int a; }; const P pp;` is clang++'s `default initialization of an object of
-  const type 'const P' without a user-provided default constructor`, where a class with a user-provided default
-  constructor, or whose every member has a default member initializer, is const-default-constructible
-  ([dcl.init.general]/7) and builds -- the rule would read the class's constructors and members, which the walk before
-  the desugaring does not register. A static data member declared `static constexpr int x;` in its class, clang++'s
-  `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it
-  builds.
+- C++: WHAT 1.6.50'S CONST OBJECT OF A CLASS LEAVES (found at 1.6.43; the C reader's topic): a class whose default
+  constructor is deleted is the rule's words, where clang++ says `call to deleted constructor of 'const X'`, and one
+  with no default constructor `not lowered yet: no_constructor('Y',0)`, where clang++ says `no matching constructor for
+  initialization of 'const Y'`; a typedef of an unnamed const struct is named `'CP'`, where clang++ adds `(aka 'const
+  struct (unnamed at cc28.cpp:1:15)')`; and a union with a default member initializer is `not lowered yet: class('X2')`,
+  a const object of it or not. A static data member declared `static constexpr int x;` in its class, clang++'s
+  `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it builds.
 - C++: WHAT 1.6.42'S WALK OF A HEADER LEAVES (the C reader's topic of the kinds and of the second definitions). A HEADER
   THAT THE RUN DID NOT RUN IS DESUGARED STILL: a header of the program's own whose guard the file defined first,
   `#define G_H` before `#include "g.h"`, is LLVM's `invalid redefinition of function 'gf'` where the file defines the

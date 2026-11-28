@@ -884,6 +884,7 @@ cpp_decl_pieces(_, L, Sto, _, [var(_, T0, _)|_], _) :- Sto \== extern, nonvar(T0
     catch(cpp_type(T0, T1), _, fail), ccl_void_typed(T1), ccl_spell_operand(E, S), !, atomic_list_concat(['decltype(', S, ')'], W), cpp_refuse(L, void_variable_as(W)).
 %% ... AND A BLOCK'S CONST OBJECT WITH NO INITIALIZER, IN CLANG++'S WORDS (1.6.43, cpp_const_default/4): `const int x;'
 cpp_decl_pieces(_, L, Sto, B, [var(N, T0, none)|_], _) :- Sto \== extern, atom(N), cpp_const_default(B, N, T0, W), !, cpp_refuse(L, W).
+cpp_decl_pieces(_, L, Sto, B, [var(N, T0, none)|_], _) :- Sto \== extern, atom(N), nb_getval('$cpp_in_lib', no), cpp_const_class_default(T0, W), !, cpp_refuse(L, W).   % ... and one of a class (1.6.50)
 %% `auto x = {a, b}' DEDUCES `std::initializer_list<E>' ([dcl.type.auto.deduct]/4; 0.206), E the first item's type decayed, a list of one
 %% item too: the reader reads the direct form of one item, `auto x{a}', as `auto x = a' (ccl_var_init_fn//2), and `auto x{a, b}' is
 %% ill-formed. It was refused `auto(x)'

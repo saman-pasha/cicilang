@@ -678,6 +678,7 @@ dr_value_text(void_value(new_value, B), ['cannot initialize a new value of type 
 dr_value_text(void_value(return_object, B), ['cannot initialize return object of type ''', B, ''' with an rvalue of type ''void''']).
 dr_value_text(void_value(parameter, B), ['cannot initialize a parameter of type ''', B, ''' with an rvalue of type ''void''']).
 dr_value_text(default_const_init(A), ['default initialization of an object of const type ''', A, '''']).   % C++: a const object with no initializer (1.6.43)
+dr_value_text(default_const_class(A), ['default initialization of an object of const type ''', A, ''' without a user-provided default constructor']).   % ... and of a class (1.6.50)
 dr_value_text(constexpr_uninit(N), ['constexpr variable ''', N, ''' must be initialized by a constant expression']).   % ... and a constexpr one
 dr_value_text(param_mismatch(B, Cat, A), ['cannot initialize a parameter of type ''', B, ''' with an ', Cat, ' of type ''', A, '''']).   % C++: a trap's argument (1.6.42)
 dr_value_text(no_viable_conversion(A, B), ['no viable conversion from ''', A, ''' to ''', B, '''']).   % C++: a class for a trap's argument (1.6.42)

@@ -366,6 +366,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.47 | clang's library builtins in C, and their counts in C++ | `__builtin_memcpy`, `__builtin_floor` and kin are the C library's functions with no declaration, the math ones that clang lowers so LLVM's intrinsics; C++ declares them and counts their arguments (reader 221, lowering 214) |
 | 1.6.48 | the CPU flags as clang reads them | -mcpu= on x86 is clang's error, -march= on aarch64 gives clang 23's features of the architecture, what clang refuses is refused in its words, and a flag's error stops the build; the chain over 1.6.47 (reader 221, lowering 214) |
 | 1.6.49 | C++: an rvalue for a non-const lvalue reference | a prvalue or an xvalue for a free function's non-const lvalue reference parameter is clang++'s no matching function; it bound a temporary (reader 221, lowering 215) |
+| 1.6.50 | C++: a const object of a class with no initializer | a const object of a class that is not const-default-constructible, with no initializer, is clang++'s words; it built (reader 221, lowering 216) |
 
 ## M5 — the C++ mode
 
@@ -27200,3 +27201,60 @@ tree after the port: the toolchain check strict GREEN. No CI job ran, by the own
 - RULES.md (the rule in the overloads' topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.49, the reader 221 and the lowering 215.
+
+## 1.6.50 — C++: a const object of a class with no initializer
+
+**1.6.50: at the user's word "then next", after 1.6.49: the first part of Not done's record of a const object of a class
+with no initializer closed against clang++ 23 -- a class that is not const-default-constructible -- and four forms
+beside it recorded. The step was committed with its nets and its broken copies; the chain ran over 1.6.47's commit
+(1.6.48's entry), and this step claims nothing GREEN of the chain.**
+
+1. C++: A CONST OBJECT OF A CLASS THAT IS NOT CONST-DEFAULT-CONSTRUCTIBLE, WITH NO INITIALIZER, IS REFUSED (lowering
+   216; `cpp_const_class_defaults/3` in `cpp_item/2`, a clause of `cpp_decl_pieces/6`, `cpp_const_class_default/2`,
+   `cpp_const_class_words/3`, `cpp_const_constructible/1`, `cpp_const_union_ok/2`, `cpp_ctor_no_args/1`,
+   `cpp_const_member_ok/1`; [dcl.init.general]/7) in clang++'s words, `default initialization of an object of const type
+   'const P' without a user-provided default constructor`, at the file, in a namespace and in a block, static or not,
+   `constexpr` among them: a class is so where its default constructor is user-provided -- no parameter that needs an
+   argument, not deleted, one defined outside its class among them --, or where each of its bases is so and each data
+   member has a default member initializer or is of such a class or an array of one; a plain struct is so by its
+   members, and a union, an anonymous one among them, where exactly one variant member has a default member initializer.
+   An array of such a class is an array's words, `'const P[2]'`; a template's instance is spelled by its class, `'const
+   TT<int>'`. Each built, the object zero or what its storage held. The rule is asked in the desugaring, where the class
+   is registered, which 1.6.43's walk before it is not: that walk's record said so.
+2. FOUND: a class whose default constructor is deleted is the rule's words, where clang++ says `call to deleted
+   constructor of 'const X'`; one with no default constructor is `not lowered yet: no_constructor('Y',0)`, clang++'s `no
+   matching constructor for initialization of 'const Y'`; a typedef of an unnamed const struct is named `'CP'`, where
+   clang++ adds `(aka 'const struct (unnamed at cc28.cpp:1:15)')`; and a union with a default member initializer is `not
+   lowered yet: class('X2')`, a const object of it or not. Not done records them beside the record's second part, a
+   class's `static constexpr int x;`.
+
+The driver gate's check of 27 bodies holds item 1, each as clang++ 23 refuses or builds it: twelve refused -- a plain
+struct, a defaulted constructor, a member's, a base's and an instance's class, a block's static object, a namespace's,
+an array, `constexpr`, a class with one member of no initializer, a union of none, a typedef's name of a plain struct --
+and fifteen that build: a user-provided constructor, one defined outside its class and one of default arguments, default
+member initializers, an empty class, a member's and a base's class that are so, an anonymous union and an anonymous
+struct with one, a polymorphic class, an extern declaration, a braced initializer, a const member of an aggregate,
+`constexpr` over default member initializers, and a template's instance with one.
+
+THE NETS. Over the copy: the flow gate GREEN in 1020 s, taken again after 1.6.49's array clause came back into the copy,
+the reader gate GREEN in 5 s (173 ok), the compile gate GREEN in 46 s (483 ok), the driver gate GREEN in 300 s (205 ok);
+the pool of 107 C++ run fixtures, each built as the C++ gate builds it over a HOME of its own, 107 the same, in 211 s.
+THE BROKEN COPIES: fourteen of the rule's first form, each run from a copy of the copy over a fresh HOME, eleven caught
+by the check. CC3, which took the `constexpr` branch of the const test away, and CC5, which took the test of a
+constructor defaulted in its class away, were caught by nothing: a `constexpr` object's type is const already, and a
+defaulted constructor is no member of the class's record; both tests are out. CC14, which took the test of an atom away
+from the words, was caught by nothing until a template's instance joined the check's bodies, whose words are a term. The
+final form's twelve copies were each caught: the rule taken out of the file's and of a block's declarations, a
+user-provided constructor, a base's and a member's class, a member's default initializer, a member's own test, a
+union's, a plain struct's, the table pointer's name, an array's words, a template's words and the test of the class
+itself. CC15, which took the library's guard away, was asked of the pool: the same, 107 of 107, in 163 s -- the guard
+holds nothing that the pool reaches, and stays, as the misfits' rules keep theirs. Over the work tree after the port:
+the toolchain check strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_cpp.pl` (`cpp_item/2`, `cpp_const_class_defaults/3`, `cpp_const_class_default/2`,
+  `cpp_const_class_words/3`, `cpp_const_constructible/1`, `cpp_const_union_ok/2`, `cpp_ctor_no_args/1`,
+  `cpp_const_member_ok/1`); `library/ccl_cpp_stmt.pl` (`cpp_decl_pieces/6`); `library/ccl_driver.pl` (one text);
+  `library/ccl_ir.pl` (the lowering 216); `test/driver.sh` (one check); the module's version.
+- RULES.md (the rule in the C reader's topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.50, the reader 221 and the lowering 216.

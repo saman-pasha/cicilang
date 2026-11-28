@@ -242,13 +242,47 @@ cpp_redef_vars([_|Vs], Sto, L, S0, S) :- cpp_redef_vars(Vs, Sto, L, S0, S).
 %% pointer, and a block's `const int x;' built. A `constexpr' one of such a type is `constexpr variable 'x' must be
 %% initialized by a constant expression' (the declaration's base holds the word); one of a class is its constexpr default
 %% constructor's, `constexpr OptBool none;' (1.6.45: 1.6.43 refused it, and the C++ gate's within.cpp and
-%% itaniumlayout.cpp with it). A class's object asks a user-provided default constructor (Not done)
+%% itaniumlayout.cpp with it). A class's object is the desugaring's (cpp_const_class_default/3, 1.6.50)
 cpp_const_defaults(B, Sto, L, Vs) :- ( Sto \== extern, member(var(N, T, none), Vs), atom(N), cpp_const_default(B, N, T, W) -> cpp_redef_throw(W, L) ; true ).
 cpp_const_default(B, N, T0, W) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail), cpp_const_scalar(R),
     ( nonvar(B), B = base(QB, _), is_list(QB), memberchk(constexpr, QB) -> W = constexpr_uninit(N) ; catch(ir_type_aka(T0, A), _, fail), W = default_const_init(A) ).
 cpp_const_scalar(arr(_, E)) :- !, catch(once(ccl_resolve_type(E, R)), _, fail), cpp_const_scalar(R).
 cpp_const_scalar(ptr(Q, _)) :- !, memberchk(const, Q).
 cpp_const_scalar(base(Q, S)) :- memberchk(const, Q), ( ccl_is_integer(base([], S)) -> true ; ccl_is_float(base([], S)) -> true ; memberchk(nullptr_t, S) ).
+%% ... AND ONE OF A CLASS THAT IS NOT CONST-DEFAULT-CONSTRUCTIBLE IS clang++'s `default initialization of an object of const
+%% type 'const P' without a user-provided default constructor' (1.6.50; [dcl.init.general]/7): a class is so where its
+%% default constructor is user-provided -- no parameter that needs an argument, not deleted; `= default' in the class is
+%% the implicit one, no member of the record ('$cpp_default_ctor') -- or where each of its bases is so and each data member
+%% has a default member initializer or is of such a class or an array of one; a plain struct is so by its members alone,
+%% and a union where exactly one variant member has a default member initializer. A constexpr object's type is const
+%% already. An array of such a class is the words of an array, `... of const type 'const P[2]''. Asked in the desugaring,
+%% where the class is registered: the file's and a namespace's objects in cpp_item/2 (cpp_const_class_defaults/3), a
+%% block's in cpp_decl_pieces/6. Each built, the object zero or what its storage held
+cpp_const_class_defaults(L, Sto, Vs) :- ( Sto \== extern, nb_getval('$cpp_in_lib', no), member(var(N, T, none), Vs), atom(N), cpp_const_class_default(T, W) -> cpp_refuse(L, W) ; true ).
+cpp_const_class_default(T0, W) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail),
+    ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail), K = array ; E = R, K = object ),
+    E = base(Q, S), ( memberchk(struct(_, _), S) -> true ; memberchk(union(_, _), S) -> true ; cpp_class_of_type(E, _) ), memberchk(const, Q),
+    \+ cpp_const_constructible(E), cpp_const_class_words(T0, E, A),
+    ( K == array -> W = default_const_init(A) ; W = default_const_class(A) ).
+%% the type as clang++ names it: its own spelling, and a template's instance, which that spelling does not name, by its class
+cpp_const_class_words(T0, E, A) :- ( catch(ir_type_aka(T0, A0), _, fail), atom(A0) -> A = A0 ; cpp_class_of_type(E, C), dr_class_spelled(C, A1), atom_concat('const ', A1, A) ).
+%% a class, a struct or a union that a const object of it with no initializer may be (E, resolved): a registered class by its
+%% constructors, its bases and its members; a plain struct by its members alone; a union where one variant member exactly
+%% has a default member initializer, or none is there
+cpp_const_constructible(E) :- cpp_class_of_type(E, C), cpp_class(C, cls(_, Data, Ms, _, Defaults, _)), !,
+    (   member(ctor(_, _, Ps, _, Body), Ms), cpp_ctor_no_args(Ps), \+ ccl_deleted_body(Body, _) -> true
+    ;   '$cpp_union'(C) -> cpp_const_union_ok(Data, Defaults)
+    ;   forall(cpp_base_scope(C, Bs), cpp_const_constructible(base([], [typedef(Bs)]))),
+        forall(( member(member(T, N, _), Data), N \== '$vptr' ), ( memberchk(N-_, Defaults) -> true ; cpp_const_member_ok(T) )) ).
+cpp_const_constructible(base(_, S)) :- member(union(_, Ms), S), is_list(Ms), !, findall(N-I, member(default_init(N, I), Ms), Ds), cpp_const_union_ok(Ms, Ds).
+cpp_const_constructible(base(_, S)) :- member(struct(_, Ms), S), is_list(Ms), !,
+    forall(member(member(T, N, _), Ms), ( memberchk(default_init(N, _), Ms) -> true ; cpp_const_member_ok(T) )).
+cpp_const_constructible(_).   % a type not known here is not asked
+cpp_const_union_ok(Ms, Ds) :- ( \+ member(member(_, _, _), Ms) -> true ; length(Ds, 1) ).
+cpp_ctor_no_args([]).
+cpp_ctor_no_args([param(_, _, _)|Ps]) :- cpp_ctor_no_args(Ps).
+cpp_const_member_ok(T) :- catch(once(ccl_resolve_type(T, R)), _, fail), ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail) ; E = R ),
+    E = base(_, S), ( memberchk(struct(_, _), S) -> true ; memberchk(union(_, _), S) -> true ; cpp_class_of_type(E, _) ), cpp_const_constructible(E).
 %% ... a namespace's, its nested namespaces' and its `extern "C"' blocks' among them
 cpp_const_walk([]).
 cpp_const_walk([I|Is]) :- ( I = namespace(_, _, Js), is_list(Js) -> cpp_const_walk(Js) ; I = extern_c(_, Js), is_list(Js) -> cpp_const_walk(Js)
@@ -549,7 +583,7 @@ cpp_item(declare(L, base(Q, [struct(N, Ms)])), Items) :- atom(N), '$cpp_promoted
 cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N), cpp_class_l(N, _), cpp_union_class_members(Ms), !, cpp_item(declare(L, base(Q, [class(union, N, [], Ms)])), Items).   % a union class (cpp_register_): its struct, its members as functions
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), [declare(L, base(Q, [struct(N, Ms1)]))]) :- atom(N), Ms \== none, !,       % a plain struct: its member types resolved in place (`std::size_t n')
     cpp_plain_members(Ms, Ms1), ( Ms1 == Ms -> true ; ccl_note_tag(N, Ms1) ).
-cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto1, B, Vs3)]) :- !, cpp_gvar_walk(Sto, Vs, cpp_vars(none, Vs, Vs1)), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
+cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto1, B, Vs3)]) :- !, cpp_const_class_defaults(L, Sto, Vs), cpp_gvar_walk(Sto, Vs, cpp_vars(none, Vs, Vs1)), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
     ( nb_current('$cpp_in_lib', yes) -> true ; ccl_note_own_constant(declaration(L, Sto, B, Vs2)) ),   % the program's named constant, its constexpr call folded (0.195)
     cpp_dynamic_scalars(L, none, Sto, B, Vs, Vs2, Vs3), cpp_inline_storage(Sto, Vs3, Sto1).
 cpp_item(typedef(L, Vs), [typedef(L, Vs1)]) :- !, cpp_vars(none, Vs, Vs1), ccl_note_typedefs(Vs1).   % the table learns the instance's name at once
