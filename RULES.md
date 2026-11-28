@@ -7428,6 +7428,14 @@ is in `test/cpp/run/`.
   added, `int *const &` for an `int *` (`cpp_ptr_top_same/2` in `cpp_arg_exact/2`). The program's own overload sets
   alone: a set that the library declares, or a library class's members, are ranked as they were. The driver gate's two
   checks hold sixteen ambiguous bodies and a program of the best, run as clang++'s. (1.6.52)
+- **A CANDIDATE THAT AN ARGUMENT MISFITS IS NO CANDIDATE WHERE ANOTHER TAKES THE CALL** (1.6.53; [over.match.viable]/3;
+  `cpp_viable_cands/3` in `cpp_fn_best/4`; for a member `cpp_viable_mcands/6` in the first and the third road of
+  `cpp_method/5`): the misfits are `cpp_no_overload_fits/2`'s, and a candidate that one of them holds for is left out
+  where another candidate is left, or, of a member, where an ellipsis member of the name takes the call. Its fit of 0
+  tied with an ellipsis's, whose extra arguments score 0, and the first declared won: `f(a)` of `f(double &)` beside
+  `f(...)` over an `int a`, `f(0)` of `f(int &)` and `f(5)` of `f(int *)` beside it, `f(0)` of `f(int &)` beside
+  `f(long)`, and `s.m(a)` of `m(double &)` beside `m(...)`, which 1.6.51's rule refused. Where each candidate misfits,
+  the set is as it was, for the refusals' words. The program's code alone; the driver gate's two checks. (1.6.53)
 - A template that holds and whose body refuses makes the call refuse, `instance_refused(Name, W)`; no plain overload
   stands in. Why: C's `getline(char **, size_t *, FILE *)` took a stream by arity. (0.76)
 - Among the function templates that hold: the fewest conversions (below), then a definition before a declaration
@@ -17443,25 +17451,23 @@ Declarations topic of the C++ reader).
   since 1.6.38.)
 - C++: WHAT 1.6.44 FOUND BESIDE GCC'S `error` (the C reader's topic of the attribute, the overloads' topic; narrowed at
   1.6.49, whose rule refuses a prvalue for a free function's non-const lvalue reference, at 1.6.51, whose rule refuses a
-  member's, a `const volatile` reference's rvalue and an lvalue of another type or of more qualifiers, and at 1.6.52,
-  whose rule ranks the program's exact overloads). A SCALAR FOR A NON-CONST REFERENCE TO A CLASS, `f(x)` of `void f(S
-  &)` over an `int x`, builds, where clang++ says `no matching function for call to 'f'`: 1.6.51's rule asks no class on
-  the parameter's side. A LAMBDA'S CALL, `l(a)` of `[](int &x)` over a long, builds, where clang++ says `no matching
-  function for call to object of type '(lambda at ...)'`; a template's, `f(a, b)` of `template <class T> void f(T &, int
-  &)` over a long, is `not lowered yet: argument_mismatch`, clang++'s `no matching function for call to 'f'`. A
-  CANDIDATE WHOSE ARGUMENT MISFITS is ranked still, its fit 0 beside an ellipsis's: `f(a)` of `f(double &)` beside
-  `f(...)` over an `int a`, and `f(0)` of `f(int &)` beside it, take the first, where clang++ takes the ellipsis; of a
-  member, `s.m(a)` of `m(double &)` beside `m(...)`, 1.6.51's rule refuses it, `no matching member function for call to
-  'm'`, where it built and bound an int's bytes. AN OVERLOAD OF DEFAULT ARGUMENTS, `f(int x, int y = 0)` beside `f(int
-  &)`, takes no part in 1.6.52's ranking of the exact overloads, so that `f(a)` takes the reference, where clang++ says
-  `call to 'f' is ambiguous`; TWO CONVERSIONS OF ONE RANK, `f(long)` beside `f(const long &)` over an `int`, take the
-  first, the plain overloads' road, where clang++ says it is ambiguous; and A USING-DECLARATION'S OVERLOAD, `using
-  N::f;` beside `f(int &)`, is another name to the road, so that `f(a)` takes `N::f`. AN ARRAY PRVALUE, `A3{1, 2, 3}`
-  over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. A CALL OF A FUNCTION THAT THE PROGRAM DECLARES
-  `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor waits, where clang++ makes it a plain
-  call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such a function is refused by
-  clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where clang++ names the
-  template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>&`.
+  member's, a `const volatile` reference's rvalue and an lvalue of another type or of more qualifiers, at 1.6.52, whose
+  rule ranks the program's exact overloads, and at 1.6.53, whose rule leaves out a candidate that misfits). A SCALAR FOR
+  A NON-CONST REFERENCE TO A CLASS, `f(x)` of `void f(S &)` over an `int x`, builds, where clang++ says `no matching
+  function for call to 'f'`: 1.6.51's rule asks no class on the parameter's side. A LAMBDA'S CALL, `l(a)` of `[](int
+  &x)` over a long, builds, where clang++ says `no matching function for call to object of type '(lambda at ...)'`; a
+  template's, `f(a, b)` of `template <class T> void f(T &, int &)` over a long, is `not lowered yet: argument_mismatch`,
+  clang++'s `no matching function for call to 'f'`. AN OVERLOAD OF DEFAULT ARGUMENTS, `f(int x, int y = 0)` beside
+  `f(int &)`, takes no part in 1.6.52's ranking of the exact overloads, so that `f(a)` takes the reference, where
+  clang++ says `call to 'f' is ambiguous`; TWO CONVERSIONS OF ONE RANK, `f(long)` beside `f(const long &)` over an
+  `int`, take the first, the plain overloads' road, where clang++ says it is ambiguous; and A USING-DECLARATION'S
+  OVERLOAD, `using N::f;` beside `f(int &)`, is another name to the road, so that `f(a)` takes `N::f`. AN ARRAY PRVALUE,
+  `A3{1, 2, 3}` over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. A CALL OF A FUNCTION THAT THE PROGRAM
+  DECLARES `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor waits, where clang++ makes it
+  a plain call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such a function is
+  refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where
+  clang++ names the template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>,
+  std::__1::allocator<char>>&`.
 - C++: WHAT 1.6.50'S CONST OBJECT OF A CLASS LEAVES (found at 1.6.43; the C reader's topic): a class whose default
   constructor is deleted is the rule's words, where clang++ says `call to deleted constructor of 'const X'`, and one
   with no default constructor `not lowered yet: no_constructor('Y',0)`, where clang++ says `no matching constructor for

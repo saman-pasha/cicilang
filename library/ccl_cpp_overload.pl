@@ -42,11 +42,11 @@ cpp_method(C, M, Args, Name, Hops) :-
     %% where the context is the caller's or none at all -- libc++ gives `operator+=' an overload taking
     %% `initializer_list<value_type>', and scoring it outside the class made an instance keyed by the free name
     %% `value_type'. The rule a member template's signature has had since 0.51, for the plain overloads too.
-    (   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_fit(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs0-Ps0) ))
+    (   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_fit(Ps, Args) ), Fit0), cpp_viable_mcands(M, Ms, N, Fit0, Args, [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs0-Ps0) ))
     ->  cpp_member_va_ambiguous(M, [C1|Cs], Qs0-Ps0), cpp_as_callee(C, cpp_member_exact_ranked(C, M, [C1|Cs], Args, Qs0-Ps0, Qs1-Ps1)),
         cpp_mangle_q(C, M, Qs1, Ps1, Name), Hops = [], cpp_use_member(C, Name)
     ;   cpp_member_template_call(C, M, [], Args, Name) -> Hops = []                              % a member template, deduced from the arguments
-    ;   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_no_clash(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) )), cpp_member_va_ambiguous(M, [C1|Cs], Qs1-Ps1)   % THE ARITY ALONE IS THE LAST RESORT, after every template (0.63's rule, which cpp_ctor had and this road did not): basic_string's `compare(const _Tp &)' template takes a string_view, and the arity-only `compare(const basic_string &)' took it first and called itself
+    ;   cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, Cands0), cpp_args_no_clash(Ps, Args) ), Clash0), cpp_viable_mcands(M, Ms, N, Clash0, Args, [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) )), cpp_member_va_ambiguous(M, [C1|Cs], Qs1-Ps1)   % THE ARITY ALONE IS THE LAST RESORT, after every template (0.63's rule, which cpp_ctor had and this road did not): basic_string's `compare(const _Tp &)' template takes a string_view, and the arity-only `compare(const basic_string &)' took it first and called itself
     ->  cpp_mangle_q(C, M, Qs1, Ps1, Name), Hops = [], cpp_use_member(C, Name)
     ;   cpp_as_callee(C, ( findall(Q-Ps, ( member(method(_, Q, _, M, Ps, true, _), Ms), length(Ps, Mx), Mx =< N ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) ))   % AN ELLIPSIS IS C++'S WORST MATCH ([over.ics.ellipsis]), tried after every other overload and every template, which is how a detection's `static void __find_base(...)' answers where the template beside it deduces nothing -- the rule 0.47 gave a member TEMPLATE, for the plain overloads too
     ->  cpp_mangle_q(C, M, Qs1, Ps1, Name), Hops = [], cpp_use_member(C, Name)
@@ -58,6 +58,16 @@ cpp_method(C, M, Args, Name, Hops) :-
 cpp_member_va_ambiguous(M, Cands, Qs1-Ps1) :- cpp_params_key(Ps1, K), member(Q2-P2, Cands), cpp_params_key(P2, K),
     ( memberchk(ellipsis_twin, Qs1) -> \+ memberchk(ellipsis_twin, Q2) ; memberchk(ellipsis_twin, Q2) ), !, cpp_refuse_prog(ambiguous_member(M)).
 cpp_member_va_ambiguous(_, _, _).
+%% ... AND A MEMBER THAT AN ARGUMENT MISFITS IS NO CANDIDATE WHERE AN ELLIPSIS MEMBER OF THE NAME TAKES THE CALL, or where
+%% another candidate is left (1.6.53, cpp_viable_cands/3): `s.m(a)' of `m(double &)' beside `m(...)' over an `int a' took the
+%% first, and 1.6.51's rule refused it, `no matching member function for call to 'm'', where clang++ takes the ellipsis. Where
+%% no other candidate is there, the set is as it was, for 1.6.51's words. The program's code alone
+cpp_viable_mcands(M, Ms, N, Cs, Args, Vs) :-
+    (   nb_getval('$cpp_in_lib', no), exclude(cpp_qcand_misfits(Args), Cs, Vs0),
+        ( Vs0 \== [] -> true ; member(method(_, _, _, M, Ps, true, _), Ms), length(Ps, Mx), Mx =< N )
+    ->  Vs = Vs0
+    ;   Vs = Cs ).
+cpp_qcand_misfits(Args, _-Ps) :- catch(cpp_int_ptr_misfit(Ps, Args), _, fail).
 %% ... AND OF THE PROGRAM'S OWN CLASS'S MEMBERS OF ONE QUALIFICATION THAT TAKE THE ARGUMENTS EXACTLY, THE BEST BY
 %% [over.ics.rank]/3.2 OR NONE (1.6.52, cpp_exact_ranked/4): `s.m(a)' beside `int m(int)' and `int m(int &)' took the first,
 %% where clang++ says `call to member function 'm' is ambiguous' (`call to 'm' is ambiguous' of a static one), and `m(const

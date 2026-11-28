@@ -74,8 +74,15 @@ cpp_ics_ref(T0, K, R) :- cpp_type_or_self(T0, T1), catch(once(ccl_resolve_type(T
     ( T = ref(_, R0) -> K = ref ; T = rref(_, R0) -> K = rref ), catch(once(ccl_resolve_type(R0, R)), _, fail).
 cpp_cv_fewer(Q1, Q2) :- forall(member(Q, Q1), memberchk(Q, Q2)), member(Q, Q2), \+ memberchk(Q, Q1), !.
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
-    cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands0), Cands0 \== [],   % the arity alone is the last resort, never a clash (as the members' is)
+    cpp_viable_cands(Cands0, As, Cands), cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
+%% A CANDIDATE THAT AN ARGUMENT MISFITS IS NO CANDIDATE (1.6.53; [over.match.viable]/3): its fit of 0 tied with an
+%% ellipsis's, whose extra arguments score 0, and the first declared won -- `f(a)' of `f(double &)' beside `f(...)' over an
+%% `int a', `f(0)' of `f(int &)' beside it, where clang++ takes the ellipsis. The misfits are cpp_no_overload_fits/2's,
+%% which a call refuses where every candidate misfits; where each does, the set is as it was, for that rule. The program's
+%% code alone
+cpp_viable_cands(Cs, As, Vs) :- ( nb_getval('$cpp_in_lib', no), exclude(cpp_cand_misfits(As), Cs, Vs0), Vs0 \== [] -> Vs = Vs0 ; Vs = Cs ).
+cpp_cand_misfits(As, Ps) :- catch(cpp_int_ptr_misfit(Ps, As), _, fail).
 %% A CALL QUALIFIED BY THE LIBRARY'S NAMESPACE FINDS NONE OF THE PROGRAM'S OWN FUNCTIONS OF THE NAME (0.221; [namespace.qual]/2):
 %% the program's global names keep the bare name beside the library's, one overload set (cpp_lib_quals/4 keys its named
 %% namespaces' alone), so `std::max(2, 3)' beside the program's `int max(int, int)' called it, 5 for clang's 3, and the

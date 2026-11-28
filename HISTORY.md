@@ -369,6 +369,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.50 | C++: a const object of a class with no initializer | a const object of a class that is not const-default-constructible, with no initializer, is clang++'s words; it built (reader 221, lowering 216) |
 | 1.6.51 | C++: a member's rvalue and an lvalue of another type for an lvalue reference | a member function's rvalue for a non-const lvalue reference, and an lvalue of another type or of more qualifiers for an lvalue reference, are clang++'s words; each built (reader 221, lowering 217) |
 | 1.6.52 | C++: the program's exact overloads ranked by their reference bindings | of the program's own overloads that take the arguments exactly the best by [over.ics.rank]/3.2 is taken, and a call that none is best for is clang++'s ambiguous call; each took the first declared (reader 221, lowering 218) |
+| 1.6.53 | C++: a candidate that an argument misfits is no candidate | a candidate that an argument misfits is left out where another candidate, or of a member an ellipsis member, takes the call; it tied with an ellipsis and the first declared won (reader 221, lowering 219) |
 
 ## M5 — the C++ mode
 
@@ -27426,3 +27427,48 @@ and stay. Over the work tree after the port: the toolchain check strict GREEN. N
   CLAUDE.md (the versions).
 
 The module 1.6.52, the reader 221 and the lowering 218.
+
+## 1.6.53 — C++: a candidate that an argument misfits is no candidate
+
+**1.6.53: at the user's word "then next", after 1.6.52: a part of Not done's record of what 1.6.44 found beside GCC's
+`error` closed against clang++ 23 -- a candidate whose argument misfits, ranked beside an ellipsis -- with a member's
+form, which 1.6.51's rule refused. The step was committed with its nets and its broken copies; the chain ran over
+1.6.47's commit (1.6.48's entry), and this step claims nothing GREEN of the chain.**
+
+1. C++: A CANDIDATE THAT AN ARGUMENT MISFITS IS NO CANDIDATE OF THE PLAIN OVERLOADS' ROAD (lowering 219;
+   `cpp_viable_cands/3` in `cpp_fn_best/4`, `cpp_cand_misfits/2`; [over.match.viable]/3): its fit of 0 tied with an
+   ellipsis's, whose extra arguments score 0, and the first declared won -- `f(a)` of `f(double &)` beside `f(...)` over
+   an `int a`, `f(c)` of `f(int &)` beside it over a `const int c`, `f(0)` of `f(int &)`, `f(5)` of `f(int *)`, where
+   clang++ takes the ellipsis, and `f(0)` of `f(int &)` beside `f(long)` and `f(...)`, where it takes the conversion.
+   The misfits are `cpp_no_overload_fits/2`'s (`cpp_int_ptr_misfit/2`), which refuses a call where every candidate
+   misfits; where each does, the set is as it was, for that rule's words. The program's code alone.
+2. C++: ... AND OF A MEMBER'S CALL (`cpp_viable_mcands/6` in the first and the third road of `cpp_method/5`,
+   `cpp_qcand_misfits/2`): a member that an argument misfits is no candidate where another is left or where an ellipsis
+   member of the name takes the call, so that `s.m(a)` of `m(double &)` beside `m(...)` takes the ellipsis, and
+   `S::m(7)` of a static `m(int *)` beside a static `m(...)` so; 1.6.51's rule refused the first, `no matching member
+   function for call to 'm'`. Where no other candidate is there -- one member, two whose second needs another argument,
+   an ellipsis member of more named parameters than the call has arguments -- the set is as it was, for 1.6.51's words.
+
+The driver gate's two checks hold items 1 and 2, each as clang++ 23 refuses or builds it: a program of the calls that
+take the ellipsis or the conversion, free, member and static, beside one that takes the reference, run as clang++'s, and
+four bodies that every candidate misfits, refused in clang++'s words still.
+
+THE NETS. Over the copy: the flow gate GREEN in 1017 s, the reader gate GREEN in 4 s (173 ok), the compile gate GREEN in
+37 s (483 ok), the driver gate GREEN in 343 s (215 ok); the pool of every C++ run fixture, 930, each built as the C++
+gate builds it over a HOME of its own, 930 the same, in 2259 s. THE BROKEN COPIES: nine, each run from a copy of the
+copy over a fresh HOME and asked the step's two checks, 5 s in all: the bodies are small. Four were caught: the rule
+taken out of the free road (EL1) and of the member's third road (EL5), the test that an ellipsis member takes the call
+(EL6) and its count of named parameters (EL7). Five were caught by nothing. EL2 took away the test that a candidate is
+left: where every candidate misfits, the free road's choice then fails, and 1.6.28's rule refuses the call in the same
+words. EL4 took the rule out of the member's first road, and EL9 kept a member that misfits where no ellipsis is there:
+the first road takes only the members whose arguments fit (`cpp_args_fit/2`), a misfit's fit of 0 among the unfit since
+1.6.51, and beside a conversion a misfit loses on its fit. EL3 and EL8 took the library's guards away. Each test stays,
+the guard of a road that the checks do not reach. Over the work tree after the port: the toolchain check strict GREEN.
+No CI job ran, by the owner's rule of 0.271.
+
+- `library/ccl_cpp_library.pl` (`cpp_fn_best/4`, `cpp_viable_cands/3`, `cpp_cand_misfits/2`);
+  `library/ccl_cpp_overload.pl` (`cpp_method/5`, `cpp_viable_mcands/6`, `cpp_qcand_misfits/2`); `library/ccl_ir.pl` (the
+  lowering 219); `test/driver.sh` (two checks); the module's version.
+- RULES.md (the rule in the overloads' topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.53, the reader 221 and the lowering 219.
