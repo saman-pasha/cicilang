@@ -93,8 +93,11 @@ cpp_deleted_member_check(C, M, Args, Cands0) :-
         findall(Qs-Ps, member(Qs-Ps-_, Ds), DCands), append(Cands0, DCands, All),
         cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, All), cpp_args_fit(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) )),
         \+ memberchk(Qs1-Ps1, Cands0), memberchk(Qs1-Ps1-Why, Ds)   % a live member of the chosen signature is the non-template a tie prefers
-    ->  ( M = operator(Op) -> Kind = operator(Op) ; memberchk(static, Qs1) -> Kind = function ; Kind = member ), cpp_refuse_stmt(deleted_call(Kind, M, Why))
+    ->  (   M \= operator(_), cpp_member_deleted_alone(C, M) -> cpp_refuse_stmt(deleted_use)   % ... THE ONE DECLARATION OF ITS NAME, which clang++ names alone, no overload resolved: `attempt to use a deleted function' (1.6.55)
+        ;   ( M = operator(Op) -> Kind = operator(Op) ; memberchk(static, Qs1) -> Kind = function ; Kind = member ), cpp_refuse_stmt(deleted_call(Kind, M, Why)) )
     ;   true ).
+cpp_member_deleted_alone(C, M) :- findall(x, '$cpp_mem_del'(C, M, _, _, _), [_]), \+ catch('$cpp_mt'(C, M, _, _), _, fail),
+    cpp_class(C, cls(_, _, Ms, _, _, _)), \+ memberchk(method(_, _, _, M, _, _, _), Ms).
 %% the deleted members of the name that take so many arguments, `Qs-Ps-Why': the plain ones the record dropped, and ITS DELETED MEMBER
 %% TEMPLATES' INSTANCES, each deduced from the arguments and its parameters substituted (0.258) -- after the live ones in the ranking,
 %% so that a non-template ties first ([over.match.best]/2.4): `s.f(1.5)' over `template <class T> void f(T) = delete; void f(int)'
@@ -129,6 +132,56 @@ cpp_deleted_ctor_check(C, Args) :-
     ->  cpp_refuse_prog(deleted_call(implicit_copy, C, none))   % ... AND AN XVALUE WHOSE MOVE IS NO CANDIDATE (0.258; [over.match.funcs]/8: a defaulted move defined as deleted is none), so that the copy it falls to is implicitly deleted: `S b = std::move(a)' over a member whose move is deleted -- the record dropped both, and the safe part refused a move of a non-owner, or the class's bytes were copied
     ;   true ).
 cpp_deleted_ctor_check(_, _).
+%% THE DEFAULT CONSTRUCTOR THAT AN OBJECT OF THE PROGRAM'S CLASS IS DEFAULT- OR VALUE-INITIALIZED BY (1.6.55; [dcl.init]/7, /9,
+%% [class.default.ctor]/1, /2, [dcl.fct.def.delete]/2): the record drops a constructor `= delete' and keeps `= default' as the
+%% implicit one, and a class whose record holds no constructor was built as C builds a struct -- `X x;' over `X() = delete'
+%% ran, as did `Y y;' over a member of such a class, of a class with no default constructor, a reference or a const scalar
+%% member with no initializer. F is the fault: `deleted(Why)', a deleted constructor that takes no argument where no live one
+%% does; `none', a class that declares a constructor and none takes no argument; `implicit(W)', a class that declares none,
+%% or `C() = default', whose default constructor is defined as deleted, W the part that deletes it (cpp_default_gone/2). Asked
+%% of the program's classes alone, never a union or a closure: a library class's part is taken as it was
+cpp_default_fault(C, F) :- atom(C), \+ cpp_lib_class(C), \+ '$cpp_union'(C), \+ cpp_closure_class(C), catch(cpp_default_fault_(C, F), error(not_lowered(_), _), fail), !.
+cpp_default_fault_(C, F) :-
+    (   '$cpp_default_ctor'(C) -> cpp_default_gone(C, W), F = implicit(W)
+    ;   cpp_default_live(C) -> fail
+    ;   '$cpp_mem_del'(C, '$ctor', _, Ps, Why), cpp_arity_fits(Ps, 0) -> F = deleted(Why)
+    ;   '$cpp_udecl_ctor'(C) -> F = none
+    ;   cpp_default_gone(C, W), F = implicit(W) ).
+%% a live constructor of the class that may take no argument, written in it or a template -- a template's pack among what takes none
+cpp_default_live(C) :- '$cpp_udecl_ctor'(C), cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, _, Ps, I, _), Ms), I \= memberwise(_, _), cpp_params_no_args(Ps), !.
+cpp_default_live(C) :- '$cpp_mt'(C, ctor, _, ctor(_, _, Ps, _, _)), cpp_params_no_args(Ps), !.
+%% THE PART THAT DELETES AN IMPLICIT OR DEFAULTED DEFAULT CONSTRUCTOR ([class.default.ctor]/2): a base whose default constructor or
+%% destructor is not there, `base(B)'; a data member with no default member initializer of reference type, `ref(N)', of a const
+%% type that is not const-default-constructible, `const(N)' (cpp_const_constructible/1, 1.6.50), or of a class -- or an array of
+%% one -- whose default constructor is not there, `member(N)'; and a data member of a class whose destructor is not there,
+%% `member(N)' too. A union's own rules, its variant members', are not asked here: no union is
+cpp_default_gone(C, W) :- cpp_class(C, cls(_, Data, _, _, Defaults, _)),
+    (   cpp_direct_bases(C, Bs), member(B, Bs), atom(B), ( cpp_default_fault(B, _) -> true ; cpp_dtor_fault(B, _) ) -> W = base(B)
+    ;   member(member(MT, N, _), Data), atom(N), \+ sub_atom(N, 0, 1, _, '$'), \+ memberchk(N-_, Defaults), cpp_part_default_gone(MT, N, W0) -> W = W0
+    ;   member(member(MT, N, _), Data), atom(N), \+ sub_atom(N, 0, 1, _, '$'), cpp_part_class(MT, MC), cpp_dtor_fault(MC, _) -> W = member(N) ), !.
+cpp_part_default_gone(MT, N, ref(N)) :- catch(once(ccl_resolve_type(MT, R)), _, fail), ( R = ref(_, _) ; R = rref(_, _) ), !.
+cpp_part_default_gone(MT, N, const(N)) :- catch(once(ccl_resolve_type(MT, R)), _, fail), ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail) ; E = R ),
+    (   cpp_const_scalar(E) -> true
+    ;   E = base(Q, _), memberchk(const, Q), cpp_class_of_type(E, _), \+ catch(cpp_const_constructible(E), error(not_lowered(_), _), true) ), !.
+cpp_part_default_gone(MT, N, member(N)) :- cpp_part_class(MT, MC), cpp_default_fault(MC, _), !.
+cpp_part_default_gone(MT, N, member(N)) :- cpp_part_struct(MT, Ms), cpp_struct_default_gone(Ms), !.
+%% ... AND A PLAIN STRUCT'S, no class of the registry (cpp_const_constructible/1's road): its data members by their default
+%% member initializers, `default_init(N, I)' among its members
+cpp_struct_default_gone(Ms) :- member(member(MT, N, _), Ms), atom(N), \+ memberchk(default_init(N, _), Ms), cpp_part_default_gone(MT, N, _), !.
+cpp_struct_default_gone(Ms) :- cpp_struct_dtor_gone(Ms).
+cpp_struct_dtor_gone(Ms) :- member(member(MT, N, _), Ms), atom(N), ( cpp_part_class(MT, MC), cpp_dtor_fault(MC, _) -> true ; cpp_part_struct(MT, Ms1), cpp_struct_dtor_gone(Ms1) ), !.
+cpp_part_struct(MT, Ms) :- catch(once(ccl_resolve_type(MT, R)), _, fail), ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail) ; E = R ),
+    \+ catch(cpp_class_of_type(E, _), error(not_lowered(_), _), fail), E = base(_, S), member(struct(_, Ms), S), is_list(Ms), !.
+%% the class of a data member, or of an array member's element
+cpp_part_class(MT, MC) :- catch(once(ccl_resolve_type(MT, R)), _, fail), ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail) ; E = R ), catch(cpp_class_of_type(E, MC), error(not_lowered(_), _), fail), atom(MC).
+%% THE DESTRUCTOR OF THE PROGRAM'S CLASS THAT IS NOT THERE (1.6.55; [class.dtor]/7, [dcl.fct.def.delete]/2): declared deleted, or
+%% implicit or defaulted where a base or a data member of class type has none; the record drops `~X() = delete', and the object was
+%% destroyed as one with nothing to destroy
+cpp_dtor_fault(C, F) :- atom(C), \+ cpp_lib_class(C), \+ '$cpp_union'(C), catch(cpp_dtor_fault_(C, F), error(not_lowered(_), _), fail), !.
+cpp_dtor_fault_(C, deleted) :- '$cpp_sdecl'(C, dtor, none, delete), !.
+cpp_dtor_fault_(C, implicit) :- \+ ( '$cpp_sdecl'(C, dtor, none, K), K \== default ), cpp_class(C, cls(_, Data, _, _, _, _)),
+    (   cpp_direct_bases(C, Bs), member(B, Bs), atom(B), cpp_dtor_fault(B, _) -> true
+    ;   member(member(MT, N, _), Data), atom(N), \+ sub_atom(N, 0, 1, _, '$'), cpp_part_class(MT, MC), cpp_dtor_fault(MC, _) ), !.
 %% A VOID ARGUMENT FITS NO CONSTRUCTOR (1.6.14; [over.match.ctor]): `M a(f())', `M a{f()}' and `new M(f())' are `no matching
 %% constructor for initialization of 'M'', clang++'s words (cpp_void_value/1), at the constructor's line for a member's
 cpp_void_ctor_check(C, Args) :- cpp_void_ctor_check(C, Args, prog).
@@ -547,7 +600,7 @@ cpp_has_ctors(C) :- cpp_implicit_ctor_needed(C).
 %% member; taken for a class with constructors it asked for `Val(const char *, int)' and refused.
 cpp_aggregate_class(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), \+ ( member(ctor(_, _, _, I, _), Ms), I \= memberwise(_, _) ), \+ '$cpp_mt'(C, ctor, _, _), \+ cpp_polymorphic(C), \+ '$cpp_vbase'(C), \+ '$cpp_lvb'(C, _, _).
 cpp_implicit_ctor_needed(C) :- cpp_class(C, cls(B, Data, Ms, _, Defaults, _)), ( memberchk(ctor(_, _, _, _, _), Ms) -> '$cpp_default_ctor'(C) ; '$cpp_mt'(C, ctor, _, _) -> '$cpp_default_ctor'(C) ; true ), \+ cpp_closure_class(C),   % ... AND A CONSTRUCTOR TEMPLATE IS A USER-DECLARED CONSTRUCTOR ([class.default.ctor]/1): it suppresses the implicit default constructor as a written one does. libc++ 18's `__compressed_pair' has ONLY templates -- `template <bool _Dummy = true, class = __enable_if_t<...>> explicit __compressed_pair() : _Base1(__value_init_tag()), _Base2(__value_init_tag()) {}' -- and the implicit one made beside it took the SAME NAME (`C.C.0'), was emitted first, and constructed neither base: the tree's end node was garbage and `std::map' walked it   % `C() = default' BESIDE OTHER CONSTRUCTORS is the implicit default constructor too ([class.default.ctor]): it constructs the base and the members -- optional's chain ends in a storage whose default constructor nulls the pointer, and `std::optional<int &> none;' was left as garbage, `has_value()' true   % a CLOSURE has no default constructor: it is built from its captures (the compound literal), and libc++'s `[this, __p]' captures an iterator BY VALUE, a class with constructors
-    ( Defaults \== [] ; B \== none, cpp_has_ctors(B) ; cpp_has_table(C) ; '$cpp_vb_holder'(C, _) ; member(member(MT, _, _), Data), cpp_elem_class(MT, MC), cpp_has_ctors(MC) ), !,
+    ( Defaults \== [] ; B \== none, cpp_has_ctors(B) ; cpp_has_table(C) ; '$cpp_vb_holder'(C, _) ; member(member(MT, _, _), Data), cpp_elem_class(MT, MC), cpp_has_ctors(MC) ; member(member(base(_, [union(anon, Ns)]), _, _), Data), memberchk(default_init(_, _), Ns) ), !,   % ... an anonymous union's default member initializer among them (1.6.55)
     cpp_members_default(Data, Defaults),
     \+ ( B \== none, cpp_no_default_ctor(B) ).                                               % ... and a BASE with no default constructor deletes it too ([class.default.ctor]/2): made, its body would refuse the base (0.112)
 %% ... unless C++ DELETES it: a member whose class has no default constructor leaves its holder without one too, and

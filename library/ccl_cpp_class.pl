@@ -15,6 +15,7 @@ cpp_class_encloses(_, _).
 cpp_fn_body_mark(none, no) :- !.
 cpp_fn_body_mark(_, yes).
 cpp_union_class_members(Ms) :- is_list(Ms), member(M, Ms), ( M = ctor(_, _, _, _, _) ; M = dtor(_, _, _) ; M = method(_, _, _, _, _, _, _) ), !.
+cpp_union_class_decl(Ms) :- ( cpp_union_class_members(Ms) -> true ; is_list(Ms), memberchk(default_init(_, _), Ms) ).   % ... a union at namespace scope with a default member initializer too (1.6.55)
 cpp_struct_promotes(_, Ms) :- member(member(T, _, _), Ms), cpp_type(T, T1), cpp_elem_class(T1, C), cpp_class_l(C, _), !.
 %% ... AND A PLAIN STRUCT NAMED AS A BASE IS A CLASS: `struct Tag { }; struct X : Tag { ... }' is
 %% everyday C++ (tag dispatch, and every empty base there is), and the reader keeps a struct of data
@@ -323,6 +324,7 @@ cpp_drop_unmet_dtors(C, [M|Ms], [M|Ms1]) :- cpp_drop_unmet_dtors(C, Ms, Ms1).
 %% ... AND EACH MEMBER FUNCTION AND CONSTRUCTOR DECLARED DELETED, with its reason (0.257): `'$cpp_mem_del'(C, Name, Qs, Ps, Why)', a
 %% constructor's Name `'$ctor'', which a call's resolution asks (cpp_deleted_member_wins/4)
 cpp_note_specials(C, Ms) :- retractall('$cpp_sdecl'(C, _, _, _)), retractall('$cpp_dctor'(C, _)), retractall('$cpp_cpok'(C, _, _)), retractall('$cpp_mem_del'(C, _, _, _, _)),
+    retractall('$cpp_udecl_ctor'(C)), ( ( memberchk(ctor(_, _, _, _, _), Ms) ; memberchk(template(_, _, ctor(_, _, _, _, _)), Ms) ) -> assertz('$cpp_udecl_ctor'(C)) ; true ),   % ... AND WHETHER IT DECLARES A CONSTRUCTOR (1.6.55; [class.default.ctor]/1): an inherited one is the base's, a deleted or a defaulted one the class's
     forall(( member(M, Ms), cpp_special_decl(M, What, P, Body) ), assertz('$cpp_sdecl'(C, What, P, Body))),
     forall(( member(ctor(_, _, Ps, _, B), Ms), ccl_deleted_body(B, _) ), assertz('$cpp_dctor'(C, Ps))),
     forall(( member(M, Ms), cpp_deleted_member(M, N, Qs, Ps, Why) ), assertz('$cpp_mem_del'(C, N, Qs, Ps, Why))).

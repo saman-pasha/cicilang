@@ -643,6 +643,7 @@ dr_deleted_text(member, N, T) :- !, dr_short_name(N, S), atomic_list_concat(['ca
 dr_deleted_text(operator(Op), _, T) :- !, atomic_list_concat(['overload resolution selected deleted operator \'', Op, '\''], T).
 dr_deleted_text(ctor, C, T) :- !, dr_class_spelled(C, S), atomic_list_concat(['call to deleted constructor of \'', S, '\''], T).
 dr_deleted_text(implicit_copy, C, T) :- !, dr_class_spelled(C, S), atomic_list_concat(['call to implicitly-deleted copy constructor of \'', S, '\''], T).
+dr_deleted_text(implicit_default, C, T) :- !, dr_class_spelled(C, S), atomic_list_concat(['call to implicitly-deleted default constructor of \'', S, '\''], T).   % a default constructor that a part deletes (1.6.55, cpp_default_fault/2)
 dr_deleted_text(implicit_assign, C, T) :- dr_class_spelled(C, S), atomic_list_concat(['object of type \'', S, '\' cannot be assigned because its copy assignment operator is implicitly deleted'], T).
 dr_short_name(N, S) :- atom(N), atomic_list_concat(Ps, '.', N), last(Ps, S0), S0 \== '', !, S = S0.
 dr_short_name(N, N).
@@ -733,6 +734,11 @@ dr_value_text(dynamic_target(B), ['invalid target type ''', B, ''' for dynamic_c
 dr_value_text(no_matching_member(M), ['no matching member function for call to ''', S, '''']) :- dr_short_name(M, S).
 dr_value_text(ambiguous_member(M), ['call to member function ''', S, ''' is ambiguous']) :- dr_short_name(M, S).   % a member with an ellipsis beside its plain twin (1.6.38, cpp_member_va_ambiguous/3)
 dr_value_text(no_matching_ctor(C), ['no matching constructor for initialization of ''', S, '''']) :- dr_class_spelled(C, S).
+dr_value_text(deleted_use, ['attempt to use a deleted function']).   % a destructor that is not there (1.6.55, cpp_dtor_fault/2), and a deleted function named alone (cpp_deleted_named/3)
+dr_value_text(ctor_init_base(C, B), ['constructor for ''', S, ''' must explicitly initialize the base class ''', SB, ''' which does not have a default constructor']) :- dr_class_spelled(C, S), dr_class_spelled(B, SB).   % a user-provided constructor's parts (1.6.55, cpp_ctor_parts_check/5)
+dr_value_text(ctor_init_member(C, N), ['constructor for ''', S, ''' must explicitly initialize the member ''', N, ''' which does not have a default constructor']) :- dr_class_spelled(C, S).
+dr_value_text(ctor_init_ref(C, N), ['constructor for ''', S, ''' must explicitly initialize the reference member ''', N, '''']) :- dr_class_spelled(C, S).
+dr_value_text(ctor_init_const(C, N), ['constructor for ''', S, ''' must explicitly initialize the const member ''', N, '''']) :- dr_class_spelled(C, S).
 dr_value_text(void_auto(N, T), ['variable ''', N, ''' with type ''', T, ''' has incompatible initializer of type ''void''']).
 dr_value_text(switch_operand(A), ['statement requires expression of integer type (''', A, ''' invalid)']).
 dr_value_text(pointer_operand(indirection, A), ['indirection requires pointer operand (''', A, ''' invalid)']).

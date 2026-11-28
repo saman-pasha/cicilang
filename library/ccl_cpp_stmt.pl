@@ -884,7 +884,9 @@ cpp_decl_pieces(_, L, Sto, _, [var(_, T0, _)|_], _) :- Sto \== extern, nonvar(T0
     catch(cpp_type(T0, T1), _, fail), ccl_void_typed(T1), ccl_spell_operand(E, S), !, atomic_list_concat(['decltype(', S, ')'], W), cpp_refuse(L, void_variable_as(W)).
 %% ... AND A BLOCK'S CONST OBJECT WITH NO INITIALIZER, IN CLANG++'S WORDS (1.6.43, cpp_const_default/4): `const int x;'
 cpp_decl_pieces(_, L, Sto, B, [var(N, T0, none)|_], _) :- Sto \== extern, atom(N), cpp_const_default(B, N, T0, W), !, cpp_refuse(L, W).
+cpp_decl_pieces(_, L, Sto, _, [var(N, T0, I)|_], _) :- Sto \== extern, Sto \== typedef, atom(N), \+ sub_atom(N, 0, 1, _, '$'), nb_getval('$cpp_in_lib', no), cpp_default_ctor_fault(T0, I, W), !, cpp_refuse(L, W).   % ... AND ONE WHOSE DEFAULT CONSTRUCTOR IS NOT THERE, before 1.6.50's words, as clang++ asks them (1.6.55)
 cpp_decl_pieces(_, L, Sto, B, [var(N, T0, none)|_], _) :- Sto \== extern, atom(N), nb_getval('$cpp_in_lib', no), cpp_const_class_default(T0, W), !, cpp_refuse(L, W).   % ... and one of a class (1.6.50)
+cpp_decl_pieces(_, L, Sto, _, [var(N, T0, _)|_], _) :- Sto \== extern, Sto \== typedef, atom(N), \+ sub_atom(N, 0, 1, _, '$'), nb_getval('$cpp_in_lib', no), cpp_object_class(T0, _, _, Cls), cpp_object_dtor_gone(Cls), !, cpp_refuse(L, deleted_use).   % ... and one whose destructor is not there, after them (1.6.55)
 %% `auto x = {a, b}' DEDUCES `std::initializer_list<E>' ([dcl.type.auto.deduct]/4; 0.206), E the first item's type decayed, a list of one
 %% item too: the reader reads the direct form of one item, `auto x{a}', as `auto x = a' (ccl_var_init_fn//2), and `auto x{a, b}' is
 %% ill-formed. It was refused `auto(x)'
@@ -1202,8 +1204,15 @@ cpp_zero_of(T, Z) :- ( ccl_resolve_type(T, ptr(_, _)) -> Z = nullptr ; ccl_nullp
 %% THE DEFAULT MEMBER INITIALIZERS of the aggregate's class come along (0.112): from the caller that knows the class
 %% (cpp_member_from), else from the object's type; a member with no item takes its own ([dcl.init.aggr]/5.1)
 cpp_aggregate_inits(Data0, Es0, Obj, L, Inits) :- ( cpp_agg_defaults(Obj, Defs0) -> Defs = Defs0 ; Defs = [] ),
-    ( catch(( ccl_type_of(Obj, OT), cpp_class_of_type(OT, OC) ), _, fail) -> cpp_agg_skip_bases(OC, Es0, Es), cpp_agg_with_bases(OC, Data0, Data) ; Es = Es0, Data = Data0 ),
+    ( catch(( ccl_type_of(Obj, OT), cpp_class_of_type(OT, OC) ), _, fail) -> cpp_agg_skip_bases(OC, Es0, Es1), cpp_agg_with_bases(OC, Data0, Data1) ; Es1 = Es0, Data1 = Data0 ),
+    ( atom(OC), '$cpp_union'(OC) -> cpp_union_agg(Data1, Es1, Defs, Data, Es) ; Data = Data1, Es = Es1 ),
     cpp_agg_inits(Data, Es, Defs, Obj, L, Inits).
+%% A UNION'S BRACED LIST INITIALIZES ONE MEMBER ([dcl.init.aggr]/5, /18; 1.6.55): the first, or the one a designator names, from its
+%% item; an empty list the member that a default member initializer gives, else the first. Each member took its item or its
+%% default in turn, and `U w = {7}' over `union U { int a; float f = 2.5f; }' kept f's 2.5 over a's 7
+cpp_union_agg(Data, [], Defs, [D], []) :- !, ( member(D, Data), D = member(_, M, _), memberchk(M-_, Defs) -> true ; Data = [D|_] ).
+cpp_union_agg([_|Data], ['$no_item'|Es], Defs, Data1, Es1) :- !, cpp_union_agg(Data, Es, Defs, Data1, Es1).
+cpp_union_agg([D|_], [E|_], _, [D], [E]).
 %% ... AND A BASE WITH STORAGE TAKES ITS ITEM BEFORE THE MEMBERS (0.127): the class record's data are its own members, the base
 %% sub-objects `$base' and `$base$K' are the layout's (cpp_base_layout_), and the items were matched against the members alone --
 %% `D d{}' of `struct D : Q { int b; }' never ran Q's constructor and `D d2{{}, 4}' gave b the base's `{}'
@@ -1242,11 +1251,15 @@ cpp_agg_inits([member(MT, M, _)|Ds], [E|Es], Defs, Obj, L, Inits) :- E \= init(_
     ( K > 1, length(Ds, ND), length(Es, NE), NE > ND -> true ; ccl_elided_item(E, ET) ), !,   % ... or the item is a SCALAR for an array of scalars, never the array's value (0.164)
     cpp_elide_take(K, [E|Es], Take, Rest), findall(item(none, V), member(V, Take), Items),
     cpp_member_from(MT, member(Obj, M), init(Items), L, Inits, Inits1), cpp_agg_inits(Ds, Rest, Defs, Obj, L, Inits1).
+cpp_agg_inits([member(MT, M, _)|Ds], [init([])|Es], Defs, Obj, L, Inits) :- MT = base(_, [union(anon, Ns)]), memberchk(default_init(_, _), Ns), !,   % an ANONYMOUS UNION'S EMPTY BRACES are its member's default member initializer, as no item is (1.6.55)
+    cpp_agg_no_item(MT, M, Defs, Obj, L, Inits, Inits1), cpp_agg_inits(Ds, Es, Defs, Obj, L, Inits1).
 cpp_agg_inits([member(MT, M, _)|Ds], [E|Es], Defs, Obj, L, Inits) :- cpp_member_from(MT, member(Obj, M), E, L, Inits, Inits1), cpp_agg_inits(Ds, Es, Defs, Obj, L, Inits1).
 %% a member with no item takes its DEFAULT MEMBER INITIALIZER ([dcl.init.aggr]/5.1; 0.112): libc++'s `__code_point<char>'
 %% writes `char __data[4] = {' '}', std::format's fill; else it is value-initialized
 cpp_agg_no_item(MT, M, Defs, Obj, L, Inits, Inits1) :-
     (   memberchk(M-D, Defs) -> cpp_member_from(MT, member(Obj, M), D, L, Inits, Inits1)
+    ;   MT = base(_, [union(anon, Ns)]), member(default_init(F, D), Ns), cpp_anon_field(MT, F, FT)   % AN ANONYMOUS UNION BY ITS MEMBER'S DEFAULT MEMBER INITIALIZER (1.6.55): `S t{}' zeroed it
+    ->  cpp_member_from(FT, member(member(Obj, M), F), D, L, Inits, Inits1)
     ;   cpp_value_init(MT, member(Obj, M), L, Inits, Inits1) ).
 %% A DESIGNATED LIST IS MADE POSITIONAL over the class's data members ([dcl.init.aggr]/3.1; 0.112): `.f = v' at f's
 %% place, an item without a designator at the next one, a member the list skips the hole `'$no_item'', trailing holes
@@ -1277,7 +1290,8 @@ cpp_elide_take(K, [E|Es], [E|Take], Rest) :- K1 is K - 1, cpp_elide_take(K1, Es,
 cpp_member_from(MT, Place, init(Items), L, [expr(L, call(id(memset), [addr(Place), int(0), sizeof_type(MT)]))|Inits], Rest) :- ccl_resolve_type(MT, arr(_, ET)), !,
     findall(V, member(item(_, V), Items), Vs), cpp_array_items(Vs, 0, ET, Place, L, Inits, Rest).
 cpp_member_from(MT, Place, init(Items), L, Inits, Rest) :- cpp_class_of_type(MT, MC), cpp_aggregate_class(MC), !,
-    cpp_class_l(MC, cls(_, Data, _, Defs, _)), cpp_agg_values(Data, Items, Vs), cpp_agg_inits(Data, Vs, Defs, Place, L, Sub), append(Sub, Rest, Inits).
+    cpp_class_l(MC, cls(_, Data0, _, Defs, _)), cpp_agg_values(Data0, Items, Vs0), ( '$cpp_union'(MC) -> cpp_union_agg(Data0, Vs0, Defs, Data, Vs) ; Data = Data0, Vs = Vs0 ),   % a union's one member (1.6.55)
+    cpp_agg_inits(Data, Vs, Defs, Place, L, Sub), append(Sub, Rest, Inits).
 cpp_member_from(MT, Place, init([]), L, Inits, Rest) :- cpp_class_of_type(MT, MC), cpp_has_ctors(MC), cpp_trivial_default(MC), !, cpp_zero_fill(MT, Place, L, Inits, Rest).   % `m{}' OF A CLASS WHOSE DEFAULT CONSTRUCTOR IS DEFAULTED AND HAS NOTHING TO DO is value-initialized, its bytes zero ([dcl.init.list]/3.5, [dcl.init]/8; 0.201): the constructor road named an implicit constructor that is never made -- <mdspan>'s `__extents_{}' -- and an empty class's byte is no byte to write (cpp_zero_fill)
 cpp_member_from(MT, Place, init(Items), L, [S|Rest], Rest) :- cpp_class_of_type(MT, MC), cpp_has_ctors(MC), !,
     ( cpp_il_ctor_for(MC, Items, ET) -> cpp_init_list(ET, Items, IL), Args = [IL] ; findall(V, member(item(_, V), Items), Args) ),

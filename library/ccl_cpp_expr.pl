@@ -1074,6 +1074,10 @@ cpp_call(Ctx, scoped([std], move), [X], E) :- !, cpp_expr(Ctx, move(X), E).     
 %% A QUALIFIED NAME THAT NOTHING DECLARES (1.6.27; [namespace.qual]/2): `n::nowhere()' in the program's code is clang++'s
 %% `no member named 'nowhere' in namespace 'n'', and `in the global namespace' for `::nowhere()' -- `std::ref(c)' with no
 %% `<functional>' among them --; it was the lowering's `not lowered yet: undeclared(nowhere)', or what met the call's value
+%% ... AND ONE THAT NAMES A DELETED FUNCTION, the one declaration of its name (1.6.55; [dcl.fct.def.delete]/2): `::h()' and `n::h()' over
+%% `void h() = delete;' are clang++'s `attempt to use a deleted function', no overload resolved -- the deleted declaration is none of
+%% the table's, and the call was the words above
+cpp_call(_, scoped(Path, F), _, _) :- atom(F), nb_getval('$cpp_in_lib', no), \+ catch(cpp_scope_class(Path, _), _, fail), cpp_qualified_deleted_alone(Path, F), !, cpp_refuse_prog(deleted_use).
 cpp_call(_, scoped(Path, F), _, _) :- atom(F), nb_getval('$cpp_in_lib', no), \+ catch(cpp_scope_class(Path, _), _, fail), cpp_declared_nowhere(Path, F), !,
     cpp_ns_words(Path, NS), cpp_refuse_prog(no_member_in(F, NS)).
 %% A QUALIFIED CALL OF ONE FUNCTION WITH ANOTHER COUNT OF ARGUMENTS (1.6.26; [expr.call]/7, as clang++ words it): where a
@@ -1452,6 +1456,8 @@ cpp_template_callee(id(F)) :- atom(F), \+ cpp_local(F), ( catch('$cpp_tmplh'(F, 
 %% enumerator of the program's, of a namespace and of libc++'s headers, and over the driver gate (1.6.28)
 cpp_declared_nowhere(Path, F) :- \+ catch(cpp_ns_key(Path, F, _), _, fail), \+ catch(ccl_declared(F, _), _, fail), \+ catch(ccl_typedef_of(F, _), _, fail),
     \+ catch(ccl_enum_value(F, _), _, fail), \+ catch(ccl_tag(F, _), _, fail), \+ catch('$cpp_tmplh'(F, _, _, _), _, fail).
+cpp_qualified_deleted_alone(Path, F) :- ( catch(cpp_ns_key(Path, F, K), _, fail) -> true ; K = F ),
+    findall(Key, '$cpp_fn_del'(K, Key, _), [_]), \+ catch(ccl_declared(K, fn(_, _, _)), _, fail), \+ catch(cpp_template(K, _, _), _, fail), !.
 cpp_ns_words(Path, global) :- \+ ( member(S, Path), atom(S), S \== global ), !.
 cpp_ns_words(Path, ns(T)) :- findall(S, ( member(S, Path), atom(S), S \== global ), Ss), atomic_list_concat(Ss, '::', T).
 %% one function of the name, no overload and no template: its parameters and its ellipsis -- one key with the ellipsis and
@@ -2025,6 +2031,9 @@ cpp_temp_call(X, As, E) :- cpp_addressable(X),                                  
 cpp_addressable(deref(_)).
 cpp_addressable(index(_, _)).
 cpp_addressable(call(id(F), _)) :- atom(F), ccl_declared(F, fn(R, _, _)), ( R = ref(_, _) ; R = rref(_, _) ), !.   % a call whose result is a REFERENCE names an object: `std::declval<_WithoutKey>()(args...)', the type libc++'s __try_key_extraction returns
+%% A TEMPORARY OF THE PROGRAM'S CLASS WHOSE DEFAULT CONSTRUCTOR OR DESTRUCTOR IS NOT THERE (1.6.55): `X()' value-initializes
+%% ([dcl.init]/9, cpp_default_ctor_fault/3), and a temporary is destroyed at its full-expression's end, a returned one by its caller
+cpp_temporary(T, C, As, _) :- nb_getval('$cpp_in_lib', no), cpp_temp_fault(T, C, As, W), !, cpp_refuse_stmt(W).
 %% a temporary of the class: constructed in a statement expression, its value the last expression
 cpp_temporary(T, C, [A], E1) :- cpp_class_of_type_of(A, D), D \== C, \+ cpp_converting_ctor(C, A), cpp_conv_to(A, T, E1), E1 \== A, !.   % `__self_view(__str)': the class has no constructor taking the argument, and the argument's class CONVERTS to it -- the operator's result is the temporary ([over.match.copy])
 cpp_temporary(T, C, As, stmt_expr(block(Ss))) :- cpp_not_abstract(C), cpp_aggregate_class(C), As \== [],   % AN AGGREGATE WHOSE MEMBER CONSTRUCTS is built member by member (cpp_aggregate_inits, 0.41's road for a local): the tree's `_InsertReturnType{end(), false, _NodeHandle()}' put a `__tree_iterator' into a `__tree_const_iterator' member bitwise, where its converting constructor was meant
@@ -2046,6 +2055,8 @@ cpp_temporary(T, C, As, stmt_expr(block([expr(0, Call), expr(0, id(Tmp))]))) :-
 cpp_temporary(T, C, As, stmt_expr(block([declaration(0, none, T, [var(Tmp, T, none)]), expr(0, Call), expr(0, id(Tmp))]))) :-
     cpp_not_abstract(C), length(As, N), ( cpp_ctor(C, As, Name) -> true ; cpp_refuse(0, no_constructor(C, N)) ), cpp_fill_defaults(Name, As, As0), cpp_ref_args_of(Name, As0, As1), ccl_gensym('$tmp', Tmp),
     cpp_copies(call(id(Name), [addr(id(Tmp))|As1]), Call0), cpp_ce_check(Name, T, Call0), cpp_temp_zeroed(C, As, T, Tmp, Call0, Call).
+cpp_temp_fault(T, _, [], W) :- cpp_default_ctor_fault(T, value, W), !.
+cpp_temp_fault(_, C, _, deleted_use) :- cpp_dtor_fault(C, _).
 %% `R()' VALUE-INITIALIZES (0.127): with no argument, a class whose default constructor is not user-provided is zeroed before it runs
 cpp_temp_zeroed(C, [], T, Tmp, Call0, comma(Zero, Call0)) :- cpp_value_zeroes(C), !,
     ( cpp_zero_not_null(T, id(Tmp), expr(_, Null)) -> Zero = Null ; Zero = call(id(memset), [addr(id(Tmp)), int(0), sizeof_type(T)]) ).   % a pointer to a data member's zero is -1 (0.161)
@@ -2448,6 +2459,11 @@ cpp_alloc_class_of(T, C) :- catch(cpp_class_of_type(T, C), _, fail), !.
 cpp_alloc_align(T, A) :- catch(( ccl_resolve_type(T, R), ccl_size_align(R, _, A) ), _, fail), A > 16.
 cpp_align_value(A, cast(base([], [typedef(align_val_t)]), ulong(A))).
 %% THE NEW-EXPRESSIONS: Spec = aspec(Kind, Global, Placement), the placement arguments desugared once
+%% A NEW-EXPRESSION OF THE PROGRAM'S CLASS WHOSE DEFAULT CONSTRUCTOR IS NOT THERE, AND AN ARRAY'S WHOSE DESTRUCTOR IS NOT (1.6.55;
+%% cpp_default_ctor_fault/3, cpp_dtor_fault/2): `new T', `new T()' and `new T[n]' were built as C builds a struct -- an array's
+%% elements are destroyed where a later one's construction throws ([expr.new]/22), a single object never by its new-expression.
+%% clang++'s words, an array's type by its bound, `X[]' where the bound is no constant
+cpp_new_expr(_, _, _, N0, _) :- nb_getval('$cpp_in_lib', no), cpp_new_fault(N0, W), !, cpp_refuse_stmt(W).
 cpp_new_expr(Ctx, G, Ps, new(T0, As), E) :- !, cpp_type(T0, T), cpp_exprs(Ctx, As, As1), ( cpp_class_of_type(T, CN) -> cpp_check_access(Ctx, CN, '$ctor') ; true ), cpp_new(aspec(new, G, Ps), T, As1, E).
 cpp_new_expr(Ctx, G, Ps, new_default(T0), E) :- !, cpp_type(T0, T), ( cpp_class_of_type(T, CN) -> cpp_check_access(Ctx, CN, '$ctor') ; true ), cpp_new_default(aspec(new, G, Ps), T, E).   % `new T' with no initializer (0.127)
 %% `new T[n]' of a class that constructs or destroys, or that keeps a cookie (cpp_new_objects); `new T[n]()' AND `new T[n]{}'
@@ -2462,8 +2478,15 @@ cpp_new_expr(Ctx, G, Ps, new_array(T0, N), E) :- !, cpp_type(T0, T), cpp_expr(Ct
 cpp_new_expr(Ctx, G, [], new_at(Ps, N0), E) :- !, cpp_exprs(Ctx, Ps, Ps1),
     (   cpp_reserved_placement(G, Ps1, N0) -> cpp_new_placed(Ctx, Ps1, N0, E)
     ;   cpp_new_expr(Ctx, G, Ps1, N0, E) ).
-cpp_new_expr(Ctx, G, [], delete(X), E) :- !, cpp_expr(Ctx, X, X1), ( cpp_pointee_class_of(X1, DC), cpp_dtor(DC, _) -> cpp_check_access(Ctx, DC, '$dtor') ; true ), cpp_delete(G, X1, E).   % ... and where one is deleted (0.127)
-cpp_new_expr(Ctx, G, [], delete_array(X), E) :- !, cpp_expr(Ctx, X, X1), cpp_delete_array(G, X1, E).
+cpp_new_expr(Ctx, G, [], delete(X), E) :- !, cpp_expr(Ctx, X, X1), cpp_delete_fault(X1), ( cpp_pointee_class_of(X1, DC), cpp_dtor(DC, _) -> cpp_check_access(Ctx, DC, '$dtor') ; true ), cpp_delete(G, X1, E).   % ... and where one is deleted (0.127)
+cpp_new_expr(Ctx, G, [], delete_array(X), E) :- !, cpp_expr(Ctx, X, X1), cpp_delete_fault(X1), cpp_delete_array(G, X1, E).
+cpp_new_fault(new_default(T0), W) :- cpp_type(T0, T), cpp_default_ctor_fault(T, none, W).
+cpp_new_fault(new(T0, []), W) :- cpp_type(T0, T), cpp_default_ctor_fault(T, value, W).
+cpp_new_fault(new_array(T0, N), W) :- cpp_type(T0, T), ( N = int(K), integer(K) -> Bd = int(K) ; Bd = none ),
+    ( cpp_default_ctor_fault(arr(Bd, T), none, W0) -> W = W0 ; cpp_object_class(T, _, _, Cls), cpp_object_dtor_gone(Cls) -> W = deleted_use ).
+cpp_new_fault(new_array_init(T0, N, []), W) :- cpp_new_fault(new_array(T0, N), W).
+%% ... AND A DELETE OF AN OBJECT WHOSE DESTRUCTOR IS NOT THERE (1.6.55): `attempt to use a deleted function', where it freed the block
+cpp_delete_fault(X1) :- ( nb_getval('$cpp_in_lib', no), catch(cpp_pointee_class_of(X1, C), error(not_lowered(_), _), fail), cpp_dtor_fault(C, _) -> cpp_refuse_stmt(deleted_use) ; true ).
 cpp_new_placed(Ctx, Ps1, N0, E) :-
     (   N0 = new(T0, As) -> cpp_type(T0, T), cpp_exprs(Ctx, As, As1), cpp_new_at(Ps1, T, As1, E)
     ;   N0 = new_default(T0) -> cpp_type(T0, T), cpp_new_at(default, Ps1, T, [], E)   % `new (p) T' (0.127)

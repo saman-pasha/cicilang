@@ -371,6 +371,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.52 | C++: the program's exact overloads ranked by their reference bindings | of the program's own overloads that take the arguments exactly the best by [over.ics.rank]/3.2 is taken, and a call that none is best for is clang++'s ambiguous call; each took the first declared (reader 221, lowering 218) |
 | 1.6.53 | C++: a candidate that an argument misfits is no candidate | a candidate that an argument misfits is left out where another candidate, or of a member an ellipsis member, takes the call; it tied with an ellipsis and the first declared won (reader 221, lowering 219) |
 | 1.6.54 | the frame's memory and the complex functions of clang's builtins | `__builtin_alloca` is LLVM's alloca and a borrow of the frame to the safe part, and the complex functions are the library's builtins; each was refused (reader 221, lowering 220) |
+| 1.6.55 | C++: the default constructor and the destructor that are not there | an object whose default constructor or destructor is not there, a user-provided constructor's parts that no initializer names and a deleted function named alone are clang++'s words, a base is named by its template's name, and a union with a default member initializer is a class; each built, or was refused by name (reader 221, lowering 221) |
 
 ## M5 — the C++ mode
 
@@ -27525,3 +27526,130 @@ IR has it. Over the work tree after the port: the toolchain check strict GREEN. 
 - RULES.md (the rule in the Builtins topic; Not done: one record narrowed), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.54, the reader 221 and the lowering 220.
+
+## 1.6.55 — C++: the default constructor and the destructor that are not there
+
+**1.6.55: at the user's word "then next", after 1.6.54 and the chain over its commit: a part of Not done's record of
+what 1.6.50's const object of a class left, and what its probes found beside it -- an object whose default constructor
+or destructor is not there, which built, a user-provided constructor's parts, a deleted function named alone, a base
+named by its template's name, and a union's default member initializer. The step was committed with its nets and its
+broken copies; the chain ran over 1.6.54's commit (below), and this step claims nothing GREEN of the chain.**
+
+1. AN OBJECT OF THE PROGRAM'S CLASS WHOSE DEFAULT CONSTRUCTOR IS NOT THERE IS REFUSED (lowering 221; [dcl.init]/7, /9,
+   [class.default.ctor]/1, /2, [dcl.fct.def.delete]/2; `cpp_default_fault/2`). The class's record drops a constructor `=
+   delete` and keeps `= default` as the implicit one, so a class whose record holds no constructor was built as C builds
+   a struct: `X x;` over `X() = delete` ran, and so did `Y y;` over a member of such a class, over a member of a class
+   with no default constructor, over a reference member or a const scalar member with no initializer, `D d;` over a base
+   whose default constructor is deleted, `X a[2];`, `X g;`, `static X s;` and `new X[n]`. The fault is `deleted(Why)` --
+   a deleted constructor that takes no argument, where no live one does --, `none` -- the class declares a constructor
+   and none takes no argument --, or `implicit(W)` -- the class declares none, or `C() = default`, and a part deletes
+   its default constructor (`cpp_default_gone/2`: a base whose default constructor or destructor is not there; a data
+   member with no default member initializer of reference type, of a const type that is not const-default-constructible,
+   or of a class whose default constructor is not there; a data member of a class whose destructor is not there). That a
+   class declares a constructor is a fact of its own now, `'$cpp_udecl_ctor'/1`, noted with its special members
+   (`cpp_note_specials/2`): a deleted or a defaulted one is the class's, an inherited one the base's. A constructor
+   template whose pack takes nothing takes no argument (`cpp_default_live/1`). A plain struct is asked by its members
+   alone (`cpp_struct_default_gone/1`). Asked of the program's classes in the program's code alone, never of a union, a
+   closure or a library's class. The forms: a declaration with no initializer at the file, in a namespace and in a
+   block, static or not; `X x{}` of a class that is no aggregate at the level -- from C++20 a class that declares a
+   constructor is none -- and has no initializer-list constructor; `new X`, `new X()` and `new X[n]`; a temporary `X()`.
+   The reader writes `X()` and `X{}` as one form, so a value-initialization of an aggregate at the level is not asked:
+   C++17's `Agg{}` over `Agg() = delete` builds, as in clang++. clang++'s words, the type as it names it, an array's by
+   its bound and `X[]` where the bound is no constant: `call to deleted constructor of 'const X'`, `no matching
+   constructor for initialization of 'X[2]'` and `call to implicitly-deleted default constructor of 'W<X>'`. Where the
+   record held a constructor and none took no argument, the refusal was `not lowered yet: no_constructor('Y',0)`. The
+   constructor's words come before 1.6.50's `default initialization of an object of const type ...`, as clang++ asks
+   them: `const X x;` over `struct X { X() = delete; int k; }` had 1.6.50's words.
+2. ... AND ONE WHOSE DESTRUCTOR IS NOT THERE ([class.dtor]/7, /15, [expr.delete]/10, [expr.new]/22; `cpp_dtor_fault/2`):
+   declared deleted, or implicit or defaulted where a base or a data member of class type has none. The record drops
+   `~X() = delete`, and the object was destroyed as one with nothing to destroy: a local, a static, a global, a
+   temporary, a returned one and a delete built. Each is clang++'s `attempt to use a deleted function` now, and so is an
+   array's new; a single object's new is not refused, as clang++ takes it. The words come after 1.6.50's, as clang++
+   asks them.
+3. A USER-PROVIDED CONSTRUCTOR'S PARTS THAT NO INITIALIZER NAMES ([class.base.init]/9, /12; `cpp_ctor_parts_check/4` in
+   `cpp_ctor_body`'s prologue): a base or a data member whose default constructor is not there was left as its bytes --
+   `Y() {}` over `X x;` with `X() = delete` built --, and a base whose constructors all take arguments was `not lowered
+   yet: base_constructor('Z')`. clang++'s words at the constructor's line: the deleted constructor's, the
+   implicitly-deleted one's, `constructor for 'W' must explicitly initialize the base class 'Z' which does not have a
+   default constructor`, `... the member 'z' which does not have a default constructor`, `... the reference member 'r'`,
+   `... the const member 'c'`; `: z()` of a member with no default constructor, `no matching constructor for
+   initialization of 'Z'`; a part whose destructor is not there, `attempt to use a deleted function`. The implicit
+   constructor is made with its class, and it asks nothing of its parts (`cpp_implicit_making/1`): a class whose
+   implicit constructor a member deletes, and that nothing default-initializes, builds, as in clang++. The C++ gate's
+   `basenodefault.cpp` has clang++'s words now.
+4. A DELETED FUNCTION THAT IS THE ONE DECLARATION OF ITS NAME, NAMED ALONE ([dcl.fct.def.delete]/2): clang++ resolves no
+   overload where a member's name or a qualified name has one declaration, and says `attempt to use a deleted function`.
+   A member's call was `call to deleted member function 'g'` (`cpp_member_deleted_alone/2`), and `::h()` and `n::h()`
+   were `no member named 'h' in the global namespace` and `... in namespace 'N'` (`cpp_qualified_deleted_alone/2`), a
+   wrong statement: the deleted declaration is none of the table's. A name of several declarations keeps 0.257's words.
+5. A BASE NAMED BY ITS TEMPLATE'S NAME, the injected-class-name ([temp.local]/1, /3; `cpp_injected_base_inits/3`): `D()
+   : B(5)` over `struct D : B<int>` was `not lowered yet: unknown_initializer('D','B')`, where clang++ takes it. The
+   probes of item 3 found it, and 1.6.54 refused it as well. A name that is no member, no class and no typedef of the
+   class names the one direct base that is an instance of a template of that name.
+6. A UNION WITH A DEFAULT MEMBER INITIALIZER IS A UNION CLASS ([class.default.ctor]/2, [dcl.init.aggr]/5, /18;
+   `cpp_union_class_decl/1`): `union U { int a = 5; float f; }` was `not lowered yet: class('U')`, and a member of its
+   type `no_member(u, ...)`. An anonymous union's member takes its default member initializer in its holder's
+   constructor, which its holder makes for it (`cpp_member_inits/6`, `cpp_implicit_ctor_needed/1`), and in its holder's
+   braces (`cpp_agg_no_item/7`): `struct S { union { int a = 9; float f; }; int b = 4; }` gave a its storage's bytes, a
+   SILENT WRONG ANSWER. A union's braced list gives one member (`cpp_union_agg/5`): once U was a class, each member took
+   its item or its default in turn, and `U z = {7}` over `union U { int a; float f = 2.5f; }` kept f's 2.5 over a's 7.
+
+THE PROBES. Each form against clang++ 23 at C++17 and C++20, and against 1.6.54's tree: 123 forms of the default
+constructor, the destructor, the deleted calls and the unions. The forms that still differ are Not done's new record
+(the reader's `T()` and `T{}`, an aggregate's member from no item, a braced default member initializer at C++20, a
+discarded call's result whose destructor is not there, `new X(X())`), and one is the safe part's own rule: `new X` of a
+class whose destructor is deleted, which no delete reaches, is `plain pointer not consumed`.
+
+`test/cpp/defctor_*.cpp` (24), `dtor_*.cpp` (9), `ctor_*.cpp` (8), `delalone_*.cpp` (4), `delmember_two.cpp`,
+`delqual_overload.cpp` and `basenodefault.cpp` hold items 1 to 4, each refused at clang++ 23's line in its words (the
+C++ gate's loop of 1.6.55); `test/cpp/run/defaultctors.cpp` the forms that build beside them, item 5 among them;
+`defaultctors17.cpp` C++17's aggregates; `uniondefaults.cpp` item 6, each line as clang++'s at C++17 and C++20.
+
+THE CHAIN OVER 1.6.54'S COMMIT, over LLVM 23 and libc++ 23, a fresh HOME, the toolchain check strict: the toolchain
+check GREEN in 1 s, the flow gate GREEN in 509 s, the reader gate GREEN in 5 s (173 ok), the compile gate GREEN in 35 s
+(487 ok), the driver gate GREEN in 395 s (216 ok), the objects gate GREEN in 7 s (29 ok), M0's proof GREEN, the cross
+gate GREEN in 336 s (296 ok), the library read GREEN in 218 s (24 ok), the C++ gate GREEN in 1227 s (1277 ok) and the
+ccllib gate GREEN in 1457 s (625 ok: 36 programs in three runs, 189 refused, 21 alone), 4190 s in all.
+
+THE NETS. The first net, over the work tree before its mend: the flow gate GREEN in 511 s, the reader gate GREEN in 5 s
+(173 ok), the compile gate GREEN in 37 s (487 ok), the driver gate GREEN in 323 s (216 ok), the ccllib gate GREEN in
+1469 s (625 ok), and the C++ gate RED in 1491 s (1320 ok, 2 FAIL): `libassert2.cpp` and `libassert3.cpp` built, where
+libc++'s static assertion refuses each. Item 1's questions asked `cpp_class_of_type/2` of a library's type under a catch
+of every error, and the catch took the `static_assert_failed` of the instance that the question made, which left the
+instance half made (0.221's hazard). Each catch around it takes `not_lowered` alone now (`cpp_object_class/4`,
+`cpp_part_struct/2`, `cpp_part_class/2`, `cpp_delete_fault/1`), and RULES.md's rule says so. The second net, over the
+mended tree: the flow gate GREEN in 551 s, the driver gate GREEN in 320 s (216 ok), the C++ gate GREEN in 1524 s (1327
+ok, 0 FAIL) and the ccllib gate GREEN in 1429 s (625 ok). Over the work tree after the port: the toolchain check strict
+GREEN. No CI job ran, by the owner's rule of 0.271.
+
+THE BROKEN COPIES. 44 copies of the mended tree, each one edit (DC0 none: the judge over the tree as it is), judged by
+the C++ gate's loop of 1.6.55, 0.257's loop and the builds and runs of the three run fixtures, in 216 s. Each was caught
+but DC0 and DC41: the deleted constructor's fault (DC1), the fact of a declared constructor (DC2) and a constructor
+template counted as one (DC40), a live default constructor (DC3) and a pack that takes nothing (DC4), each part's fault
+-- a base (DC5), a reference (DC6), a const scalar (DC7), a member's class (DC8), a member's destructor (DC9) --, the
+deleted and the implicit destructor (DC10, DC11), the questions at the file and their order against 1.6.50's (DC12,
+DC43), in a block (DC13, DC42), the forms of the initializer and an aggregate at the level (DC14, DC15, DC22), the words
+of a const type and of an array's bound (DC16, DC17), a plain struct's value form (DC18), new, delete and a temporary
+(DC19 to DC21), the parts of a user-provided constructor (DC23, DC25, DC26) and the implicit constructor that asks
+nothing (DC24), a deleted member and a deleted qualified function named alone (DC27 to DC30), the injected-class-name
+(DC31), a union with a default member initializer (DC32, DC39), an anonymous union's default (DC33, DC34, DC36, DC37)
+and a union's braced list (DC35, DC38). Over the first tree DC16, DC17, DC24, DC28, DC40 and DC43 were caught by
+nothing; `defctor_const_instance.cpp`, `defctor_array_instance.cpp`, `defctor_template.cpp`, `defctor_const_global.cpp`,
+`delmember_two.cpp` and C++17's `defaultctors17.cpp` hold them now. DC41 removes the guard that asks no library's class:
+libc++'s classes are asked in no form that the gates build, and `libdecls.cpp`, a probe of library objects of each form,
+builds the same with the guard and without it. It is a guard, not a rule.
+
+- `library/ccl_cpp.pl` (`cpp_default_objects/4`, `cpp_default_ctor_fault/3`, `cpp_object_class/4`, `cpp_object_words/4`,
+  the reset of `'$cpp_udecl_ctor'/1`); `library/ccl_cpp_class.pl` (`cpp_note_specials/2`, `cpp_union_class_decl/1`);
+  `library/ccl_cpp_overload.pl` (`cpp_default_fault/2`, `cpp_default_live/1`, `cpp_default_gone/2`, `cpp_dtor_fault/2`,
+  `cpp_struct_default_gone/1`, `cpp_member_deleted_alone/2`, `cpp_implicit_ctor_needed/1`); `library/ccl_cpp_stmt.pl`
+  (`cpp_decl_pieces/6`, `cpp_union_agg/5`, `cpp_agg_no_item/7`, `cpp_agg_inits/6`, `cpp_member_from/6`);
+  `library/ccl_cpp_expr.pl` (`cpp_new_fault/2`, `cpp_delete_fault/1`, `cpp_temp_fault/4`,
+  `cpp_qualified_deleted_alone/2`); `library/ccl_cpp_init.pl` (`cpp_ctor_parts_check/4`, `cpp_implicit_making/1`,
+  `cpp_injected_base_inits/3`, `cpp_member_inits/6`); `library/ccl_cpp_library.pl` (`cpp_register_/1`);
+  `library/ccl_driver.pl` (six texts); `library/ccl_ir.pl` (the lowering 221); the fixtures above; `test/cpp.sh`
+  (1.6.55's loop, and `basenodefault.cpp` moved into it); the module's version.
+- RULES.md (six rules in the Classes topic, 0.257's and 0.112's edited; Not done: one record narrowed, one new),
+  HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.55, the reader 221 and the lowering 221.

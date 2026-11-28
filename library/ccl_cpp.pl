@@ -268,6 +268,46 @@ cpp_const_class_default(T0, W) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)
     ( K == array -> W = default_const_init(A) ; W = default_const_class(A) ).
 %% the type as clang++ names it: its own spelling, and a template's instance, which that spelling does not name, by its class
 cpp_const_class_words(T0, E, A) :- ( catch(ir_type_aka(T0, A0), _, fail), atom(A0) -> A = A0 ; cpp_class_of_type(E, C), dr_class_spelled(C, A1), atom_concat('const ', A1, A) ).
+%% ... AND AN OBJECT OF THE PROGRAM'S CLASS WHOSE DEFAULT CONSTRUCTOR OR DESTRUCTOR IS NOT THERE (1.6.55; cpp_default_fault/2,
+%% cpp_dtor_fault/2), each built where clang++ refuses it: `X x;' default-initializes, an array of X's each element, and `X x{}'
+%% value-initializes a class that is no aggregate at the level -- from C++20 one that declares a constructor is none
+%% ([dcl.init.aggr]/1) -- and that has no initializer-list constructor ([dcl.init.list]/3.5, /3.7); an object is destroyed where
+%% its storage ends, whatever its initializer. clang++'s words: `call to deleted constructor of 'T'', `no matching constructor
+%% for initialization of 'T'', `call to implicitly-deleted default constructor of 'T'' and, of the destructor, `attempt to use a
+%% deleted function', T the object's type as it names it. Asked where 1.6.50's const object is: the file's, a namespace's and a
+%% block's objects, of the program's code alone
+cpp_default_objects(K, L, Sto, Vs) :- ( Sto \== extern, Sto \== typedef, Sto \== linkonce, nb_getval('$cpp_in_lib', no), member(var(N, T, I), Vs), atom(N), \+ sub_atom(N, 0, 1, _, '$'), cpp_default_object_fault(K, T, I, W) -> cpp_refuse(L, W) ; true ).
+%% the constructor's fault before 1.6.50's words, the destructor's after them, as clang++ asks them
+cpp_default_object_fault(ctor, T0, I, W) :- cpp_default_ctor_fault(T0, I, W).
+cpp_default_object_fault(dtor, T0, _, deleted_use) :- cpp_object_class(T0, _, _, Cls), cpp_object_dtor_gone(Cls).
+%% the constructor's fault, which a new-expression asks alone (cpp_new_fault/2): its object is destroyed by a delete, if ever
+cpp_default_ctor_fault(T0, I, W) :- cpp_object_class(T0, R, K, Cls),
+    (   Cls = class(C) -> cpp_default_init_form(K, I, C), cpp_default_fault(C, F), cpp_object_words(T0, R, C, A), cpp_default_fault_words(F, A, W)
+    ;   Cls = struct(SN, Ms), I == none, cpp_struct_default_gone(Ms), cpp_object_words(T0, R, SN, A), W = deleted_call(implicit_default, A, none) ).   % a plain struct: an aggregate, which braces initialize member by member
+%% the class of an object of type T0, or of its array's element: a registered class, or a plain struct by its members
+cpp_object_class(T0, R, K, Cls) :- nonvar(T0), catch(once(ccl_resolve_type(T0, R)), _, fail), R \= ref(_, _), R \= rref(_, _), R \= ptr(_, _), R \= fn(_, _, _),
+    ( R = arr(_, E0) -> catch(once(ccl_resolve_type(E0, E)), _, fail), K = array ; E = R, K = object ),
+    ( catch(cpp_class_of_type(E, C), error(not_lowered(_), _), fail), atom(C) -> Cls = class(C) ; E = base(_, S), member(struct(SN, Ms), S), is_list(Ms), atom(SN) -> Cls = struct(SN, Ms) ).
+cpp_object_dtor_gone(class(C)) :- cpp_dtor_fault(C, _).
+cpp_object_dtor_gone(struct(_, Ms)) :- cpp_struct_dtor_gone(Ms).
+%% the forms that run the default constructor: none, default-initialization; `value', `T()' and `new T()' ([dcl.init]/9: a class
+%% whose default constructor is deleted, implicitly or as declared, is default-initialized) of a class that is no aggregate at the
+%% level, since the reader writes `T{}' and `new T{}' as they are; `{}' of a declaration likewise
+cpp_default_init_form(_, none, _).
+cpp_default_init_form(_, value, C) :- \+ cpp_agg_at_level(C).   % the reader writes `T()' and `T{}' as one form: an aggregate's may be its braces
+cpp_default_init_form(object, init([]), C) :- \+ cpp_agg_at_level(C), \+ cpp_il_ctor(C, _).
+cpp_agg_at_level(C) :- cpp_aggregate_class(C), ( ccl_std_at_least(20) -> \+ '$cpp_udecl_ctor'(C) ; true ).
+cpp_default_fault_words(deleted(Why), A, deleted_call(ctor, A, Why)).
+cpp_default_fault_words(none, A, no_matching_ctor(A)).
+cpp_default_fault_words(implicit(_), A, deleted_call(implicit_default, A, none)).
+%% the object's type as clang++ names it: its own spelling, else its class's, its const and its bound after
+cpp_object_words(T0, _, _, A) :- catch(ir_type_aka(T0, A0), _, fail), atom(A0), \+ sub_atom(A0, _, _, _, '.'), !, A = A0.
+cpp_object_words(_, R, C, A) :- dr_class_spelled(C, S0), ( R = arr(N, E) -> true ; E = R ),
+    ( E = base(Q, _), memberchk(const, Q) -> atom_concat('const ', S0, S1) ; S1 = S0 ),
+    ( R = arr(N, _), cpp_bound_text(N, NT) -> atomic_list_concat([S1, '[', NT, ']'], A) ; A = S1 ).
+cpp_bound_text(N, N) :- integer(N), !.
+cpp_bound_text(int(N), N) :- integer(N), !.
+cpp_bound_text(none, '').
 %% a class, a struct or a union that a const object of it with no initializer may be (E, resolved): a registered class by its
 %% constructors, its bases and its members; a plain struct by its members alone; a union where one variant member exactly
 %% has a default member initializer, or none is there
@@ -413,6 +453,7 @@ cpp_register_units(Units) :-
     cpp_reset('$cpp_nxdef'/4), cpp_reset('$cpp_nxsrc'/3), cpp_reset('$cpp_nxval'/2), cpp_reset('$cpp_nxmval'/3), nb_setval('$cpp_nx_def', none), nb_setval('$cpp_nx_evaluating', []),   % the conditional noexcepts (0.199)
     ccl_set_clear('$cpp_nxfns'), cpp_reset('$cpp_dtor_nx'/2),   % the functions emitted noexcept, whose calls are plain (0.232, ir_nothrow_callee/1)
     cpp_reset('$cpp_sdecl'/4), cpp_reset('$cpp_dctor'/2), cpp_reset('$cpp_cpok'/3), cpp_reset('$cpp_aspok'/3),   % the special members a class declares, and whether its parts copy, move and assign (0.200)
+    cpp_reset('$cpp_udecl_ctor'/1),   % the classes that declare a constructor, a deleted or a defaulted one among them (1.6.55)
     cpp_reset('$cpp_fn'/5), cpp_reset('$cpp_nested'/5), cpp_reset('$cpp_nested_out'/1), cpp_reset('$cpp_union'/1), cpp_reset('$cpp_nonpod'/1), cpp_reset('$cpp_final'/1), cpp_reset('$cpp_abi_tag'/2), cpp_reset('$cpp_default_ctor'/1), cpp_reset('$cpp_iname'/3), nb_setval('$cpp_nesting', []), cpp_reset('$cpp_hdr_ns'/2), dynamic('$cpp_hdr_ast_ns'/2), cpp_reset('$cpp_cname'/1), nb_setval('$cpp_gvar', []), nb_setval('$cpp_fn_refusal', none),
     ( nb_current('$cpp_trace', _) -> true ; nb_setval('$cpp_trace', no) ),
     forall(member(unit(Is), Units), cpp_note_fns(Is)), forall(member(unit(Is), Units), cpp_note_bases(Is)),                                 % the free functions FIRST: a name is overloaded or not before any call to it is read
@@ -582,10 +623,10 @@ cpp_item(function(L, Sto, Ret0, N, Ps, V, Body), [function(L, Sto, Ret, Name, Ps
     assertz('$cpp_ownfn'(Name, function(L, Sto, Ret, Name, Ps1, V, Body1))),   % THE PROGRAM'S OWN FUNCTION, DESUGARED, where a constant fold can find it (0.95): `constexpr int N = twice(21);' at file scope
     ( Ret0 = base(Q0, _), memberchk(consteval, Q0) -> assertz('$cpp_consteval'(Name)) ; true ), cpp_note_nce_free(L, N, Name).   % C++20's IMMEDIATE FUNCTION: every call of it is folded (cpp_free_call), or refused (0.99)
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), Items) :- atom(N), '$cpp_promoted'(N), !, cpp_item(declare(L, base(Q, [class(struct, N, [], Ms)])), Items), cpp_trace(promoted_items(N, Items)).   % promoted at registration (cpp_struct_promotes)
-cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N), cpp_class_l(N, _), cpp_union_class_members(Ms), !, cpp_item(declare(L, base(Q, [class(union, N, [], Ms)])), Items).   % a union class (cpp_register_): its struct, its members as functions
+cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N), cpp_class_l(N, _), cpp_union_class_decl(Ms), !, cpp_item(declare(L, base(Q, [class(union, N, [], Ms)])), Items).   % a union class (cpp_register_): its struct, its members as functions
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), [declare(L, base(Q, [struct(N, Ms1)]))]) :- atom(N), Ms \== none, !,       % a plain struct: its member types resolved in place (`std::size_t n')
     cpp_plain_members(Ms, Ms1), ( Ms1 == Ms -> true ; ccl_note_tag(N, Ms1) ).
-cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto1, B, Vs3)]) :- !, cpp_const_class_defaults(L, Sto, Vs), cpp_gvar_walk(Sto, Vs, cpp_vars(none, Vs, Vs1)), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
+cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto1, B, Vs3)]) :- !, cpp_default_objects(ctor, L, Sto, Vs), cpp_const_class_defaults(L, Sto, Vs), cpp_default_objects(dtor, L, Sto, Vs), cpp_gvar_walk(Sto, Vs, cpp_vars(none, Vs, Vs1)), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
     ( nb_current('$cpp_in_lib', yes) -> true ; ccl_note_own_constant(declaration(L, Sto, B, Vs2)) ),   % the program's named constant, its constexpr call folded (0.195)
     cpp_dynamic_scalars(L, none, Sto, B, Vs, Vs2, Vs3), cpp_inline_storage(Sto, Vs3, Sto1).
 cpp_item(typedef(L, Vs), [typedef(L, Vs1)]) :- !, cpp_vars(none, Vs, Vs1), ccl_note_typedefs(Vs1).   % the table learns the instance's name at once

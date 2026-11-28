@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.54 the versions are: the module 1.6.54 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 220 (`ccl_lowering_version/1`,
+At 1.6.55 the versions are: the module 1.6.55 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 221 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -743,7 +743,10 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             va_ambiguous_member.cpp, a call that an overload with an ellipsis and its plain twin both
                             fit, in clang++'s words, va_few_qualified.cpp, a qualified call of too few arguments beside
                             them, and va_static_value.cpp, a static one's value, refused (1.6.38); complit_static.cpp, a
-                            compound literal's storage class, refused (1.6.39)
+                            compound literal's storage class, refused (1.6.39); defctor_*.cpp, dtor_*.cpp, ctor_*.cpp,
+                            delalone_*.cpp, delmember_two.cpp and delqual_overload.cpp, an object whose default
+                            constructor or destructor is not there, a constructor's parts that no initializer names and a deleted function named
+                            alone, each refused in clang++'s words (1.6.55)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -798,7 +801,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             ellipsis beside their plain twins, free and members, overloads declared before their
                             definitions, and static overloads named with their class as values (1.6.38); nsvalues.cpp,
                             a namespace's overload sets named as values (1.6.39); gnuattrscpp.cpp, GCC's weak, section and
-                            an extern "C" alias in C++ (1.6.40)
+                            an extern "C" alias in C++ (1.6.40); defaultctors.cpp and
+                            defaultctors17.cpp, the default constructors and destructors that 1.6.55's rules keep, and
+                            uniondefaults.cpp, unions' default member initializers (1.6.55)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

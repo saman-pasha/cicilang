@@ -513,7 +513,7 @@ cpp_ctor_body(L, C, _, _, Inits0, block(Body), block([expr(L, call(id(DName), [i
     ( cpp_ctor(C, DArgs, DName) -> true ; length(DArgs, K), cpp_refuse(L, no_constructor(C, K)) ), cpp_fill_defaults(DName, DArgs, DArgs0), cpp_ref_args_of(DName, DArgs0, DArgs1),
     ( cpp_dtor(C, Dt) -> Body1 = [eh_cleanup(L, block([expr(L, call(id(Dt), [id(this)]))]))|Body] ; Body1 = Body ).   % ... ITS BODY THAT THROWS DESTROYS THE OBJECT its target completed ([except.ctor]/4; 0.201): the class's destructor, by a cleanup only the unwinding runs
 cpp_ctor_body(L, C, B, Defaults, Inits0, block(Body), block(['$inits'(Pre)|Body])) :-   % THE PROLOGUE IS ONE STATEMENT (0.258), the program's body after it: the desugaring's own initializations, which ask no deleted assignment (cpp_assign_ask/2)
-    cpp_norm_inits(Inits0, Inits), cpp_inits_known(L, C, B, Inits),
+    cpp_norm_inits(Inits0, Inits1), cpp_injected_base_inits(C, Inits1, Inits), cpp_inits_known(L, C, B, Inits), cpp_ctor_parts_check(L, C, B, Inits),
     (   '$cpp_vb_holder'(C, _), \+ cpp_nv_body(C)                                          % A DIAMOND'S HOLDER builds the shared base first, where it lies, then stores its tables, so every path's base-variant constructor reaches it -- its own base variant builds none (0.163)
     ->  cpp_vb_build_all(C, B, Vs), cpp_vb_calls_all(Vs, L, C, B, Inits, VCall),   % every held base, in the order the standard builds them (0.171, 0.173) -- the virtual first base in its place among them (0.175), where it was built first (0.172)
         cpp_vptr_store(L, C, VStore), append(VCall, VStore, VPre), append(VPre, Pre00, Pre)
@@ -624,6 +624,47 @@ cpp_no_default_ctor(B) :- cpp_class(B, cls(_, _, Ms, _, _, _)),
     \+ '$cpp_default_ctor'(B),
     \+ ( member(ctor(_, _, Ps, _, _), Ms), cpp_arity_fits(Ps, 0) ),
     \+ ( '$cpp_mt'(B, ctor, _, ctor(_, _, Ps2, _, _)), cpp_arity_fits(Ps2, 0) ).
+%% A USER-PROVIDED CONSTRUCTOR'S BASES AND MEMBERS THAT NO INITIALIZER NAMES ARE DEFAULT-INITIALIZED, `: m()' value-initializes
+%% ([class.base.init]/9), and each part's destructor is potentially invoked ([class.base.init]/12; 1.6.55): a part whose default
+%% constructor is not there (cpp_default_fault/2) was left as its bytes -- `Y() {}' over `X x;' with `X() = delete' built -- and
+%% a base whose constructors all take arguments was `not lowered yet: base_constructor(B)'. clang++'s words at the constructor's
+%% line: the deleted constructor's and the implicitly-deleted one's; `constructor for 'Y' must explicitly initialize the base
+%% class 'X' which does not have a default constructor', `... the member 'x' which ...', `... the reference member 'r'' and `...
+%% the const member 'c''; `no matching constructor for initialization of 'X'' of `: m()'; and of a part whose destructor is not
+%% there, `attempt to use a deleted function'. The program's classes' own constructors alone: the implicit one's parts are asked
+%% where its class is default-initialized, and a defaulted copy's are its source's
+cpp_ctor_parts_check(L, C, B, Inits) :-
+    (   nb_getval('$cpp_in_lib', no), \+ nb_current('$cpp_implicit_ctor', yes), \+ nb_current('$cpp_memberwise', yes), atom(C), \+ cpp_lib_class(C), \+ '$cpp_union'(C),
+        cpp_ctor_part_fault(C, B, Inits, W)
+    ->  cpp_refuse(L, W)
+    ;   true ).
+cpp_ctor_part_fault(C, B, Inits, W) :- cpp_direct_bases(C, Bs), member(Base, Bs), atom(Base), cpp_base_named(C, Base, B, Inits, Named),
+    (   Named \== args, cpp_default_fault(Base, F) -> cpp_part_fault_words(F, Named, base(C, Base), W)
+    ;   cpp_dtor_fault(Base, _) -> W = deleted_use ), !.
+cpp_ctor_part_fault(C, _, Inits, W) :- cpp_class(C, cls(_, Data, _, _, Defaults, _)), member(member(MT, N, _), Data), atom(N), \+ sub_atom(N, 0, 1, _, '$'),
+    ( memberchk(init(N, As), Inits) -> ( As == [] -> Named = empty ; Named = args ) ; memberchk(N-_, Defaults) -> Named = args ; Named = no ),
+    (   Named == no, cpp_part_default_gone(MT, N, ref(_)) -> W = ctor_init_ref(C, N)
+    ;   Named == no, cpp_part_default_gone(MT, N, const(_)) -> W = ctor_init_const(C, N)
+    ;   Named \== args, cpp_part_class(MT, MC), cpp_default_fault(MC, F) -> cpp_part_fault_words(F, Named, member(C, N, MC), W)
+    ;   cpp_part_class(MT, MC), cpp_dtor_fault(MC, _) -> W = deleted_use ), !.
+%% how an initializer names the base: `args', `empty' for `: B()', `no' for none -- by its name, an alias, or its slot
+cpp_base_named(C, Base, B, Inits, Named) :-
+    (   memberchk(init(Base, As), Inits) -> true
+    ;   '$cpp_base_slot'(C, Base, Slot), memberchk(init(Slot, As), Inits) -> true
+    ;   Base == B, cpp_alias_base_init(C, B, Inits, As) -> true
+    ;   cpp_alias_base_init(C, Base, Inits, As) -> true
+    ;   As = none ),
+    ( As == none -> Named = no ; As == [] -> Named = empty ; Named = args ).
+cpp_part_fault_words(deleted(Why), _, Part, deleted_call(ctor, MC, Why)) :- cpp_part_of(Part, MC).
+cpp_part_fault_words(implicit(_), _, Part, deleted_call(implicit_default, MC, none)) :- cpp_part_of(Part, MC).
+cpp_part_fault_words(none, empty, Part, no_matching_ctor(MC)) :- cpp_part_of(Part, MC).
+cpp_part_fault_words(none, no, base(C, Base), ctor_init_base(C, Base)).
+cpp_part_fault_words(none, no, member(C, N, _), ctor_init_member(C, N)).
+cpp_part_of(base(_, B), B).
+cpp_part_of(member(_, _, MC), MC).
+%% the implicit default constructor's body, made with its class (cpp_implicit_ctor_/5)
+cpp_implicit_making(G) :- ( nb_current('$cpp_implicit_ctor', W) -> true ; W = no ), nb_setval('$cpp_implicit_ctor', yes),
+    (   catch(G, X, ( nb_setval('$cpp_implicit_ctor', W), throw(X) )) -> nb_setval('$cpp_implicit_ctor', W) ; nb_setval('$cpp_implicit_ctor', W), fail ).
 %% AN INITIALIZER THAT NAMES NOTHING THE CLASS HAS IS REFUSED, never dropped (0.100): the base (by its name, its alias
 %% or its slot), a data member (an anonymous union's through its hop), a class named as a base; anything else is
 %% `unknown_initializer', where a silent drop left the object unconstructed and the defect surfaced as garbage at run time
@@ -654,6 +695,16 @@ cpp_union_inits(Ds, Inits, Defaults, Ds1) :-
 cpp_norm_inits([], []).
 cpp_norm_inits([init(N0, As)|Is], [init(N, As)|Js]) :- ( atom(N0) -> N = N0 ; cpp_base_name(N0, N) ), cpp_norm_inits(Is, Js).
 cpp_norm_inits([I|Is], [I|Js]) :- cpp_norm_inits(Is, Js).
+%% ... AND ONE NAMING A BASE BY ITS TEMPLATE'S NAME, the injected-class-name that a base which is a template's instance declares
+%% ([temp.local]/1, /3; 1.6.55): `D() : B(5)' over `struct D : B<int>' was `unknown_initializer(D, B)', where clang++ takes it --
+%% a name that is no member, no class and no typedef of the class, and the template of one direct base alone
+cpp_injected_base_inits(_, [], []).
+cpp_injected_base_inits(C, [init(N, As)|Is], [init(N1, As)|Js]) :- !, ( cpp_injected_base(C, N, K) -> N1 = K ; N1 = N ), cpp_injected_base_inits(C, Is, Js).
+cpp_injected_base_inits(C, [I|Is], [I|Js]) :- cpp_injected_base_inits(C, Is, Js).
+cpp_injected_base(C, N, K) :- atom(N), \+ catch(cpp_data_member(C, N, _), _, fail), \+ catch(cpp_class_l(N, _), _, fail), \+ catch(cpp_class_typedef(C, N, _, _), _, fail),
+    catch(cpp_direct_bases(C, Bs), _, fail), findall(B, ( member(B, Bs), atom(B), catch('$cpp_inst'(B, inst(TN, _)), _, fail), cpp_tmpl_short(TN, N) ), [K]).
+cpp_tmpl_short(TN, N) :- TN == N, !.
+cpp_tmpl_short(TN, N) :- atom(TN), atomic_list_concat(Ps, '.', TN), last(Ps, N).
 %% the class an initializer's argument has, on the RAW expression a constructor's initializer list carries (it is
 %% desugared later, with the body): through a `std::move', which is how a guard takes its rollback
 %% THE TYPE AN ARGUMENT HAS, wherever the raw form cannot say it: through a `move' in either spelling, and else
@@ -720,6 +771,11 @@ cpp_member_inits([member(MT, A, _)|Ds], Inits, Defaults, L, [expr(L, call(id(mem
 cpp_member_inits([member(base(_, [union(anon, Ns)]), A, _)|Ds], Inits, Defaults, L, Pre, Body) :-
     member(member(MT, N, _), Ns), memberchk(init(N, Args), Inits), !,
     cpp_union_member_init(L, member(arrow(this, A), N), MT, Args, Pre, Pre1), cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
+%% ... AND BY ITS DEFAULT MEMBER INITIALIZER where no initializer names one of its members (1.6.55; [class.base.init]/9.1, [class.union.anon]):
+%% `struct S { union { int a = 9; float f; }; };' left `a' as its storage held it -- the holder's defaults are its own members' alone
+cpp_member_inits([member(base(_, [union(anon, Ns)]), A, _)|Ds], Inits, Defaults, L, Pre, Body) :-
+    \+ ( member(member(_, N0, _), Ns), memberchk(init(N0, _), Inits) ), member(default_init(N, E), Ns), memberchk(member(MT, N, _), Ns), !,
+    cpp_union_member_init(L, member(arrow(this, A), N), MT, [E], Pre, Pre1), cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 %% A REFERENCE MEMBER IS BOUND, never constructed and never assigned: its slot takes the object's ADDRESS, and
 %% every later use reads through it (ir_ref_member). libc++'s `__destroy_vector' holds a `vector &' and binds it
 %% in its constructor -- taken as a member of a class with constructors, that became `operator=' into an
@@ -845,7 +901,7 @@ cpp_implicit_ctor_(L, C, B, Defaults, function(L, none, base([], [void]), Name, 
     cpp_mangle(C, C, [], Name), cpp_this_type(C, [], [fresh], ThisT), cpp_vtt_params(C, [param(ThisT, this)], Params),
     ( cpp_nv_body(C) -> true ; ccl_declare(Name, fn(base([], [void]), Params, false)) ),   % the base variant is declared under its own name (cpp_nv_twin)
     ccl_scope_push, ccl_declare_params(Params),   % `this' is in scope while the DEFAULT MEMBER INITIALIZERS are built, as a written constructor's parameters are (0.115): libc++ 18's `__output_buffer<_CharT> __output_{__storage_.__begin(), __storage_.__buffer_size, this};' deduces its constructor template's `_Tp' from `this' (std::formatted_size)
-    ( catch(cpp_ctor_body(L, C, B, Defaults, [], block([]), Body0), E0, (ccl_scope_pop, throw(E0))) -> ccl_scope_pop ; ccl_scope_pop, fail ),
+    ( catch(cpp_implicit_making(cpp_ctor_body(L, C, B, Defaults, [], block([]), Body0)), E0, (ccl_scope_pop, throw(E0))) -> ccl_scope_pop ; ccl_scope_pop, fail ),   % its parts asked by its class's default construction, never here (cpp_ctor_parts_check/4, 1.6.55)
     cpp_method_body(C, Params, Body0, Body1).
 %% a body under its parameters, the class's members in reach
 cpp_method_body(Ctx, Params, Body, Body1) :- cpp_method_body(Ctx, none, Params, Body, Body1).

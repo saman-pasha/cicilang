@@ -286,8 +286,10 @@ cpp_register_([declare(L, base(Q, [struct(N, Ms)]))|Is]) :- atom(N), Ms \== none
     assertz('$cpp_promoted'(N)), cpp_trace(promoted(N)), cpp_register_([declare(L, base(Q, [class(struct, N, [], Ms)]))|Is]).
 %% A UNION AT NAMESPACE SCOPE WITH A CONSTRUCTOR, A DESTRUCTOR OR A METHOD IS A UNION CLASS (0.121), as a nested one (cpp_nested_class) and a
 %% union template's instance are: a class's whole road over the storage of a union ('$cpp_union'). The reader keeps it `union(N, Ms)', which the
-%% lowering took for a plain union and refused at its first use, `class(U)'. A union of data members alone stays C's.
-cpp_register_([declare(L, base(_, [union(N, Ms)]))|Is]) :- atom(N), N \== anon, cpp_union_class_members(Ms), \+ cpp_class_l(N, _), !,
+%% lowering took for a plain union and refused at its first use, `class(U)'. A union of data members alone stays C's -- ONE WITH A DEFAULT
+%% MEMBER INITIALIZER IS A CLASS TOO (1.6.55; [class.default.ctor]/2: its default constructor gives that member its value): `union U { int
+%% a = 5; float f; };' was `not lowered yet: class('U')' (cpp_union_class_decl/1)
+cpp_register_([declare(L, base(_, [union(N, Ms)]))|Is]) :- atom(N), N \== anon, cpp_union_class_decl(Ms), \+ cpp_class_l(N, _), !,
     ( '$cpp_union'(N) -> true ; assertz('$cpp_union'(N)) ), cpp_trace(union_class(N)), cpp_register_class(union, L, N, [], Ms), cpp_register_(Is).
 cpp_register_([_|Is]) :- cpp_register_(Is).
 %% THE PROGRAM'S DELETED FUNCTION TEMPLATE IS A CANDIDATE (0.258; [over.match]/2, [dcl.fct.def.delete]/2): its declaration is the function

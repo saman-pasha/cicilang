@@ -4987,11 +4987,29 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   public iostream` writes `: iostream(&__sb_)`, `iostream` std's typedef of `basic_iostream<char>`, and the initializer
   was `unknown_initializer(strstream, iostream)`. A data member of the name, and a typedef of the class's own, come first.
   `hdrrest.cpp`.
-- A base with user-declared constructors, none of which takes no argument, that no initializer names is refused,
-  `base_constructor(B)` ([class.base.init]/9; `cpp_no_default_ctor/1`, for the first base, a later one and a
-  diamond's shared one). A base with no constructor at all is left alone, as C++ leaves it. Such a base also deletes
-  the class's implicit default constructor, which is then not made (`cpp_implicit_ctor_needed`). Why: the base was
-  left unconstructed while the comment said refused. `basedefault.cpp`, `test/cpp/basenodefault.cpp`. (0.112)
+- A base is named by its template's name too, the injected-class-name that a base which is a template's instance
+  declares ([temp.local]/1, /3; 1.6.55; `cpp_injected_base_inits/3` after `cpp_norm_inits/2`): `D() : B(5)` over `struct
+  D : B<int>` was `not lowered yet: unknown_initializer('D','B')`, where clang++ takes it -- a name that is no member,
+  no class and no typedef of the class, and the template of one direct base alone. `defaultctors.cpp`. (1.6.55)
+- A base with user-declared constructors, none of which takes no argument, that no initializer names is refused, in
+  clang++'s words since 1.6.55 (below), `constructor for 'D' must explicitly initialize the base class 'B' which does
+  not have a default constructor`, where it was `not lowered yet: base_constructor(B)` ([class.base.init]/9;
+  `cpp_no_default_ctor/1`, for the first base, a later one and a diamond's shared one). A base with no constructor at
+  all is left alone, as C++ leaves it. Such a base also deletes the class's implicit default constructor, which is then
+  not made (`cpp_implicit_ctor_needed`). Why: the base was left unconstructed while the comment said refused.
+  `basedefault.cpp`, `test/cpp/basenodefault.cpp`. (0.112, 1.6.55)
+- **A USER-PROVIDED CONSTRUCTOR'S PARTS THAT NO INITIALIZER NAMES ARE DEFAULT-INITIALIZED, AND EACH IS DESTROYED WHERE A
+  LATER ONE THROWS** (1.6.55; [class.base.init]/9, /12; `cpp_ctor_parts_check/4` in `cpp_ctor_body`'s prologue): a base
+  or a data member whose default constructor is not there (`cpp_default_fault/2`) was left as its bytes -- `Y() {}` over
+  `X x;` with `X() = delete` built. clang++'s words at the constructor's line: `call to deleted constructor of 'X'`,
+  `call to implicitly-deleted default constructor of 'X'`, `constructor for 'Y' must explicitly initialize the base
+  class 'X' which does not have a default constructor` and `... the member 'x' which does not have a default
+  constructor`, `... the reference member 'r'` and `... the const member 'c'`; `: z()` of a member with no default
+  constructor, `no matching constructor for initialization of 'Z'`; and a base or a member whose destructor is not
+  there, `attempt to use a deleted function`. The program's classes' own constructors alone: the implicit one, made with
+  its class (`cpp_implicit_making/1`), asks nothing of its parts -- they are asked where its class is
+  default-initialized, and a class that nothing default-initializes builds, as in clang++ --, and a defaulted copy's
+  parts are its source's. `test/cpp/ctor_*.cpp`. (1.6.55)
 - A data member is built from its `init(N, Args)`, else its default member initializer, else its default constructor
   (`cpp_member_inits`). A class with nothing to construct is left alone (`cpp_trivial_default`). A value of the
   member's own class copies bitwise: refused with a destructor (`copy_of_a_class_with_destructor`), nothing for an
@@ -5833,39 +5851,75 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
 - A CALL THAT CHOOSES A DELETED FUNCTION IS REFUSED, in clang's words and with its reason (0.257;
   [dcl.fct.def.delete]/2, [over.match]/2: a deleted function takes part in overload resolution, and a program that
   refers to it is ill-formed). Each deleted declaration is noted -- a free function `'$cpp_fn_del'(N, Key, Why)` and a
-  free operator `'$cpp_op_del'(Op, K, Why)` (`cpp_note_fns/1`), a member function or constructor
-  `'$cpp_mem_del'(C, Name, Qs, Ps, Why)` (`cpp_note_specials/2`); a deleted template is a candidate of its own since
-  0.258 (below) -- and asked where a call is resolved, in the program's own code (and since 0.258 a construction of the
-  program's class in the library's body, below): a free call, at every road's end (`cpp_free_call/5`,
-  `cpp_deleted_call/3`),
-  `call to deleted function 'g': call g(long)`; a member call, the deleted members ranked beside the record's
-  (`cpp_method/5`, `cpp_deleted_member_check/4`), `call to deleted member function 'f'`, a static member's
-  `call to deleted function 'f'`, an operator's `overload resolution selected deleted operator '='`; a construction
-  (`cpp_ctor/3`, `cpp_deleted_ctor_check/2`), `call to deleted constructor of 'ns::W<char>': no int`, the class as clang
-  spells it (`cpp_pf_class/2`); the copy of an lvalue whose copy constructor is deleted as declared,
-  `call to deleted constructor of 'S'`, or implicitly ([class.copy.ctor]/6, /10: the class declares a move, or a part
-  does not copy; `cpp_special_there/2`, the traits' rule),
-  `call to implicitly-deleted copy constructor of 'std::unique_ptr<int>'` -- a local's own copy too (`cpp_ctor_args/4`,
-  `cpp_copy_not_deleted/1`), and a DEFAULTED copy whose part does not copy, which is deleted alike
-  ([class.copy.ctor]/10), `call to implicitly-deleted copy constructor of 'DefCopy'`, its own body, made with its class,
-  asking nothing of its parts (`cpp_memberwise_making/1`), since clang++ takes the declaration where nothing calls it
-  (`valtraitsspecial.cpp`'s `DefCopy` was refused at the unique_ptr's copy until this was so); an assignment
-  (`cpp_deleted_assign_check/2`) through a deleted `operator=`, or from an lvalue where the copy assignment is
-  implicitly deleted or defaulted and deleted ([class.copy.assign]/7; `cpp_assign_special/2`),
-  `object of type 'std::unique_ptr<int>' cannot be assigned because its copy assignment operator is implicitly deleted`;
-  a free operator nothing else answers (`cpp_deleted_operator/3`),
-  `overload resolution selected deleted operator '==': compare v`; and the idiom
-  `template <class T> void f(T) = delete;` beside `void f(int)`, whose instance is chosen wherever the plain overload is
-  no exact match (0.257's `'$cpp_tmpl_del'`, a template of its own type parameters ranked by its arity alone, until
-  0.258). A prvalue of the class copies nothing ([dcl.init]/17.6.1), and a base sub-object's construction is its
-  class's. The refusal is at the statement's line (`cpp_refuse_stmt/1`, `'$cpp_line'`). It was no refusal: the record
-  drops a deleted member, so `s.f(1)` over `void f(int) = delete; int f(long)` called f(long), a deleted copy
+  free operator `'$cpp_op_del'(Op, K, Why)` (`cpp_note_fns/1`), a member function or constructor `'$cpp_mem_del'(C,
+  Name, Qs, Ps, Why)` (`cpp_note_specials/2`); a deleted template is a candidate of its own since 0.258 (below) -- and
+  asked where a call is resolved, in the program's own code (and since 0.258 a construction of the program's class in
+  the library's body, below): a free call, at every road's end (`cpp_free_call/5`, `cpp_deleted_call/3`), `call to
+  deleted function 'g': call g(long)`, and a qualified name of a deleted function that is the one declaration of its
+  name, `::h()` and `n::h()`, `attempt to use a deleted function`, no overload resolved (1.6.55,
+  `cpp_qualified_deleted_alone/2`; it was `no member named 'h' in the global namespace`); a member call, the deleted
+  members ranked beside the record's (`cpp_method/5`, `cpp_deleted_member_check/4`), `call to deleted member function
+  'f'`, a static member's `call to deleted function 'f'` -- and `attempt to use a deleted function` where the deleted
+  member is the one declaration of its name, as clang++ names it alone (1.6.55, `cpp_member_deleted_alone/2`) --, an
+  operator's `overload resolution selected deleted operator '='`; a construction (`cpp_ctor/3`,
+  `cpp_deleted_ctor_check/2`), `call to deleted constructor of 'ns::W<char>': no int`, the class as clang spells it
+  (`cpp_pf_class/2`); the copy of an lvalue whose copy constructor is deleted as declared, `call to deleted constructor
+  of 'S'`, or implicitly ([class.copy.ctor]/6, /10: the class declares a move, or a part does not copy;
+  `cpp_special_there/2`, the traits' rule), `call to implicitly-deleted copy constructor of 'std::unique_ptr<int>'` -- a
+  local's own copy too (`cpp_ctor_args/4`, `cpp_copy_not_deleted/1`), and a DEFAULTED copy whose part does not copy,
+  which is deleted alike ([class.copy.ctor]/10), `call to implicitly-deleted copy constructor of 'DefCopy'`, its own
+  body, made with its class, asking nothing of its parts (`cpp_memberwise_making/1`), since clang++ takes the
+  declaration where nothing calls it (`valtraitsspecial.cpp`'s `DefCopy` was refused at the unique_ptr's copy until this
+  was so); an assignment (`cpp_deleted_assign_check/2`) through a deleted `operator=`, or from an lvalue where the copy
+  assignment is implicitly deleted or defaulted and deleted ([class.copy.assign]/7; `cpp_assign_special/2`), `object of
+  type 'std::unique_ptr<int>' cannot be assigned because its copy assignment operator is implicitly deleted`; a free
+  operator nothing else answers (`cpp_deleted_operator/3`), `overload resolution selected deleted operator '==': compare
+  v`; and the idiom `template <class T> void f(T) = delete;` beside `void f(int)`, whose instance is chosen wherever the
+  plain overload is no exact match (0.257's `'$cpp_tmpl_del'`, a template of its own type parameters ranked by its arity
+  alone, until 0.258). A prvalue of the class copies nothing ([dcl.init]/17.6.1), and a base sub-object's construction
+  is its class's. The refusal is at the statement's line (`cpp_refuse_stmt/1`, `'$cpp_line'`). It was no refusal: the
+  record drops a deleted member, so `s.f(1)` over `void f(int) = delete; int f(long)` called f(long), a deleted copy
   constructor gave the implicit memberwise copy, `a = b` over a deleted `operator=` assigned as C's struct does, two
   `std::unique_ptr`s copied and assigned, a deleted template was no candidate, and a deleted free function chosen was
   `not lowered yet: undeclared(g)`. `test/cpp/delfree.cpp`, `delmember.cpp`, `delstatic.cpp`, `delctor.cpp`,
   `delcopy.cpp`, `delimplcopy.cpp`, `deltmpl.cpp`, `delop.cpp`, `delassign.cpp`, `delimplassign.cpp`, `deldefcopy.cpp`,
   `deldefassign.cpp` (refused), `test/cpp/run/deletedok.cpp` (a deleted overload beside the one called, moves, returns,
-  a prvalue). (0.257, 0.258)
+  a prvalue), `delalone_*.cpp`, `delmember_two.cpp` and `delqual_overload.cpp` (refused). (0.257, 0.258, 1.6.55)
+- **AN OBJECT OF THE PROGRAM'S CLASS WHOSE DEFAULT CONSTRUCTOR IS NOT THERE IS REFUSED** (1.6.55, lowering 221;
+  [dcl.init]/7, /9, [class.default.ctor]/1, /2, [dcl.fct.def.delete]/2; `cpp_default_fault/2`): the record drops a
+  constructor `= delete` and keeps `= default` as the implicit one, so a class whose record holds no constructor was
+  built as C builds a struct. The fault is `deleted(Why)` -- a deleted constructor that takes no argument, where no live
+  one does --, `none` -- the class declares a constructor (`'$cpp_udecl_ctor'/1`, noted with its special members by
+  `cpp_note_specials/2`: a deleted or a defaulted one among them, an inherited one the base's) and none takes no
+  argument, a constructor template's pack among what takes none (`cpp_default_live/1`) --, or `implicit(W)` -- the class
+  declares none, or `C() = default`, and a part deletes its default constructor (`cpp_default_gone/2`): a base whose
+  default constructor or destructor is not there; a data member with no default member initializer of reference type, of
+  a const type that is not const-default-constructible (`cpp_const_constructible/1`, 1.6.50), or of a class, or an array
+  of one, whose default constructor is not there; a data member of a class whose destructor is not there; a plain struct
+  by its members alone (`cpp_struct_default_gone/1`). Asked of the program's classes in the program's code alone, never
+  a union, a closure or a library's class. The forms: a declaration with no initializer at the file, in a namespace and
+  in a block, static or not, an array's elements among them, and `X x{}` of a class that is no aggregate at the level --
+  from C++20 one that declares a constructor is none -- and has no initializer-list constructor
+  (`cpp_default_objects/4`, `cpp_decl_pieces/6`, each before 1.6.50's words, as clang++ asks them); `new X`, `new X()`
+  and `new X[n]` (`cpp_new_fault/2`); a temporary `X()` (`cpp_temp_fault/4`). The reader writes `X()` and `X{}` as one
+  form, and `new X()` and `new X{}`, so a value-initialization of a class that is an aggregate at the level is not
+  asked: it may be braces. clang++'s words, the type as it names it (`cpp_object_words/4`), an array's by its bound and
+  `X[]` where the bound is no constant: `call to deleted constructor of 'const X'`, `no matching constructor for
+  initialization of 'X[2]'` -- which was `not lowered yet: no_constructor('Y',0)` where the record holds a constructor
+  -- and `call to implicitly-deleted default constructor of 'W<X>'`. Each built where clang++ refuses it, the object as
+  its storage held it. The object's class is looked up under a catch of `not_lowered` errors alone, as 1.6.50's is: a
+  library's static assertion that the instance's registration meets is the program's error -- caught with every other
+  error, `std::optional<int &> o;` and `std::variant<int, void> v;` built, the instance left half made
+  (`libassert2.cpp`, `libassert3.cpp`; the C++ gate over the step's copy found it). `test/cpp/defctor_*.cpp` (refused),
+  `test/cpp/run/defaultctors.cpp` and `defaultctors17.cpp` (the forms that build, C++17's aggregates among them).
+  (1.6.55)
+- **... AND ONE WHOSE DESTRUCTOR IS NOT THERE** (1.6.55; [class.dtor]/7, /15, [expr.delete]/10, [expr.new]/22;
+  `cpp_dtor_fault/2`): declared deleted (`'$cpp_sdecl'(C, dtor, none, delete)`), or implicit or defaulted where a base
+  or a data member of class type has none; the record drops `~X() = delete`, and the object was destroyed as one with
+  nothing to destroy. A declaration of an object whatever its initializer -- after 1.6.50's words, as clang++ asks them
+  --, a temporary, a returned one among them, a delete, and an array's new, whose elements are destroyed where a later
+  one's construction throws, are clang++'s `attempt to use a deleted function`; a single object's new is not refused.
+  `test/cpp/dtor_*.cpp`. (1.6.55)
 - A DELETED TEMPLATE IS A CANDIDATE, A DELETED MOVE IS ASKED WHEREVER AN XVALUE IS COPIED, AND A PLAIN STRUCT THAT C++
   DOES NOT ASSIGN IS NOT ASSIGNED (0.258; [dcl.fct.def.delete]/2, [over.match.funcs]/8, [class.copy.assign]/7). The
   program's deleted FUNCTION TEMPLATE and deleted EXPLICIT SPECIALIZATION are the function item whose body is
@@ -5941,6 +5995,17 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   at its first use, `class('U')`; a union of data members alone stays C's. `ccl_data_members/2` leaves the tag's
   `union_tag` out of the member list, so `U u = {5}` names the FIRST MEMBER. `unionclass.cpp`, `uniondtor.cpp`.
   (0.121)
+- **A UNION WITH A DEFAULT MEMBER INITIALIZER IS A UNION CLASS TOO** (1.6.55; [class.default.ctor]/2, [dcl.init.aggr]/5,
+  /18): at namespace scope `cpp_union_class_decl/1` asks it beside `cpp_union_class_members/1`, and `union U { int a =
+  5; float f; }` was `not lowered yet: class('U')`, a member of its type `no_member(u, ...)`; its default constructor
+  gives that member its value (`cpp_union_inits/4`). An anonymous union's member takes its default member initializer in
+  its holder's constructor where no initializer names one of its members (`cpp_member_inits/6`), and its holder makes an
+  implicit constructor for it (`cpp_implicit_ctor_needed/1`); it was left as the storage held it, a silent wrong answer.
+  A union's braced list gives one member (`cpp_union_agg/5`): the first, the one a designator names, and for `{}` the
+  one that a default member initializer names, else the first; an anonymous union's missing item and its empty braces
+  take its member's default (`cpp_agg_no_item/7`). Each member took its item or its default in turn, and `U z = {7}`
+  over `union U { int a; float f = 2.5f; }` kept f's 2.5 over a's 7 (the step's own probe, once the union was a class).
+  `uniondefaults.cpp`. (1.6.55)
 - A UNION'S DESTRUCTOR DESTROYS NO MEMBER ([class.dtor]/16; `cpp_dtor_body`): the members share their storage, and
   which one is alive is the program's to say. libc++ 18's `__union` writes `~__union() {}` and `std::variant`'s own
   destructor destroys the active alternative; every member destroyed by the union freed a string twice.
@@ -17484,14 +17549,24 @@ Declarations topic of the C++ reader).
   refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where
   clang++ names the template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>,
   std::__1::allocator<char>>&`.
-- C++: WHAT 1.6.50'S CONST OBJECT OF A CLASS LEAVES (found at 1.6.43; the C reader's topic): a class whose default
-  constructor is deleted is the rule's words, where clang++ says `call to deleted constructor of 'const X'`, and one
-  with no default constructor `not lowered yet: no_constructor('Y',0)`, where clang++ says `no matching constructor for
-  initialization of 'const Y'`; a typedef of an unnamed const struct is named `'CP'`, where clang++ adds `(aka 'const
-  struct (unnamed at cc28.cpp:1:15)')`; and a union with a default member initializer is `not lowered yet: class('X2')`,
-  a const object of it or not. A static data member declared `static constexpr int x;` in its class, clang++'s
+- C++: WHAT 1.6.50'S CONST OBJECT OF A CLASS LEAVES (found at 1.6.43; the C reader's topic; narrowed at 1.6.55, which
+  gives a class whose default constructor is not there clang++'s words and makes a union with a default member
+  initializer a class): a typedef of an unnamed const struct is named `'CP'`, where clang++ adds `(aka 'const struct
+  (unnamed at cc28.cpp:1:15)')`. A static data member declared `static constexpr int x;` in its class, clang++'s
   `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it builds,
   and the reader gives such a member `const` for `constexpr` (found at 1.6.51), so that a walk would not see the word.
+- C++: WHAT 1.6.55'S DEFAULT CONSTRUCTORS AND DESTRUCTORS LEAVE (the Classes topic): the reader writes `T()` and `T{}`
+  as one form, and `new T()` and `new T{}`, so a value-initialization of an aggregate at the level is not asked -- `X()`
+  over C++17's aggregate `struct X { X() = delete; }` builds, where clang++ says `call to deleted constructor of 'X'`,
+  and so do a plain struct's `P()` and `new P()` with a const member and `new Y()` of a reference member; an aggregate's
+  member with no item, or `{}`, whose class has no default constructor (`Z z{}` over `struct Z { Y y; }`, clang++'s `no
+  matching constructor for initialization of 'Y'`) and a braced default member initializer at C++20 (`X x{};` over `X()
+  = delete`) build; a call's discarded result of a class whose destructor is not there, `f();`, and a by-value parameter
+  of it build; `new X(X())`, whose object C++17 makes in place with no temporary, is refused by the destructor's words,
+  where clang++ takes it. A library class's default constructor and destructor are not asked, nor an indirect virtual
+  base's, a named union's nested in a class, or a union's own rules of its variant members ([class.default.ctor]/2.4,
+  /2.5); a base's inherited constructor that takes no argument counts as the class's, and a typedef's name in the words
+  is its own spelling where `ir_type_aka/2` gives one.
 - C++: WHAT 1.6.42'S WALK OF A HEADER LEAVES (the C reader's topic of the kinds and of the second definitions). A HEADER
   THAT THE RUN DID NOT RUN IS DESUGARED STILL: a header of the program's own whose guard the file defined first,
   `#define G_H` before `#include "g.h"`, is LLVM's `invalid redefinition of function 'gf'` where the file defines the
