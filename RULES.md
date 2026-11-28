@@ -5305,6 +5305,14 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   the reader gives a cast of nothing, which reached the lowering, `expr(none)`, wherever the program or a header wrote
   one -- `int k = int();`, `std::string s(3, char());`, libc++'s `wstring_convert::to_bytes` -- a defect older than
   0.200; a bound parameter's `T()` was `cpp_type_called/3`'s. `castzero.cpp`, `hdrrest.cpp`.
+- **AN ARRAY'S PRVALUE BY ITS TYPE'S NAME** (1.6.56; [expr.type.conv]/2, [dcl.init.list]/3.4; `cpp_array_named/2`, the
+  braced temporary's clause of `cpp_expr/3` and `A3{}`'s, which the reader writes as `A3()`; the lowering's
+  `ir_ref_of/2`): `A3{1, 2, 3}` over `using A3 = int[3]` is a compound literal of the array, its elements from the items
+  as an aggregate's, the rest zero, a bound of `int[]` the items' count (`cpp_size_by_init/3`). It was `not lowered yet:
+  phase(desugaring)`. A reference binds the compound literal's storage: its value is its first element's address, which
+  the lowering's last clause stored into a temporary of its own, and `auto &&r = A3{4, 5, 6}; r[1]` read the temporary's
+  bytes. A range-for, a const reference to the array, a parameter `const int (&)[3]` and `sizeof` take it as clang++
+  does. `test/cpp/run/arrayprvalues.cpp`. (1.6.56, lowering 222)
 - `Guard<A, I>(a, i)` is a temporary of the instance (`cpp_call`'s `tmpl` clause) only where every argument is settled
   (`cpp_targs_settled/1`); an unfolded argument would name an instance by its spelling. (0.47)
 - A MEMBER CLASS TEMPLATE'S INSTANCE NAMED THROUGH ITS HOLDER AND CALLED, `O<int>::I<double>()`, is a temporary of it
@@ -5500,6 +5508,21 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   (`cpp_decl_pieces`, `cpp_aggregate_inits/5`), then the destructor's defer: `Person p = {"ann", 30}`. A class with a
   written constructor takes `{12}` as its constructor's arguments, never as items: `std::atomic<int> a{12}`.
   (0.41, 0.100)
+- **AN AGGREGATE WHOSE MEMBER CONSTRUCTS, AND AN AGGREGATE'S DEFAULT MEMBER INITIALIZERS** (1.6.56; [dcl.init.aggr]/4,
+  /5, [class.mem.general]/12, [expr.prim.this]/2; `cpp_agg_member_constructs/1` in `cpp_decl_pieces` and
+  `cpp_global_object/5`; `cpp_agg_dmis/4`, `cpp_agg_dmi/4`, `cpp_this_is/3` in `cpp_aggregate_inits/5`;
+  `cpp_agg_member_fault/2` in `cpp_agg_no_item/7`). A data member of a class with constructors, or an array of them,
+  whose class has no default constructor deletes the implicit one (`cpp_members_default/2`), so the class needed no
+  implicit constructor, and a local's and a global's braces went on as C's: `Z z = {1, 2}` over `struct Z { int a; Y y;
+  }` with `Y(int j) : v(j * 10)` stored the 2 into y's bytes, a SILENT WRONG ANSWER, and an empty Y was `excess elements
+  in struct initializer`. A temporary's road asked this already. The record holds the default member initializers as the
+  reader wrote them, beside items that are desugared already: each is desugared in its class now, as the global's road
+  does (`cpp_agg_default/3`), its `this` the object's address -- `int c = a + 1;` was `use of undeclared identifier
+  'a'`, `Y y = Y(5);` a call of an undeclared `Y`, and `int b = g();` of a member g -- and a temporary of an aggregate
+  with one takes the member road, where its compound literal gave such a member zero. A member of class type with no
+  item is copy-initialized from `{}`: a class that is no aggregate at the level needs its default constructor, which
+  1.6.55's `cpp_default_ctor_fault/3` asks -- `Z z{};` over `Y(int)` alone built; clang++'s `no matching constructor for
+  initialization of 'Y'`. `test/cpp/run/aggconstructs.cpp`, `test/cpp/aggmember_*.cpp`. (1.6.56)
 - A designated list is made positional over the class's data members ([dcl.init.aggr]/3.1; `cpp_agg_values/3`): `.f =
   v` at f's place, an item without a designator at the next, a skipped member the hole `'$no_item'` (taken as a member
   with no item). Every aggregate door asks it: a local, a member's braced list, a global. Why: the values were taken in
@@ -5920,6 +5943,14 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   --, a temporary, a returned one among them, a delete, and an array's new, whose elements are destroyed where a later
   one's construction throws, are clang++'s `attempt to use a deleted function`; a single object's new is not refused.
   `test/cpp/dtor_*.cpp`. (1.6.55)
+- **A CALL WHOSE RESULT IS AN OBJECT OF A CLASS WHOSE DESTRUCTOR IS NOT THERE** (1.6.56; [class.dtor]/15,
+  [class.temporary]/1; `cpp_result_dtor_check/1` in `cpp_expr/3`'s call): clang++ binds a call's class prvalue to a
+  temporary that its destructor ends, wherever the result goes -- thrown away, cast to void, an argument by value or by
+  reference, a member's object, a return of it -- and says `attempt to use a deleted function` at the call. `f();` of `X
+  f();` with `~X() = delete` built, and so did a member function's result and a class whose member's destructor is
+  deleted. Asked where a statement is walked (`'$cpp_temps'` a list): an unevaluated operand, `decltype(f())`, makes no
+  temporary ([dcl.type.decltype]/2), and a reference result is no object. `new X(X())` is refused as clang++ refuses it,
+  by 1.6.55's temporary. The program's code alone. `test/cpp/dtorcall_*.cpp`, `test/cpp/newtemp_dtor.cpp`. (1.6.56)
 - A DELETED TEMPLATE IS A CANDIDATE, A DELETED MOVE IS ASKED WHEREVER AN XVALUE IS COPIED, AND A PLAIN STRUCT THAT C++
   DOES NOT ASSIGN IS NOT ASSIGNED (0.258; [dcl.fct.def.delete]/2, [over.match.funcs]/8, [class.copy.assign]/7). The
   program's deleted FUNCTION TEMPLATE and deleted EXPLICIT SPECIALIZATION are the function item whose body is
@@ -7501,6 +7532,18 @@ is in `test/cpp/run/`.
   `f(...)` over an `int a`, `f(0)` of `f(int &)` and `f(5)` of `f(int *)` beside it, `f(0)` of `f(int &)` beside
   `f(long)`, and `s.m(a)` of `m(double &)` beside `m(...)`, which 1.6.51's rule refused. Where each candidate misfits,
   the set is as it was, for the refusals' words. The program's code alone; the driver gate's two checks. (1.6.53)
+- **AN OVERLOAD WHOSE ARGUMENTS PAST THE CALL'S ARE ALL DEFAULTS IS ONE OF THE EXACT OVERLOADS, AND TWO OVERLOADS THAT
+  DIFFER ONLY BY A VALUE AND A CONST REFERENCE OF ONE TYPE RANK ALIKE** (1.6.56; [over.match.viable]/2.3,
+  [over.ics.rank]/3.2.3, /3.2.6, [over.ics.ref]/2; `cpp_exact_count/4` in `cpp_fn_exact/4`; `cpp_twin_ambiguous/4`,
+  `cpp_twin_cores/2`, `cpp_twin_core/2` in `cpp_fn_best/4`). A default takes no part in the ranking, so `f(int x, int y
+  = 0)` is exact for `f(a)` over an `int a` and 1.6.52's ranking asks it beside `f(int &)`: the reference was taken,
+  where clang++ says `call to 'f' is ambiguous`. A reference bound to a temporary of the converted value has the
+  conversion's rank, and /3.2 compares two reference bindings alone, so where the best plain overload has a twin of its
+  score, its parameters the same types by value or by a const lvalue reference, the call is ambiguous: `f(i)` of
+  `f(long)` beside `f(const long &)` over an `int i`, and `f(d)` of `f(S)` beside `f(const S &)` over a D derived from
+  S, took the first declared. The program's code alone, each overload of the name the program's; an overload of more
+  parameters with no default is no exact one. `test/cpp/ambig_*.cpp`; `test/cpp/run/overloadfits.cpp` holds what they
+  keep. (1.6.56)
 - A template that holds and whose body refuses makes the call refuse, `instance_refused(Name, W)`; no plain overload
   stands in. Why: C's `getline(char **, size_t *, FILE *)` took a stream by arity. (0.76)
 - Among the function templates that hold: the fewest conversions (below), then a definition before a declaration
@@ -7788,60 +7831,65 @@ is in `test/cpp/run/`.
   reference's temporary and unrelated type -- and `no matching member function for call to 'm'` where it has more. A
   `const volatile` reference binds no rvalue either: `r(0)` of `void r(const volatile int &)` took the exact road and
   built. The exact road took an object of more qualifiers, the bare types alike, and the ranking took `f(int &)` before
-  `f(long)` for a `const int` and `f(int *&)` before `f(long)` for `f(0)`. A class on either side is not asked: a
-  derived class binds its base's reference, and a class converts by its functions. The MEMBER OF A CONST OBJECT is const
-  to the rule, a mutable one not (`cpp_lref_drops_cv/4` in `cpp_arg_exact/2`, `cpp_member_own_const_/3`; [expr.ref]/6.2,
-  [dcl.stc]/10): `r(p.v)` of `void r(int &)` over a `const P p` took the exact road, the inference's type of the member
-  not const, and built; the rule's first form took a mutable member as const and refused a program that clang++ builds.
-  The driver gate's six checks hold 46 refused bodies and three programs run as clang++'s. A CAPTURELESS GENERIC
-  LAMBDA'S CLOSURE converts out (1.6.31; `cpp_converts_out/1` over `cpp_generic_closure/1`), and THE DESUGARING'S OWN
-  CALL OF AN ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is no program's call (1.6.31; `cpp_alloc_sym/3` in
-  `cpp_no_overload_fits/2`): 1.6.28's nets found `genericfp.cpp`'s `apply([](auto v) { return v * 3; }, 5)` and
-  `alignnew.cpp`'s `delete[] w` over the program's aligned `operator delete[]`, which hands its alignment as an integer,
-  refused, `no matching function for call to 'apply'` and `'_ZdaPvmSt11align_val_t'`. 1.6.28's broken copies (1.6.32):
-  the tests of a null pointer constant and of a type not known held nothing, and are out; a class's base's conversion
-  function, a pointer to another pointer type and the kinds below have a body each now. ANOTHER MISFIT GOES ON TO THAT
-  ROAD, as it went: it converts a generic lambda to a function pointer (`genericfp.cpp`), which the candidates' filter
-  finds no conversion operator for, and refuses a struct for a scalar in its own words, `no conversion from
-  'optional_int' to 'double'`. The rule's first form refused every call that no candidate fitted, and the C++ pool and
-  the ccllib gate found the three. A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION OF ANOTHER COUNT THAN ITS
-  TYPE'S ([expr.call]/7; `cpp_callee_count_wrong/3`) -- a local pointer, a struct's pointer member by `.` and `->`, any
-  callee expression -- is refused in clang++'s words, which are C's, `too few arguments to function call, expected 2,
-  have 1`. A library body's call goes on as it went. The driver gate holds eight forms. THE COUNT WORDS ARE CLANG++'S BY
-  THE DECLARATION (1.6.26; its Sema's ConvertArgumentsForCall; `cpp_count_words/5`): `expected at least` where defaults
-  or an ellipsis stand, `at most` where defaults do, and a function's one parameter by its name -- `single argument 'a'
-  was not specified`, `at least argument 'a' must be specified`, `expected at most single argument 'a', have 2
-  arguments`; a pointer's parameters are no declaration's, and their count alone is said. A QUALIFIED CALL OF ONE
-  FUNCTION, no overload and no template (1.6.26; `cpp_one_function/3`) -- `n::f()`, `std::puts()`, `::f()`, a function
-  that a using names -- is refused so, as clang++ refuses a qualified name, and a bare one has the overloads' words; it
-  was `no matching function for call to 'f'`. A FUNCTION TEMPLATE THAT NO COUNT FITS, where no other candidate takes the
-  call, is `no matching function for call to 'f'` at the call's line (`cpp_arity_holds/4`), where it was `not lowered
-  yet: arity_mismatch` at no line. A QUALIFIED NAME FINDS NO LOCAL (1.6.27; [basic.lookup.qual]; `cpp_qualified_name/2`,
-  `cpp_qualified_hides/1`): the desugaring flattens `n::g(2)`, `::g(2)` and `std::puts("x")` to a call of the bare name,
-  and while it resolves, a local of the name is none to `cpp_local/1` in the scope it was called in; the lowering calls
-  the file's function where the bare name's local is no function and no pointer to one (`ir_callable_type/1`). `double g
-  = 1.5; return n::g(2);` was `not lowered yet: call(id(g))`, a template's call too, and after `int puts = 4;
-  ::puts("x");` a `return puts;` named the function -- 1.6.27 also declared the C function at file scope for its call, a
-  mend that held nothing beside the two rules, as 1.6.27's broken copies found, and 1.6.28 took it out.
-  `test/cpp/run/qualshadow.cpp`, which clang++ 23 and g++ print alike, with the two forms that 1.6.27's broken copies
-  needed (1.6.28): an instance's own local of its name that it calls, a closure, which the mark's scope keeps -- without
-  it the instance called itself --, and a local pointer to a function named as the file's, called through, which the
-  type test keeps. A QUALIFIED CALL BESIDE A LOCAL OF ITS NAME THAT IS A FUNCTION OR A POINTER TO ONE CALLS THE FILE'S
-  FUNCTION (1.6.34; [basic.lookup.qual]/1; `cpp_global_callee/2`, `global_fn/1` in `ir_call/4`, `ir_expr_/4` and
-  `ir_lval_/4`): the flattened bare name was the local's to the lowering, so `int (*k)(int) = dbl; return ::k(6);`
-  called `dbl`, where clang++ calls the file's `k`; where a frame holds a local of the name and the file declares a
-  function of it, the call is the node `global_fn(k)`, which the lowering calls by its symbol, and `::k` as a value is
-  the function's address. THE LOCAL IS AN OBJECT, NEVER A FUNCTION THAT A FRAME HOLDS (1.6.38; `cpp_local_object/1`):
-  `ccl_declare/2` puts a declaration into the innermost open frame, and a header's function declared while a body is
-  walked stands there as `fn(...)` -- with `<chrono>`, `std::floor(2.7)` went to the file's `floor`, chrono's template,
-  and the C++ gate's `stdabs.cpp`, `fmtchrono.cpp` and `fmtchrono2.cpp` failed from 1.6.34 on, which no chain ran until
-  1.6.38's; a block's declaration of a function names the file's function itself. A LOCAL POINTER TO A FUNCTION IS
-  CALLED THROUGH BESIDE THE FILE'S OVERLOADS OF ITS NAME (1.6.34; [basic.lookup.unqual]/1: the local hides them;
-  `cpp_local_fn_pointer/1`): `int (*ov)(int) = dbl; ov(3)` beside `ov(int)` and `ov(double)` was the overloads' choice.
-  `test/cpp/run/qualglobal.cpp`, which clang++ 23 prints alike: a class's static member and a namespace's function of
-  the name stay theirs, and a closure's capture of the local stands beside `::k`. The driver gate's twenty-four bodies
-  against clang++ 23; `test/cpp/run/castcalls.cpp` holds the counts, the defaults and the ellipses that C++ takes.
-  (0.302, 1.6.26, 1.6.27, 1.6.28, 1.6.34)
+  `f(long)` for a `const int` and `f(int *&)` before `f(long)` for `f(0)`. A class of the argument is not asked: a
+  derived class binds its base's reference, and a class converts by its functions. A CLASS OF THE PARAMETER IS ASKED
+  SINCE 1.6.56, ITS ARGUMENT NO CLASS (the first branch of `cpp_lvalue_lref_kind/3`): an lvalue of a scalar, a pointer
+  or an enumeration is no object of the class, and the class's constructors make a temporary, which a non-const lvalue
+  reference does not bind -- `f(x)` of `void f(S &)` over an `int x` built and wrote the int's bytes as an S; clang++'s
+  `no matching function for call to 'f'`, and a member's `non-const lvalue reference to type 'S' cannot bind to a value
+  of unrelated type 'int'`. A const class binds the temporary (`cpp_binds_rvalue/1`). `test/cpp/classref_*.cpp`. The
+  MEMBER OF A CONST OBJECT is const to the rule, a mutable one not (`cpp_lref_drops_cv/4` in `cpp_arg_exact/2`,
+  `cpp_member_own_const_/3`; [expr.ref]/6.2, [dcl.stc]/10): `r(p.v)` of `void r(int &)` over a `const P p` took the
+  exact road, the inference's type of the member not const, and built; the rule's first form took a mutable member as
+  const and refused a program that clang++ builds. The driver gate's six checks hold 46 refused bodies and three
+  programs run as clang++'s. A CAPTURELESS GENERIC LAMBDA'S CLOSURE converts out (1.6.31; `cpp_converts_out/1` over
+  `cpp_generic_closure/1`), and THE DESUGARING'S OWN CALL OF AN ALLOCATION OR A DEALLOCATION FUNCTION BY ITS SYMBOL is
+  no program's call (1.6.31; `cpp_alloc_sym/3` in `cpp_no_overload_fits/2`): 1.6.28's nets found `genericfp.cpp`'s
+  `apply([](auto v) { return v * 3; }, 5)` and `alignnew.cpp`'s `delete[] w` over the program's aligned `operator
+  delete[]`, which hands its alignment as an integer, refused, `no matching function for call to 'apply'` and
+  `'_ZdaPvmSt11align_val_t'`. 1.6.28's broken copies (1.6.32): the tests of a null pointer constant and of a type not
+  known held nothing, and are out; a class's base's conversion function, a pointer to another pointer type and the kinds
+  below have a body each now. ANOTHER MISFIT GOES ON TO THAT ROAD, as it went: it converts a generic lambda to a
+  function pointer (`genericfp.cpp`), which the candidates' filter finds no conversion operator for, and refuses a
+  struct for a scalar in its own words, `no conversion from 'optional_int' to 'double'`. The rule's first form refused
+  every call that no candidate fitted, and the C++ pool and the ccllib gate found the three. A CALL THROUGH A POINTER OR
+  A REFERENCE TO A FUNCTION OF ANOTHER COUNT THAN ITS TYPE'S ([expr.call]/7; `cpp_callee_count_wrong/3`) -- a local
+  pointer, a struct's pointer member by `.` and `->`, any callee expression -- is refused in clang++'s words, which are
+  C's, `too few arguments to function call, expected 2, have 1`. A library body's call goes on as it went. The driver
+  gate holds eight forms. THE COUNT WORDS ARE CLANG++'S BY THE DECLARATION (1.6.26; its Sema's ConvertArgumentsForCall;
+  `cpp_count_words/5`): `expected at least` where defaults or an ellipsis stand, `at most` where defaults do, and a
+  function's one parameter by its name -- `single argument 'a' was not specified`, `at least argument 'a' must be
+  specified`, `expected at most single argument 'a', have 2 arguments`; a pointer's parameters are no declaration's, and
+  their count alone is said. A QUALIFIED CALL OF ONE FUNCTION, no overload and no template (1.6.26;
+  `cpp_one_function/3`) -- `n::f()`, `std::puts()`, `::f()`, a function that a using names -- is refused so, as clang++
+  refuses a qualified name, and a bare one has the overloads' words; it was `no matching function for call to 'f'`. A
+  FUNCTION TEMPLATE THAT NO COUNT FITS, where no other candidate takes the call, is `no matching function for call to
+  'f'` at the call's line (`cpp_arity_holds/4`), where it was `not lowered yet: arity_mismatch` at no line. A QUALIFIED
+  NAME FINDS NO LOCAL (1.6.27; [basic.lookup.qual]; `cpp_qualified_name/2`, `cpp_qualified_hides/1`): the desugaring
+  flattens `n::g(2)`, `::g(2)` and `std::puts("x")` to a call of the bare name, and while it resolves, a local of the
+  name is none to `cpp_local/1` in the scope it was called in; the lowering calls the file's function where the bare
+  name's local is no function and no pointer to one (`ir_callable_type/1`). `double g = 1.5; return n::g(2);` was `not
+  lowered yet: call(id(g))`, a template's call too, and after `int puts = 4; ::puts("x");` a `return puts;` named the
+  function -- 1.6.27 also declared the C function at file scope for its call, a mend that held nothing beside the two
+  rules, as 1.6.27's broken copies found, and 1.6.28 took it out. `test/cpp/run/qualshadow.cpp`, which clang++ 23 and
+  g++ print alike, with the two forms that 1.6.27's broken copies needed (1.6.28): an instance's own local of its name
+  that it calls, a closure, which the mark's scope keeps -- without it the instance called itself --, and a local
+  pointer to a function named as the file's, called through, which the type test keeps. A QUALIFIED CALL BESIDE A LOCAL
+  OF ITS NAME THAT IS A FUNCTION OR A POINTER TO ONE CALLS THE FILE'S FUNCTION (1.6.34; [basic.lookup.qual]/1;
+  `cpp_global_callee/2`, `global_fn/1` in `ir_call/4`, `ir_expr_/4` and `ir_lval_/4`): the flattened bare name was the
+  local's to the lowering, so `int (*k)(int) = dbl; return ::k(6);` called `dbl`, where clang++ calls the file's `k`;
+  where a frame holds a local of the name and the file declares a function of it, the call is the node `global_fn(k)`,
+  which the lowering calls by its symbol, and `::k` as a value is the function's address. THE LOCAL IS AN OBJECT, NEVER
+  A FUNCTION THAT A FRAME HOLDS (1.6.38; `cpp_local_object/1`): `ccl_declare/2` puts a declaration into the innermost
+  open frame, and a header's function declared while a body is walked stands there as `fn(...)` -- with `<chrono>`,
+  `std::floor(2.7)` went to the file's `floor`, chrono's template, and the C++ gate's `stdabs.cpp`, `fmtchrono.cpp` and
+  `fmtchrono2.cpp` failed from 1.6.34 on, which no chain ran until 1.6.38's; a block's declaration of a function names
+  the file's function itself. A LOCAL POINTER TO A FUNCTION IS CALLED THROUGH BESIDE THE FILE'S OVERLOADS OF ITS NAME
+  (1.6.34; [basic.lookup.unqual]/1: the local hides them; `cpp_local_fn_pointer/1`): `int (*ov)(int) = dbl; ov(3)`
+  beside `ov(int)` and `ov(double)` was the overloads' choice. `test/cpp/run/qualglobal.cpp`, which clang++ 23 prints
+  alike: a class's static member and a namespace's function of the name stay theirs, and a closure's capture of the
+  local stands beside `::k`. The driver gate's twenty-four bodies against clang++ 23; `test/cpp/run/castcalls.cpp` holds
+  the counts, the defaults and the ellipses that C++ takes. (0.302, 1.6.26, 1.6.27, 1.6.28, 1.6.34)
 
 ### Constness, value category and reference binding
 
@@ -7963,6 +8011,17 @@ is in `test/cpp/run/`.
   decays to ([conv.array]; `cpp_arg_decayed/3`, 0.167): an array was no pointer to `cpp_scalar_mismatch/2`, and a
   literal, `const char[3]`, took libc++'s `println(FILE *, format_string<_Args...>, _Args &&...)`, its format string the
   stream. (0.45, 0.79, 0.92, 0.167)
+- **A TEMPLATE'S NON-CONST LVALUE REFERENCE TAKES NO RVALUE AND NO LVALUE OF ANOTHER TYPE** (1.6.56; [dcl.init.ref]/5;
+  `cpp_lref_misfit_prog/2` in `cpp_params_accept/3`, 1.6.49's and 1.6.51's `cpp_rvalue_lref_pair/2` and
+  `cpp_lvalue_lref_pair/2` over the substituted parameter): `f(1, 2)` of `template <class T> int f(T, S &)` built, the
+  reference bound to a temporary, and so did `f(3)` of `template <class T> int f(T &)`. The refusal `argument_mismatch`
+  of the program's call is clang++'s `no matching function for call to 'f'` where no plain overload takes the call, in
+  the deduced road (`cpp_call/4`) and where the arguments are given, `f<long>(a, a)` (`cpp_instantiate_prog/4`); each
+  was `not lowered yet: argument_mismatch`. The program's own function templates alone (`'$cpp_own_tmplfn'/3`, the flag
+  `'$cpp_own_sig'` of `cpp_own_accept/2`), each parameter as resolved in its class: a library template that a program's
+  requirement asks is asked with `'$cpp_in_lib'` `no` too, and the first net found `std::random_access_iterator<const
+  char *>` false and every view over an array refused, 21 fixtures of the C++ gate; and as substituted, span's
+  `type_identity_t<element_type> (&)[_Sz]` was no type the inference knows. `test/cpp/tmplref_*.cpp`. (1.6.56)
 - A class parameter accepts its class, a class derived through first bases (`cpp_class_fits/2`), a class with a
   conversion operator to it (`cpp_conv_result/3`), or a class its constructor takes ([over.ics.user];
   `cpp_class_converts/2`, in `cpp_type_accepts/2`). A non-explicit constructor TEMPLATE over a template-id that the
@@ -8407,6 +8466,20 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   walked once (`'$cpp_walked'`). Why: a second walk made a second closure. (0.36, 0.60)
 - `f(a)` on a local with `operator()` is `lambda.K.op.call.<keys>(&f, a)` (`cpp_call/4`, `cpp_method_on/6`). A
   template's by-value parameter of closure type copies the closure. (0.36)
+- **A CALL THROUGH AN OBJECT'S `operator()` ASKS THE RULES OF ITS NON-CONST LVALUE REFERENCES** (1.6.56;
+  [over.call.object]/1, [dcl.init.ref]/5; `cpp_object_lref_check/3` over `cpp_lref_misfit/5`): the operator that the
+  call chose takes 1.6.49's rvalue and 1.6.51's and 1.6.56's lvalues of another type no more than a function does --
+  `l(a)` of `[](int &x)` over a long built and wrote the int's bytes into the long, and so did a const int, a literal
+  and a class `F` with `operator()(int &)`. clang++'s `no matching function for call to object of type 'F'`, a closure's
+  type `(lambda at FILE:LINE:COLUMN)` (`cpp_closure_spelled/2`): the line and the column of its introducer `[`, found in
+  the text from the line where the closure is made -- the Kth introducer there, the closure the Kth that the line made
+  (`'$cpp_closure_at'/3`), a `[` after a name, a number, a literal, `)` or `]` and an attribute's `[[` none -- going on
+  to the next line where the line has no `;`, as a source location's place does. The line is the statement's where a
+  statement is walked, else the item's (`cpp_closure_line/1`, `'$cpp_item_line'` in `cpp_items/2`): a file-scope walk
+  keeps no statement's line. The roads: a local, a closure called where it is made, an aggregate temporary, a
+  namespace-scope object bare or qualified (`cpp_object_call/4`), a data member through an object, a pointer or `this`,
+  an object through `*p` or `a[i]`, and a base's `operator()`. The program's code alone. `test/cpp/lambdaref_*.cpp`,
+  `test/cpp/objref_*.cpp`. (1.6.56)
 - The lowering reads a reference member through (`ir_ref_member/4`); the check's `ccl_type_of` unrefs a member's type.
   (0.36)
 
@@ -17533,40 +17606,40 @@ Declarations topic of the C++ reader).
 - C++: WHAT 1.6.44 FOUND BESIDE GCC'S `error` (the C reader's topic of the attribute, the overloads' topic; narrowed at
   1.6.49, whose rule refuses a prvalue for a free function's non-const lvalue reference, at 1.6.51, whose rule refuses a
   member's, a `const volatile` reference's rvalue and an lvalue of another type or of more qualifiers, at 1.6.52, whose
-  rule ranks the program's exact overloads, and at 1.6.53, whose rule leaves out a candidate that misfits). A SCALAR FOR
-  A NON-CONST REFERENCE TO A CLASS, `f(x)` of `void f(S &)` over an `int x`, builds, where clang++ says `no matching
-  function for call to 'f'`: 1.6.51's rule asks no class on the parameter's side. A LAMBDA'S CALL, `l(a)` of `[](int
-  &x)` over a long, builds, where clang++ says `no matching function for call to object of type '(lambda at ...)'`; a
-  template's, `f(a, b)` of `template <class T> void f(T &, int &)` over a long, is `not lowered yet: argument_mismatch`,
-  clang++'s `no matching function for call to 'f'`. AN OVERLOAD OF DEFAULT ARGUMENTS, `f(int x, int y = 0)` beside
-  `f(int &)`, takes no part in 1.6.52's ranking of the exact overloads, so that `f(a)` takes the reference, where
-  clang++ says `call to 'f' is ambiguous`; TWO CONVERSIONS OF ONE RANK, `f(long)` beside `f(const long &)` over an
-  `int`, take the first, the plain overloads' road, where clang++ says it is ambiguous; and A USING-DECLARATION'S
-  OVERLOAD, `using N::f;` beside `f(int &)`, is another name to the road, so that `f(a)` takes `N::f`. AN ARRAY PRVALUE,
-  `A3{1, 2, 3}` over `using A3 = int[3]`, is `not lowered yet: phase(desugaring)`. A CALL OF A FUNCTION THAT THE PROGRAM
-  DECLARES `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor waits, where clang++ makes it
-  a plain call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's `error` on such a function is
-  refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in GCC's `error` words, where
-  clang++ names the template's instance, `std::__1::basic_string<char, std::__1::char_traits<char>,
-  std::__1::allocator<char>>&`.
+  rule ranks the program's exact overloads, at 1.6.53, whose rule leaves out a candidate that misfits, and at 1.6.56,
+  whose rules ask a class's reference, an object's call and a template's references, rank an overload of defaults and
+  two twins, and make an array's prvalue). A USING-DECLARATION'S OVERLOAD, `using N::f;` beside `f(int &)`, is another
+  name to the road -- the program's own namespaces are renamed before the walk (0.139's `cpp_using_map/4`), so the two
+  are never one set -- and `f(a)` takes `N::f`, where clang++ says `call to 'f' is ambiguous`. TWO CONVERSIONS OF ONE
+  RANK of overloads that are no twins, `f(long)` beside `f(unsigned long)` over an `int`, take the plain overloads'
+  road, a sum of coarse scores that asks no tie, and the first declared wins, where clang++ says it is ambiguous. A CALL
+  OF A FUNCTION THAT THE PROGRAM DECLARES `noexcept` AND DEFINES IN NO UNIT OF THE BUILD is an invoke where a destructor
+  waits, where clang++ makes it a plain call `nounwind` (`'$cpp_nxfns'` holds the functions emitted noexcept): GCC's
+  `error` on such a function is refused by clang++ and builds here. A LIBRARY CLASS AS A PARAMETER is spelled `?` in
+  GCC's `error` words, where clang++ names the template's instance, `std::__1::basic_string<char,
+  std::__1::char_traits<char>, std::__1::allocator<char>>&`. A REFUSAL IN THE BODY OF AN INSTANCE OF THE PROGRAM'S
+  TEMPLATE is `not lowered yet: instance_refused('f.const_int', const_var(x, 'const int &'))`, where clang++ gives the
+  body's words at the template's line, `cannot assign to variable 'x' with const-qualified type 'const int &'` (found at
+  1.6.56). A MEMBER'S WORDS OF 1.6.51 come with no line. A CLOSURE'S PLACE is read in the text of the file that the
+  compiler was given: a lambda in a header or in a macro's expansion is spelled at a line of that file.
 - C++: WHAT 1.6.50'S CONST OBJECT OF A CLASS LEAVES (found at 1.6.43; the C reader's topic; narrowed at 1.6.55, which
   gives a class whose default constructor is not there clang++'s words and makes a union with a default member
   initializer a class): a typedef of an unnamed const struct is named `'CP'`, where clang++ adds `(aka 'const struct
   (unnamed at cc28.cpp:1:15)')`. A static data member declared `static constexpr int x;` in its class, clang++'s
   `constexpr variable 'x' must be initialized by a constant expression`, is the class's, which no walk asks: it builds,
   and the reader gives such a member `const` for `constexpr` (found at 1.6.51), so that a walk would not see the word.
-- C++: WHAT 1.6.55'S DEFAULT CONSTRUCTORS AND DESTRUCTORS LEAVE (the Classes topic): the reader writes `T()` and `T{}`
-  as one form, and `new T()` and `new T{}`, so a value-initialization of an aggregate at the level is not asked -- `X()`
-  over C++17's aggregate `struct X { X() = delete; }` builds, where clang++ says `call to deleted constructor of 'X'`,
-  and so do a plain struct's `P()` and `new P()` with a const member and `new Y()` of a reference member; an aggregate's
-  member with no item, or `{}`, whose class has no default constructor (`Z z{}` over `struct Z { Y y; }`, clang++'s `no
-  matching constructor for initialization of 'Y'`) and a braced default member initializer at C++20 (`X x{};` over `X()
-  = delete`) build; a call's discarded result of a class whose destructor is not there, `f();`, and a by-value parameter
-  of it build; `new X(X())`, whose object C++17 makes in place with no temporary, is refused by the destructor's words,
-  where clang++ takes it. A library class's default constructor and destructor are not asked, nor an indirect virtual
-  base's, a named union's nested in a class, or a union's own rules of its variant members ([class.default.ctor]/2.4,
-  /2.5); a base's inherited constructor that takes no argument counts as the class's, and a typedef's name in the words
-  is its own spelling where `ir_type_aka/2` gives one.
+- C++: WHAT 1.6.55'S DEFAULT CONSTRUCTORS AND DESTRUCTORS LEAVE (the Classes topic; narrowed at 1.6.56, which asks an
+  aggregate's member with no item, a call's result, and found that clang++ refuses `new X(X())` too): the reader writes
+  `T()` and `T{}` as one form, and `new T()` and `new T{}`, so a value-initialization of an aggregate at the level is
+  not asked -- `X()` over C++17's aggregate `struct X { X() = delete; }` builds, where clang++ says `call to deleted
+  constructor of 'X'`, and so do a plain struct's `P()` and `new P()` with a const member, `new Y()` of a reference
+  member, and `A3()` of an array type, clang++'s `array types cannot be value-initialized`; a plain aggregate's
+  reference member with no item, nested in another aggregate, builds (`Z z{1}` over `struct Q { int &r; }; struct Z {
+  int a; Q q; }`, clang++'s `reference member of type 'int &' uninitialized`), and so does a braced default member
+  initializer at C++20 (`X x{};` over `X() = delete`). A library class's default constructor and destructor are not
+  asked, nor an indirect virtual base's, a named union's nested in a class, or a union's own rules of its variant
+  members ([class.default.ctor]/2.4, /2.5); a base's inherited constructor that takes no argument counts as the class's,
+  and a typedef's name in the words is its own spelling where `ir_type_aka/2` gives one.
 - C++: WHAT 1.6.42'S WALK OF A HEADER LEAVES (the C reader's topic of the kinds and of the second definitions). A HEADER
   THAT THE RUN DID NOT RUN IS DESUGARED STILL: a header of the program's own whose guard the file defined first,
   `#define G_H` before `#include "g.h"`, is LLVM's `invalid redefinition of function 'gf'` where the file defines the

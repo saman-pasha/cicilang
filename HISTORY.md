@@ -372,6 +372,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.53 | C++: a candidate that an argument misfits is no candidate | a candidate that an argument misfits is left out where another candidate, or of a member an ellipsis member, takes the call; it tied with an ellipsis and the first declared won (reader 221, lowering 219) |
 | 1.6.54 | the frame's memory and the complex functions of clang's builtins | `__builtin_alloca` is LLVM's alloca and a borrow of the frame to the safe part, and the complex functions are the library's builtins; each was refused (reader 221, lowering 220) |
 | 1.6.55 | C++: the default constructor and the destructor that are not there | an object whose default constructor or destructor is not there, a user-provided constructor's parts that no initializer names and a deleted function named alone are clang++'s words, a base is named by its template's name, and a union with a default member initializer is a class; each built, or was refused by name (reader 221, lowering 221) |
+| 1.6.56 | C++: references that their arguments do not bind, ambiguous calls, array prvalues and aggregates whose members construct | a class's, an object's call's and a template's non-const lvalue reference takes no argument that it does not bind, an overload of defaults and two twins are ambiguous, a call's result whose destructor is not there is refused, an array's prvalue is a compound literal, and an aggregate whose member constructs, and its default member initializers, take their members' roads; each built, a silent wrong answer among them, or was refused by name (reader 221, lowering 222) |
 
 ## M5 — the C++ mode
 
@@ -27653,3 +27654,120 @@ builds the same with the guard and without it. It is a guard, not a rule.
   HISTORY.md, CLAUDE.md (the versions, the fixtures).
 
 The module 1.6.55, the reader 221 and the lowering 221.
+
+## 1.6.56 — C++: references that their arguments do not bind, ambiguous calls, array prvalues and aggregates whose members construct
+
+**1.6.56: at the user's word "then next", after 1.6.55: a part of Not done's records of what 1.6.44 found beside GCC's
+`error` and of what 1.6.55's default constructors and destructors left, and what their probes found beside them -- among
+them a silent wrong answer of an aggregate whose member constructs, and a valid program's default member initializer
+refused. The step was committed with its nets and its broken copies; no chain ran over it, and it claims nothing GREEN
+of the chain.**
+
+1. A NON-CONST LVALUE REFERENCE TO A CLASS TAKES NO LVALUE OF A SCALAR, A POINTER OR AN ENUMERATION ([dcl.init.ref]/5;
+   the first branch of `cpp_lvalue_lref_kind/3`): 1.6.51's rule asked no class on the parameter's side, and `f(x)` of
+   `void f(S &)` over an `int x` built and wrote the int's bytes as an S. The class's constructors make a temporary,
+   which such a reference binds not; a const class binds it. clang++'s `no matching function for call to 'f'`, a
+   member's `non-const lvalue reference to type 'S' cannot bind to a value of unrelated type 'int'`, and `no matching
+   member function for call to 'm'` of two members.
+2. A CALL THROUGH AN OBJECT'S `operator()` ASKS THE RULES OF ITS REFERENCES ([over.call.object]/1;
+   `cpp_object_lref_check/3`): `l(a)` of `[](int &x)` over a long built and wrote the int's bytes into the long, and so
+   did a const int, a literal, a class's own `operator()`, a closure called where it is made, a namespace's object, a
+   data member and an object through `a[i]`. clang++'s `no matching function for call to object of type 'F'`, and a
+   closure's type `(lambda at FILE:LINE:COLUMN)` (`cpp_closure_spelled/2`): the tokens keep no column, so the place is
+   found in the file's text, the Kth lambda introducer from the line where the Kth closure of that line was made -- the
+   statement's line in a statement's walk, the item's at file scope (`cpp_closure_line/1`, `'$cpp_item_line'`), since
+   the last statement's line is another function's there -- a `[` after a name, a number, a literal, `)` or `]` and an
+   attribute's `[[` none, a line with no `;` going on to the next, as a source location's place does (0.201).
+3. A TEMPLATE'S NON-CONST LVALUE REFERENCE TAKES NO RVALUE AND NO LVALUE OF ANOTHER TYPE (`cpp_lref_misfit_prog/2` in
+   `cpp_params_accept/3`): `f(1, 2)` of `template <class T> int f(T, S &)` and `f(3)` of `template <class T> int f(T &)`
+   built, the reference bound to a temporary. The program's refusal `argument_mismatch` is clang++'s `no matching
+   function for call to 'f'` where no plain overload takes the call, deduced and with its arguments given
+   (`cpp_instantiate_prog/4`); each was `not lowered yet: argument_mismatch`. The program's own function templates alone
+   (`cpp_own_accept/2`), each parameter as resolved in its class -- the first net found why (below).
+4. AN OVERLOAD OF DEFAULTS IS ONE OF THE EXACT OVERLOADS, AND TWO TWINS RANK ALIKE ([over.match.viable]/2.3,
+   [over.ics.rank]/3.2, [over.ics.ref]/2; `cpp_exact_count/4`, `cpp_twin_ambiguous/4`): `f(a)` of `f(int x, int y = 0)`
+   beside `f(int &)` took the reference, and `f(i)` of `f(long)` beside `f(const long &)` over an int, and `f(d)` of
+   `f(S)` beside `f(const S &)` over a derived class's object, took the first declared, where clang++ says `call to 'f'
+   is ambiguous`. A twin is an overload whose parameters are the same types by value or by a const lvalue reference, of
+   the best one's score. The program's overload sets alone.
+5. A CALL WHOSE RESULT IS AN OBJECT OF A CLASS WHOSE DESTRUCTOR IS NOT THERE ([class.dtor]/15;
+   `cpp_result_dtor_check/1`): clang++ binds the call's class prvalue to a temporary, wherever it goes, and says
+   `attempt to use a deleted function` at the call; `f();`, `(void)f();`, `h(f())`, `g(f())`, `return f();` and a member
+   function's result built. A `decltype(f())` makes no temporary, as clang++ has it. Its probes found that clang++
+   refuses `new X(X())` too, which 1.6.55's record said it takes: 1.6.55's refusal of the temporary is clang++'s.
+6. AN ARRAY'S PRVALUE BY ITS TYPE'S NAME ([expr.type.conv]/2; `cpp_array_named/2`, lowering 222): `A3{1, 2, 3}` over
+   `using A3 = int[3]` was `not lowered yet: phase(desugaring)`; it is a compound literal of the array, `int[]`'s bound
+   its items' count. The lowering bound a reference to its value, the first element's address, through a temporary of
+   that address, and `auto &&r = A3{4, 5, 6}; r[1]` read the temporary's bytes, 254 for clang++'s 5: a compound literal
+   of an array type binds its own storage now (`ir_ref_of/2`).
+7. AN AGGREGATE WHOSE MEMBER CONSTRUCTS, AND AN AGGREGATE'S DEFAULT MEMBER INITIALIZERS ([dcl.init.aggr]/4, /5,
+   [class.mem.general]/12; `cpp_agg_member_constructs/1`, `cpp_agg_dmis/4`, `cpp_agg_member_fault/2`): a member of a
+   class with constructors and no default one deletes its holder's implicit constructor, and a local's and a global's
+   braces went on as C's: `Z z = {1, 2}` over `struct Z { int a; Y y; }` with `Y(int j) : v(j * 10)` gave `z.y.v` 2 for
+   clang++'s 20, a SILENT WRONG ANSWER, and an empty Y was `excess elements in struct initializer`; they take the member
+   road now, as a temporary's did. The record holds the default member initializers as the reader wrote them, and the
+   aggregate road put them beside its desugared items: `int c = a + 1;` was `use of undeclared identifier 'a'` and `Y y
+   = Y(5);` `... 'Y'`, VALID PROGRAMS REFUSED over 1.6.55's tree as well; each is desugared in its class now, its `this`
+   the object's address, and a temporary of an aggregate with one takes the member road, where its compound literal gave
+   the member zero. A member of class type with no item asks 1.6.55's rule of its default constructor: `Z z{};` over
+   `Y(int)` alone built.
+
+THE PROBES. 80 forms against clang++ 23 at C++17, and against 1.6.55's tree; each gives clang++'s first error, its line
+and its words, or its run's lines, but one: `using N::f;` beside `f(int &)`, Not done's. Not done's records of 1.6.44
+and 1.6.55 are narrowed, and they hold what the probes found beside them: two conversions of one rank that are no twins,
+a template instance's body refusal (`instance_refused`), a member's words of 1.6.51 with no line, a closure's place in a
+header or a macro, `A3()` of an array type, and a plain aggregate's reference member with no item.
+
+`test/cpp/classref_*.cpp` (5), `lambdaref_*.cpp` (11), `objref_*.cpp` (7), `tmplref_*.cpp` (5), `ambig_*.cpp` (3),
+`dtorcall_*.cpp` (7), `newtemp_dtor.cpp` and `aggmember_*.cpp` (2) hold items 1 to 5 and 7, each refused at clang++ 23's
+line in its words (the C++ gate's loop of 1.6.56, a lambda's words with the file's path between their parts);
+`test/cpp/run/arrayprvalues.cpp` item 6, `aggconstructs.cpp` item 7, `overloadfits.cpp` what items 1 to 5 keep, each
+line as clang++'s.
+
+THE NETS. The first net, over wt36 before its mends: the flow gate GREEN in 506 s, the reader gate GREEN in 5 s (173
+ok), the compile gate GREEN in 38 s (487 ok), the ccllib gate GREEN in 1430 s (625 ok), the driver gate RED in 315 s
+(215 ok, 1 FAIL) and the C++ gate RED in 1393 s (1346 ok, 21 FAIL). Each failure was item 3's rule: it read a template's
+parameter as substituted, before `cpp_params_accept/3` resolves it in its class, and span's
+`type_identity_t<element_type> (&)[_Sz]` was no type that the inference knows, so the constructor took no `int[2]` --
+`std::span<const int> c(a);` was `not lowered yet: no_constructor(span..., 1)` in the driver gate's `constret2.cpp`, and
+in the C++ gate `stdspan.cpp`, `stdranges.cpp`, `stdformat.cpp`, eleven views and ranges over arrays, `ftm17b.cpp`,
+`ftm23b.cpp`, `ftm26.cpp`, `specbound.cpp`'s `len(T (&)[N])`, and `arrayref.cpp` and `prvaluecv.cpp`, whose concepts
+over `const char *` were false. The rule reads the parameter as resolved now, and asks the program's own function
+templates alone (`cpp_own_accept/2`): a library template that a program's requirement asks was asked too. The 21
+fixtures run as clang++'s over the mended tree. The second net, over the mended tree: the flow gate GREEN in 499 s, the
+driver gate GREEN in 313 s (216 ok), the C++ gate GREEN in 1442 s (1370 ok, 0 FAIL) and the ccllib gate GREEN in 1420 s
+(625 ok). The reader and compile gates read no C++ of the mends. Over the work tree after the port: the toolchain check
+strict GREEN. No CI job ran, by the owner's rule of 0.271.
+
+THE BROKEN COPIES. 43 copies, each one edit of the mended tree (DE0 none: the judge over the tree as it is), judged by
+the C++ gate's loops of 1.6.55 and 1.6.56 and the builds and runs of `arrayprvalues.cpp`, `aggconstructs.cpp`,
+`overloadfits.cpp`, `specbound.cpp` and `prvaluecv.cpp`, in 384 s. Each was caught but DE0 and DE41: the array's name
+and its clauses (DE1 to DE4) and the reference to its storage (DE5); the class parameter's branch and its const class
+(DE6, DE7); the object's check (DE8) on each road -- a local (DE9), a temporary block (DE10), an aggregate temporary
+(DE11), a namespace's object (DE34), a member through an object or a pointer (DE35) or `this` (DE36), an object through
+`*p` or `a[i]` (DE37); the closure's place -- its spelling (DE12), its ordinal (DE13), the next line (DE14), a subscript
+(DE15), an attribute (DE16), its fact (DE17), the item's line (DE38, DE40) and the statement's walk (DE39); the
+template's words, deduced and given (DE18, DE19), its references (DE20) as resolved (DE42); the defaults (DE21, DE22)
+and the twins (DE23, DE24); the call's result and its statement's walk (DE25, DE26); the aggregate's member with no item
+(DE27), its members that construct, local, global and their test (DE28, DE29, DE33), its defaults and their `this`
+(DE30, DE31), and the temporary's defaults (DE32). Over wt36 DE10 and DE35 were caught by nothing; `objref_temp.cpp`,
+`objref_dot.cpp` and `objref_arrow.cpp` hold them now. DE41 asks every template, the library's too: the 21 fixtures of
+the first net build and run the same with it and without it, since the parameter is read as resolved; it is a guard, not
+a rule.
+
+- `library/ccl_cpp.pl` (`cpp_items/2`, the reset of `'$cpp_closure_at'/3`); `library/ccl_cpp_deduce.pl`
+  (`cpp_array_named/2`, `cpp_signature_holds_/7`, `cpp_params_accept/3`, `cpp_lref_misfit_prog/2`, `cpp_own_accept/2`);
+  `library/ccl_cpp_expr.pl` (`cpp_expr/3`, `cpp_lvalue_lref_kind/3`, `cpp_object_lref_check/3`, `cpp_closure_spelled/2`,
+  `cpp_lambda_place/6`, `cpp_introducers/4`, `cpp_instantiate_prog/4`, `cpp_result_dtor_check/1`, the object roads of
+  `cpp_call/4`, `cpp_base_operator_call/5` and `cpp_temp_call/3`, the temporary's road of `cpp_temporary/4`);
+  `library/ccl_cpp_init.pl` (`cpp_global_object/5`); `library/ccl_cpp_lambda.pl` (`cpp_lambda_/10`,
+  `cpp_closure_line/1`); `library/ccl_cpp_library.pl` (`cpp_fn_exact/4`, `cpp_exact_count/4`, `cpp_fn_best/4`,
+  `cpp_twin_ambiguous/4`, `cpp_object_call/4`); `library/ccl_cpp_overload.pl` (`cpp_agg_member_constructs/1`);
+  `library/ccl_cpp_stmt.pl` (`cpp_decl_pieces/6`, `cpp_aggregate_inits/5`, `cpp_agg_dmis/4`, `cpp_this_is/3`,
+  `cpp_agg_no_item/7`, `cpp_agg_member_fault/2`); `library/ccl_driver.pl` (`no_matching_object_call`'s words);
+  `library/ccl_ir.pl` (`ir_ref_of/2`, the lowering 222); the fixtures above; `test/cpp.sh` (1.6.56's loop); the module's
+  version.
+- RULES.md (seven rules in the Overload resolution, Templates, Lambdas and Classes topics, 1.6.51's edited; Not done:
+  two records narrowed), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.56, the reader 221 and the lowering 222.

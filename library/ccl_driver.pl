@@ -732,6 +732,7 @@ dr_value_text(bad_dynamic_cast(A, B), ['cannot use dynamic_cast to convert from 
 dr_value_text(not_a_class(A), ['''', A, ''' is not a class type']).
 dr_value_text(dynamic_target(B), ['invalid target type ''', B, ''' for dynamic_cast; target type must be a reference or pointer type to a defined class']).
 dr_value_text(no_matching_member(M), ['no matching member function for call to ''', S, '''']) :- dr_short_name(M, S).
+dr_value_text(no_matching_object_call(S), ['no matching function for call to object of type ''', S, '''']).   % an object's operator() that takes not the arguments (1.6.56)
 dr_value_text(ambiguous_member(M), ['call to member function ''', S, ''' is ambiguous']) :- dr_short_name(M, S).   % a member with an ellipsis beside its plain twin (1.6.38, cpp_member_va_ambiguous/3)
 dr_value_text(no_matching_ctor(C), ['no matching constructor for initialization of ''', S, '''']) :- dr_class_spelled(C, S).
 dr_value_text(deleted_use, ['attempt to use a deleted function']).   % a destructor that is not there (1.6.55, cpp_dtor_fault/2), and a deleted function named alone (cpp_deleted_named/3)

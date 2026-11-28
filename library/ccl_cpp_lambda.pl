@@ -54,6 +54,7 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
     nb_getval('$cpp_lambdas', K0), K is K0 + 1, nb_setval('$cpp_lambdas', K), cpp_unit_tag(UT), ( UT == '' -> atomic_list_concat(['lambda.', K], Name) ; atomic_list_concat(['lambda.', K, '_', UT], Name) ),   % THE UNIT'S TAG in the name (0.192, cpp_unit_tag/1)
     T = base([], [typedef(Name)]),
     cpp_lambda_sig(Caps, Ps0, Name, Ps1, TPs, Ps, SN, Self, SelfPs),
+    ( nb_getval('$cpp_in_lib', no), cpp_closure_line(CL), nb_current('$ccl_src_file', CF), atom(CF) -> assertz('$cpp_closure_at'(Name, CF, CL)) ; true ),   % ITS PLACE, for clang++'s spelling of its type (1.6.56, cpp_closure_spelled/2)
     cpp_fsig_now(Encl), assertz('$cpp_pf_closure'(Name, Encl, Ps1)),                                   % the function it is made in, and its parameters as written: its call operator's own name (0.166)
     ( memberchk(tparams(ETPs), Caps) -> true ; ETPs = [] ), cpp_local_note(closure(Ps1, ETPs), Name, Encl),   % and its local name (0.236, cpp_local_note/3), before its body is walked
     ( ( memberchk(mutable, Caps) ; SN \== none ) -> OpQs = [closure] ; OpQs = [const, closure] ),   % A NON-MUTABLE LAMBDA'S CALL OPERATOR IS CONST ([expr.prim.lambda.closure]/5; 0.127): its by-value captures are const in the body, so a non-const member of one is no candidate and a non-const reference binds none
@@ -88,6 +89,11 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
     cpp_add_instance_items(Its),
     ( Conv \== [] -> cpp_closure_invoker(Name, Invoker, Ret, Ps, Its) ; true ),
     cpp_closure_value(T, Name, Ms0, Items, E).
+%% THE LINE A CLOSURE IS MADE AT (1.6.56): the statement's where a statement is walked ('$cpp_temps' a list), else the file-scope
+%% item's ('$cpp_item_line', cpp_items/2) -- a file-scope walk keeps no statement's line, and the last one is another
+%% function's
+cpp_closure_line(L) :- ccl_global('$cpp_temps', Ts, none), is_list(Ts), !, nb_current('$cpp_line', L), integer(L), L > 0.
+cpp_closure_line(L) :- nb_current('$cpp_item_line', L), integer(L), L > 0.
 %% A LAMBDA'S NOEXCEPT IS ITS CALL OPERATOR'S ([expr.prim.lambda.closure]/1, /8; 0.205): the reader's `lnx(yes)' and `lnx(cond(E))'
 %% the qualifiers `noexcept' and `noexcept(E)' of its operator() -- a template's condition substituted at its instance, which
 %% cpp_make_member/9 notes ('$cpp_nxdef') -- and the pointer a captureless one converts to is a pointer to a noexcept function

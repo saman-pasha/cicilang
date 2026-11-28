@@ -922,7 +922,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, ctor(As))|Vs], Pieces) :- As = [_|_]
     findall(item([], A), member(A, As), Items),
     cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, init(Items))|Vs], Pieces).
 cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, init(Items))|Vs], Pieces) :-
-    cpp_type(T0, T), Sto \== static, Sto \== extern, cpp_class_of_type(T, C), cpp_implicit_ctor_needed(C), cpp_aggregate_class(C), !,   % an aggregate of members that construct: each from its item -- AN AGGREGATE, a class with no constructor WRITTEN ([dcl.init.list]/3; 0.100): `std::atomic<int> a{12}' has `atomic() = default' beside `atomic(_Tp)', which made the implicit default constructor needed and took this clause, the item 12 given to no data member (atomic has only its base) and DROPPED -- the object was never constructed
+    cpp_type(T0, T), Sto \== static, Sto \== extern, cpp_class_of_type(T, C), ( cpp_implicit_ctor_needed(C) -> true ; cpp_agg_member_constructs(C) ), cpp_aggregate_class(C), !,   % an aggregate of members that construct: each from its item -- AN AGGREGATE, a class with no constructor WRITTEN ([dcl.init.list]/3; 0.100): `std::atomic<int> a{12}' has `atomic() = default' beside `atomic(_Tp)', which made the implicit default constructor needed and took this clause, the item 12 given to no data member (atomic has only its base) and DROPPED -- the object was never constructed
     ccl_declare(N, T), cpp_class_l(C, cls(_, Data, _, _, _)),
     cpp_agg_values(Data, Items, Es), cpp_exprs(Ctx, Es, Es1), cpp_aggregate_inits(Data, Es1, id(N), L, Inits),
     Pieces = [declaration(L, Sto, B, [var(N, T, none)])|P1], append(Inits, P2, P1),
@@ -1203,8 +1203,9 @@ cpp_braced_scalar_type(T) :- \+ cpp_class_of_type(T, _), ( ccl_resolve_type(T, R
 cpp_zero_of(T, Z) :- ( ccl_resolve_type(T, ptr(_, _)) -> Z = nullptr ; ccl_nullptr_type(T) -> Z = nullptr ; ccl_is_float(T) -> Z = float(0.0) ; Z = int(0) ).
 %% THE DEFAULT MEMBER INITIALIZERS of the aggregate's class come along (0.112): from the caller that knows the class
 %% (cpp_member_from), else from the object's type; a member with no item takes its own ([dcl.init.aggr]/5.1)
-cpp_aggregate_inits(Data0, Es0, Obj, L, Inits) :- ( cpp_agg_defaults(Obj, Defs0) -> Defs = Defs0 ; Defs = [] ),
+cpp_aggregate_inits(Data0, Es0, Obj, L, Inits) :- ( cpp_agg_defaults(Obj, Defs0) -> true ; Defs0 = [] ),
     ( catch(( ccl_type_of(Obj, OT), cpp_class_of_type(OT, OC) ), _, fail) -> cpp_agg_skip_bases(OC, Es0, Es1), cpp_agg_with_bases(OC, Data0, Data1) ; Es1 = Es0, Data1 = Data0 ),
+    ( atom(OC), Defs0 \== [] -> cpp_agg_dmis(OC, Obj, Defs0, Defs) ; Defs = Defs0 ),
     ( atom(OC), '$cpp_union'(OC) -> cpp_union_agg(Data1, Es1, Defs, Data, Es) ; Data = Data1, Es = Es1 ),
     cpp_agg_inits(Data, Es, Defs, Obj, L, Inits).
 %% A UNION'S BRACED LIST INITIALIZES ONE MEMBER ([dcl.init.aggr]/5, /18; 1.6.55): the first, or the one a designator names, from its
@@ -1231,6 +1232,21 @@ cpp_agg_skip([_|_], [], []) :- !.
 cpp_agg_skip([B|Bs], [E|Es], Out) :- ( cpp_empty_class(B) -> Out = Out1 ; Out = [E|Out1] ), cpp_agg_skip(Bs, Es, Out1).
 cpp_direct_bases(C, Bs) :- cpp_class_l(C, cls(B, _, _, _, _)), ( B == none -> Bs0 = [] ; Bs0 = [B] ), ( '$cpp_extra'(C, Ex) -> true ; Ex = [] ), append(Bs0, Ex, Bs).
 cpp_agg_defaults(Obj, Defs) :- catch(( ccl_type_of(Obj, T), cpp_class_of_type(T, C), cpp_class_l(C, cls(_, _, _, Defs, _)) ), _, fail).
+%% AN AGGREGATE'S DEFAULT MEMBER INITIALIZERS ARE DESUGARED IN ITS CLASS, ITS `this' THE OBJECT'S ADDRESS (1.6.56;
+%% [class.mem.general]/12, [expr.prim.this]/2: a default member initializer may name the class's members): the items beside them
+%% are desugared already, and the class's record holds them as the reader wrote them, so `int c = a + 1;' reached the lowering
+%% as `a', `use of undeclared identifier 'a'', and `Y y = Y(5);' as a call of `Y'. The global's road desugars them so
+%% (cpp_agg_default/3); a constructor's are its body's statements
+cpp_agg_dmis(C, Obj, Defs0, Defs) :- findall(M-D, ( member(M-D0, Defs0), once(cpp_agg_dmi(C, Obj, D0, D)) ), Defs).
+cpp_agg_dmi(C, Obj, D0, D) :- catch(cpp_in_class(C, cpp_agg_default(C, D0, D1)), error(not_lowered(_), _), fail), !, cpp_this_is(D1, addr(Obj), D).
+cpp_agg_dmi(_, _, D, D).
+cpp_this_is(X, _, X) :- var(X), !.
+cpp_this_is(this, P, P) :- !.
+cpp_this_is(id(this), P, P) :- !.
+cpp_this_is(X, P, Y) :- compound(X), !, X =.. [F|As], cpp_this_are(As, P, Bs), Y =.. [F|Bs].
+cpp_this_is(X, _, X).
+cpp_this_are([], _, []).
+cpp_this_are([A|As], P, [B|Bs]) :- cpp_this_is(A, P, B), cpp_this_are(As, P, Bs).
 cpp_agg_inits([], _, _, _, _, []).
 cpp_agg_inits([member(_, '$vptr', _)|Ds], Es, Defs, Obj, L, Inits) :- !, cpp_agg_inits(Ds, Es, Defs, Obj, L, Inits).
 %% FEWER ITEMS THAN MEMBERS: the rest are VALUE-INITIALIZED ([dcl.init.aggr]/5) -- an array zeroed, a class default-
@@ -1260,7 +1276,13 @@ cpp_agg_no_item(MT, M, Defs, Obj, L, Inits, Inits1) :-
     (   memberchk(M-D, Defs) -> cpp_member_from(MT, member(Obj, M), D, L, Inits, Inits1)
     ;   MT = base(_, [union(anon, Ns)]), member(default_init(F, D), Ns), cpp_anon_field(MT, F, FT)   % AN ANONYMOUS UNION BY ITS MEMBER'S DEFAULT MEMBER INITIALIZER (1.6.55): `S t{}' zeroed it
     ->  cpp_member_from(FT, member(member(Obj, M), F), D, L, Inits, Inits1)
+    ;   cpp_agg_member_fault(MT, W) -> cpp_refuse(L, W)
     ;   cpp_value_init(MT, member(Obj, M), L, Inits, Inits1) ).
+%% ... A MEMBER OF CLASS TYPE IS COPY-INITIALIZED FROM `{}' THERE ([dcl.init.aggr]/5.2; 1.6.56): a class that is no aggregate
+%% at the level needs its default constructor, which 1.6.55's rule asks (cpp_default_ctor_fault/3) -- `Z z{};' over `struct
+%% Z { Y y; }' with Y's constructors all taking arguments built, the member its bytes; clang++'s `no matching constructor for
+%% initialization of 'Y''. The program's code alone
+cpp_agg_member_fault(MT, W) :- nb_getval('$cpp_in_lib', no), cpp_default_ctor_fault(MT, init([]), W).
 %% A DESIGNATED LIST IS MADE POSITIONAL over the class's data members ([dcl.init.aggr]/3.1; 0.112): `.f = v' at f's
 %% place, an item without a designator at the next one, a member the list skips the hole `'$no_item'', trailing holes
 %% dropped. A list without designators is as written. Why: the values were taken in order with their designators

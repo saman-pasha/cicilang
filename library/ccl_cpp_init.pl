@@ -43,7 +43,7 @@ cpp_fold_ctor_inits_(Sto, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
     cpp_fold_ctor_inits_(Sto, Rs, Vs, Ws).
 %% a global of a class with constructors, given an initializer of another type -- or none, where its default
 %% construction is no trivial one (0.112: `Tag g;' had been its zero bytes, the constructor never run)
-cpp_global_object(Sto, N, T, I, C) :- atom(N), cpp_class_of_type(T, C), cpp_has_ctors(C),
+cpp_global_object(Sto, N, T, I, C) :- atom(N), cpp_class_of_type(T, C), ( cpp_has_ctors(C) -> true ; I = init(_), cpp_agg_member_constructs(C) ),   % ... and an aggregate whose member constructs, given its braces (1.6.56)
     ( I \== none -> true ; Sto \== extern, \+ cpp_trivial_default(C) ), !.   % a value of the class itself too (0.112): `static Tag t = Tag(3)' constructs t, `T h = g' copies g
 %% A STATIC DATA MEMBER OF A CLASS WITH CONSTRUCTORS, DEFINED OUT OF ITS CLASS, IS CONSTRUCTED AS A NAMESPACE-SCOPE OBJECT
 %% IS (0.186; [class.static.data]/4): at compile time where the evaluator runs its constructor, else before main, in the

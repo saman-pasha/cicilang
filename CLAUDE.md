@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.55 the versions are: the module 1.6.55 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 221 (`ccl_lowering_version/1`,
+At 1.6.56 the versions are: the module 1.6.56 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 221 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 222 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -746,7 +746,12 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             compound literal's storage class, refused (1.6.39); defctor_*.cpp, dtor_*.cpp, ctor_*.cpp,
                             delalone_*.cpp, delmember_two.cpp and delqual_overload.cpp, an object whose default
                             constructor or destructor is not there, a constructor's parts that no initializer names and a deleted function named
-                            alone, each refused in clang++'s words (1.6.55)
+                            alone, each refused in clang++'s words (1.6.55); classref_*.cpp, lambdaref_*.cpp,
+                            objref_*.cpp and tmplref_*.cpp, a non-const lvalue reference that its argument does not bind,
+                            of a class, a closure, an object's operator() and a template, ambig_*.cpp, the ambiguous calls
+                            of defaults and of twins, dtorcall_*.cpp and newtemp_dtor.cpp, a call's result whose
+                            destructor is not there, and aggmember_*.cpp, an aggregate's member with no item, each
+                            refused in clang++'s words (1.6.56)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -803,7 +808,10 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             a namespace's overload sets named as values (1.6.39); gnuattrscpp.cpp, GCC's weak, section and
                             an extern "C" alias in C++ (1.6.40); defaultctors.cpp and
                             defaultctors17.cpp, the default constructors and destructors that 1.6.55's rules keep, and
-                            uniondefaults.cpp, unions' default member initializers (1.6.55)
+                            uniondefaults.cpp, unions' default member initializers (1.6.55); arrayprvalues.cpp, an
+                            array's prvalue by its type's name, aggconstructs.cpp, aggregates whose members construct
+                            and their default member initializers, and overloadfits.cpp, what 1.6.56's reference rules
+                            and ambiguities keep (1.6.56)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

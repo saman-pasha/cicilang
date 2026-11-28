@@ -27,7 +27,7 @@ cpp_builtin_word(W) :- memberchk(W, [void, char, short, int, long, float, double
 %% the overload an argument list names: one whose parameters take it EXACTLY (C++ prefers such a non-template
 %% to any template), else the one whose parameters fit best (cpp_pick, the methods')
 cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), cpp_exact_count(Ps0, N, O, Ps1), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps1, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
     ( cpp_exact_ranked(F, As, Cs, Ps1) -> Ps = Ps1 ; cpp_prefer_rvalue(Cs1, C1, As, Ps) ), cpp_fn_defined(F, Ps, D), !.
 %% A PLAIN OVERLOAD'S PARAMETERS NAME NO FREE TEMPLATE PARAMETER (0.136): a template's raw signature among the noted
 %% overloads of a name (`duration<_Rep, _Period> abs(duration<_Rep, _Period>)' beside `int abs(int)') is the template's
@@ -75,7 +75,21 @@ cpp_ics_ref(T0, K, R) :- cpp_type_or_self(T0, T1), catch(once(ccl_resolve_type(T
 cpp_cv_fewer(Q1, Q2) :- forall(member(Q, Q1), memberchk(Q, Q2)), member(Q, Q2), \+ memberchk(Q, Q1), !.
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
     findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), \+ cpp_blk_hidden(F, Ps0), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands0), Cands0 \== [],   % the arity alone is the last resort, never a clash (as the members' is)
-    cpp_viable_cands(Cands0, As, Cands), cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
+    cpp_viable_cands(Cands0, As, Cands), cpp_pick(Cands, As, Ps), cpp_twin_ambiguous(F, Cands, Ps, As), cpp_fn_defined(F, Ps, D).
+%% TWO OF THE PROGRAM'S OVERLOADS WHOSE PARAMETERS DIFFER ONLY BY A VALUE AND A CONST LVALUE REFERENCE OF ONE TYPE RANK ALIKE
+%% (1.6.56; [over.ics.rank]/3.2.3 and /3.2.6 compare two reference bindings alone, and a reference bound to a temporary of
+%% the converted value is the conversion's rank, [over.ics.ref]/2): `f(i)' of `f(long)' beside `f(const long &)' over an
+%% `int i' took the first declared, where clang++ says `call to 'f' is ambiguous'. Asked where the best one has such a twin
+%% of its score; each overload of the name the program's, the program's code alone
+cpp_twin_ambiguous(F, Cands, Ps, As) :- nb_getval('$cpp_in_lib', no), forall('$cpp_fn'(F, _, _, _, O), O = own(_)), cpp_twin_cores(Ps, Ks),
+    cpp_params_key(Ps, K0), member(Q, Cands), cpp_params_key(Q, K1), K1 \== K0, cpp_twin_cores(Q, Ks1), Ks1 == Ks,
+    cpp_score(Q, As, S1), cpp_score(Ps, As, S0), S1 =:= S0, !, cpp_refuse_prog(ambiguous_call(F)).
+cpp_twin_ambiguous(_, _, _, _).
+cpp_twin_cores([], []).
+cpp_twin_cores([P|Ps], [K|Ks]) :- ( P = param(T, _) ; P = param(T, _, _) ), !, cpp_twin_core(T, K), cpp_twin_cores(Ps, Ks).
+cpp_twin_core(T, K) :- catch(once(ccl_resolve_type(T, R)), _, fail),
+    (   R = ref(_, X0) -> catch(once(ccl_resolve_type(X0, X)), _, fail), cpp_cv_quals(X, Qs), Qs == [const], cpp_param_core(X, K)
+    ;   R \= rref(_, _), cpp_param_core(R, K) ).
 %% A CANDIDATE THAT AN ARGUMENT MISFITS IS NO CANDIDATE (1.6.53; [over.match.viable]/3): its fit of 0 tied with an
 %% ellipsis's, whose extra arguments score 0, and the first declared won -- `f(a)' of `f(double &)' beside `f(...)' over an
 %% `int a', `f(0)' of `f(int &)' beside it, where clang++ takes the ellipsis. The misfits are cpp_no_overload_fits/2's,
@@ -116,6 +130,11 @@ cpp_fn_defined(F, Ps, D) :- ( '$cpp_fn'(F, _, Ps, yes, _) -> D = yes ; cpp_fn_ow
 %% g(double);' before `main', defined after it, `g(4)' named the bare `g' -- the call took the prototype's parameters, which
 %% name nothing, and no definition has them whole --, where the definitions were `g.int' and `g.double', a link error
 cpp_fn_own_def_of(F, Ps) :- cpp_params_key(Ps, K), '$cpp_fn'(F, K, _, yes, own(_)), !.
+%% ... AND OF THE PROGRAM'S OVERLOADS ONE WHOSE ARGUMENTS PAST THE CALL'S ARE ALL DEFAULTS (1.6.56; [over.match.viable]/2.3: a
+%% default takes no part in the ranking): `f(a)' of `f(int x, int y = 0)' beside `f(int &)' took the reference, where clang++
+%% says `call to 'f' is ambiguous'. Its first parameters, one an argument, are asked; the library's sets as they were
+cpp_exact_count(Ps, N, _, Ps) :- length(Ps, N), !.
+cpp_exact_count(Ps, N, own(_), Ps1) :- nb_getval('$cpp_in_lib', no), length(Ps1, N), append(Ps1, Rest, Ps), Rest \== [], forall(member(R, Rest), R = param(_, _, _)).
 cpp_exact_params([], []).
 cpp_exact_params([P|Ps], [A|As]) :- ( P = param(T, _) ; P = param(T, _, _) ), cpp_arg_exact(T, A), cpp_exact_params(Ps, As).
 cpp_arg_exact(PT, A) :- cpp_fn_template_ref(A, F), !, cpp_fn_target(PT, FnT), cpp_target_deduces(F, FnT).   % a template's name the target deduces is exact
@@ -458,7 +477,7 @@ cpp_global_var(N, N) :- atom(N), catch('$cpp_ns_own'(N), _, fail), ccl_gdeclared
 cpp_callable_global(F, Name, C) :- atom(F), \+ cpp_local(F),
     ( cpp_global_var(F, Name) -> true ; ccl_gdeclared(F, T0), \+ T0 = fn(_, _, _) -> Name = F ),
     ccl_type_of(id(Name), T), T \== unknown, cpp_class_of_type(T, C), cpp_has_member(C, operator('()')), !.
-cpp_object_call(Name, C, As, call(id(MN), [Obj|As2])) :- cpp_method_on(id(Name), C, operator('()'), As, MN, _), cpp_fill_defaults(MN, As, As1), cpp_ref_args_of(MN, As1, As2), cpp_object_arg(MN, addr(id(Name)), Obj).
+cpp_object_call(Name, C, As, call(id(MN), [Obj|As2])) :- cpp_method_on(id(Name), C, operator('()'), As, MN, _), cpp_fill_defaults(MN, As, As1), cpp_object_lref_check(C, MN, As1), cpp_ref_args_of(MN, As1, As2), cpp_object_arg(MN, addr(id(Name)), Obj).   % 1.6.56's rule of its references (cpp_object_lref_check/3)
 %% a lazy class: registered, its struct emitted, its members emitted as they are first used (the standard's rule for a
 %% template's members; a library class's methods are hundreds, a program uses three)
 cpp_lazy_class(_, _, _, _, none) :- !.                                                   % `class bad_alloc;': nothing to register or emit

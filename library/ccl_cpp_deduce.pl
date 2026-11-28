@@ -109,7 +109,7 @@ cpp_signature_holds_(F, TPs, Ps, Var, Explicit, As, B) :-
     ( cpp_bind_defaults(TPs, B1, B2) -> true ; cpp_trace(sig_failed(F, defaults(B1))), fail ), cpp_vbinds_typed(TPs, B2, B),   % a value parameter's argument of its type, whatever bound it: given, deduced, a default (0.199)
     ( cpp_all_bound(TPs, Ps, B) -> true ; cpp_trace(sig_failed(F, unbound(B))), fail ),   % A PARAMETER TYPE STILL NAMING A TEMPLATE PARAMETER after deduction and the defaults is no candidate ([temp.deduct]: deduction failed): an argument the deduction could not type left `reverse_iterator<_Up>' free, and the acceptance step instantiated it on the free name -- 147,000 flattens to the cap (the C++23 optional probe)
     ( cpp_constraints_hold(F, TPs, B) -> true ; cpp_trace(sig_failed(F, constraints(B))), fail ),
-    ( cpp_params_accept(Ps, As, B) -> true ; cpp_trace(sig_failed(F, accept(B))), fail ).
+    ( cpp_own_accept(F, cpp_params_accept(Ps, As, B)) -> true ; cpp_trace(sig_failed(F, accept(B))), fail ).
 %% the arguments must fit the parameters in number: a default fills, a pack takes any number. A misfit in the program's own
 %% code is clang++'s `no matching function for call to 'f'' where no other candidate takes the call (1.6.26: it was
 %% `not lowered yet: arity_mismatch')
@@ -129,8 +129,18 @@ cpp_params_accept(Ps, [], B) :- !, cpp_params_resolve(Ps, B).
 cpp_params_accept([param(pack(_), _)|_], _, _) :- !.
 cpp_params_accept([P|Ps], [A|As], B) :- ( P = param(PT0, _) ; P = param(PT0, _, _) ), !,
     cpp_subst(PT0, B, PT0a), ( cpp_param_ref(PT0a, PT) -> true ; PT = PT0a ),   % RESOLVED IN ITS CLASS before it is judged (0.66's rule, in the road that never took it): `const deleter_type &' is unique_ptr's own typedef of `__destruct_n &', which the INFERENCE cannot resolve -- so the reference was never seen, the class test (which must not unref, 0.51) met one, and `(pointer, const deleter_type &)' was refused `argument_mismatch'
-    ( cpp_param_accepts(PT, A) -> true ; cpp_refuse(0, argument_mismatch) ), cpp_params_accept(Ps, As, B).
+    ( cpp_param_accepts(PT, A), \+ cpp_lref_misfit_prog(PT, A) -> true ; cpp_refuse(0, argument_mismatch) ), cpp_params_accept(Ps, As, B).
 cpp_params_accept([_|Ps], [_|As], B) :- cpp_params_accept(Ps, As, B).
+%% ... AND A TEMPLATE'S NON-CONST LVALUE REFERENCE TAKES NO RVALUE AND NO LVALUE OF ANOTHER TYPE (1.6.56; [dcl.init.ref]/5,
+%% 1.6.49's and 1.6.51's rules, cpp_rvalue_lref_pair/2, cpp_lvalue_lref_pair/2): `f(1, 2)' of `template <class T> int f(T, S &)'
+%% built, the reference bound to a temporary of the int; in the program's code, as the plain overloads have them. The parameter
+%% is the one resolved in its class: as substituted, span's `type_identity_t<element_type> (&)[_Sz]' was no type the inference knows
+cpp_lref_misfit_prog(PT, A) :- nb_getval('$cpp_in_lib', no), nb_current('$cpp_own_sig', yes), ( catch(cpp_rvalue_lref_pair(PT, A), _, fail) ; catch(cpp_lvalue_lref_pair(PT, A), _, fail) ), !.
+%% ... THE PROGRAM'S OWN FUNCTION TEMPLATE'S ('$cpp_own_tmplfn'/3), the flag `'$cpp_own_sig'' set while its parameters are asked: a
+%% library template that a program's requirement asks is asked with `'$cpp_in_lib'' `no' too, and std::random_access_iterator<const
+%% char *> was false, and every view over an array refused (1.6.56's first net, 21 fixtures of the C++ gate)
+cpp_own_accept(F, G) :- ( atom(F), catch('$cpp_own_tmplfn'(F, _, _), _, fail) -> V = yes ; V = no ), ( nb_current('$cpp_own_sig', V0) -> true ; V0 = no ), nb_setval('$cpp_own_sig', V),
+    ( catch(G, E, ( nb_setval('$cpp_own_sig', V0), throw(E) )) -> nb_setval('$cpp_own_sig', V0) ; nb_setval('$cpp_own_sig', V0), fail ).
 %% THE PARAMETERS A CALL LEAVES OUT STILL HAVE TYPES, and those substitute with the rest ([temp.deduct]/7: the type of EVERY
 %% function parameter, supplied or defaulted, is in the immediate context; 0.117): libc++ 18's `list::insert' writes its
 %% SFINAE as a trailing parameter, `template <class _InpIter> iterator insert(const_iterator, _InpIter, _InpIter,
@@ -611,6 +621,10 @@ cpp_vector_alias(N, UArgs, K, X, E) :- cpp_class_template(N, ATPs, typedef(_, [v
 %% a type's name that names a vector type, the vector (0.162)
 cpp_vector_named(F, T) :- cpp_braced_spec(F, Spec), \+ cpp_raw_type(base([], [Spec])), catch(cpp_type(base([], [Spec]), T0), error(not_lowered(_), _), fail), ccl_resolve_type(T0, T), T = base(_, [vec(_, _, _)]), !.   % a name, a template-id, a qualified name, as a braced class's (cpp_braced_class/3)
 cpp_vector_named(base(Q, S), T) :- catch(cpp_type(base(Q, S), T0), error(not_lowered(_), _), fail), ccl_resolve_type(T0, T), T = base(_, [vec(_, _, _)]), !.
+%% A TYPE'S NAME THAT NAMES AN ARRAY TYPE, the array (1.6.56; [expr.type.conv]/2, [dcl.init.list]/3.4): `A3{1, 2, 3}' over
+%% `using A3 = int[3]' is a prvalue of the array, whose elements the items initialize as an aggregate's are, and the rest as
+%% no item does; a compound literal of the type, as C makes one (cpp_expr/3). It was `not lowered yet: phase(desugaring)'
+cpp_array_named(F, T) :- cpp_braced_spec(F, Spec), \+ cpp_raw_type(base([], [Spec])), catch(cpp_type(base([], [Spec]), T0), error(not_lowered(_), _), fail), ccl_resolve_type(T0, T), T = arr(_, _), !.
 %% the count a vector's type spells: an ext_vector_type its lanes, a vector_size its bytes
 cpp_vector_count(K, N, AE, V) :- ( K == ext -> V = N ; ccl_size_of(AE, ES), V is N * ES ).
 cpp_match_vector(K, X, E, AT, TPs, B0, B) :-
