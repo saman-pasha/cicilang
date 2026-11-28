@@ -1286,7 +1286,14 @@ cpp_void_call_refusal(F, _, _, no_matching_call(N)) :- catch(cpp_fn_template_id(
 cpp_void_call_refusal(id(N), _, K, no_matching_call(N)) :- atom(N), \+ cpp_local(N), \+ catch(cpp_class_l(N, _), _, fail), cpp_names_function(N), \+ cpp_void_to_ellipsis(N, K), !.
 cpp_void_call_refusal(scoped(P, N), _, K, no_matching_call(N)) :- atom(N), \+ catch(cpp_scope_class(P, _), _, fail), \+ catch(cpp_class_l(N, _), _, fail),
     ( catch(cpp_ns_key(P, N, Key), _, fail) -> true ; Key = N ), cpp_names_overloads(Key), \+ cpp_void_to_ellipsis(Key, K), !.
+cpp_void_call_refusal(F, _, K, W) :- nb_getval('$cpp_in_lib', no), F = id(N), atom(N), cpp_local(N),   % ... AN OBJECT'S CALL, a closure's and a class's with operator(), a generic lambda's too (1.6.58): clang++'s `no matching function for call to object of type '(lambda at FILE:LINE:COLUMN)'', and at an ellipsis its `variadic method', where it was the parameter's words
+    catch(ccl_type_of(F, T), _, fail), T \== unknown, catch(ccl_unref(T, TU), _, fail), catch(cpp_class_of_type(TU, C), _, fail), atom(C), \+ cpp_lib_class(C), cpp_has_member(C, operator('()')), !,
+    (   cpp_class_method(C, operator('()'), _, _, Ps, V), ( V == true ; nonvar(V), V = q(WV, _), WV == true ), length(Ps, NP), NP < K -> W = void_vararg_method
+    ;   ( cpp_closure_spelled(C, S) -> true ; dr_class_spelled(C, S) ), W = no_matching_object_call(S) ).
 cpp_void_call_refusal(F, [_], _, W) :- cpp_void_called_type(F, T), !, ir_void_cast_word(functional, T, W).
+cpp_void_call_refusal(F, _, K, void_vararg_method) :- ( F = member(X, M) -> T1 = T0 ; F = arrow(X, M), T1 = ptr(_, T0) ), atom(M),   % ... A MEMBER FUNCTION'S ELLIPSIS, of one that is not static (1.6.58): clang++'s `variadic method'; a static one's is the lowering's `variadic function'
+    catch(ccl_type_of(X, T), _, fail), T \== unknown, catch(ccl_unref(T, TU), _, fail), catch(once(ccl_resolve_type(TU, T1)), _, fail), catch(cpp_class_of_type(T0, C), _, fail),
+    findall(Q-Ps-V, cpp_class_method(C, M, Q, _, Ps, V), [Q1-Ps1-V1]), \+ memberchk(static, Q1), ( V1 == true ; nonvar(V1), V1 = q(WV, _), WV == true ), length(Ps1, NP), NP < K, !.
 cpp_void_call_refusal(F, _, _, no_matching_member(M)) :- ( F = member(X, M) -> T1 = T0 ; F = arrow(X, M), T1 = ptr(_, T0) ), atom(M),
     catch(ccl_type_of(X, T), _, fail), T \== unknown, catch(ccl_unref(T, TU), _, fail), catch(once(ccl_resolve_type(TU, T1)), _, fail),
     catch(cpp_class_of_type(T0, C), _, fail), findall(Q, cpp_class_method(C, M, Q, _, _, _), Qs), Qs = [_, _|_], !.

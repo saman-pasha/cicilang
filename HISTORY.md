@@ -374,6 +374,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.55 | C++: the default constructor and the destructor that are not there | an object whose default constructor or destructor is not there, a user-provided constructor's parts that no initializer names and a deleted function named alone are clang++'s words, a base is named by its template's name, and a union with a default member initializer is a class; each built, or was refused by name (reader 221, lowering 221) |
 | 1.6.56 | C++: references that their arguments do not bind, ambiguous calls, array prvalues and aggregates whose members construct | a class's, an object's call's and a template's non-const lvalue reference takes no argument that it does not bind, an overload of defaults and two twins are ambiguous, a call's result whose destructor is not there is refused, an array's prvalue is a compound literal, and an aggregate whose member constructs, and its default member initializers, take their members' roads; each built, a silent wrong answer among them, or was refused by name (reader 221, lowering 222) |
 | 1.6.57 | A _BitInt across a call as clang passes it, its width's limits, static members' values and a function designator's value | a _BitInt past 32 bits crosses a call on x86-64 in clang's classes, a width past its limits is refused in clang's words, a static member function with an ellipsis is its own value, a static pointer to a function or to a member is a static and its qualified definition reads, a base's statics are named through the derived class, and `(*p)(3)` calls p; each refused, a crash or a wrong value between two compilers' code before (cocolog 3.78.22; reader 222, lowering 223) |
+| 1.6.58 | GCC's alias of the program's Itanium names and of nothing, an object's call given a void value, and lambdas with an ellipsis | in C++ an alias of a mangled name names the program's function, object or static, an alias's function type is the signature's types alone and its target one that the unit defines, else clang's words, an object's call given a void value is clang++'s words, and a lambda's ellipsis is its call operator's; each LLVM's error or refused by name before (reader 223, lowering 224) |
 
 ## M5 — the C++ mode
 
@@ -27872,3 +27873,71 @@ owner's rule of 0.271.
   fixtures).
 
 The module 1.6.57, the reader 222 and the lowering 223.
+
+## 1.6.58 — GCC's alias of the program's Itanium names and of nothing, an object's call given a void value, and lambdas with an ellipsis
+
+**1.6.58: at the user's word "Do the not done list": Not done's records of GCC's alias in C++ whose target is a program
+function's mangled name and of a void value given to a closure, and what their probes found beside them -- an alias's
+function type that LLVM refused and an alias of nothing in LLVM's words, in C too, and a lambda with an ellipsis, whose
+call was refused by name. The step was committed with its nets and its broken copies; no chain ran over it, and it
+claims nothing GREEN of the chain.**
+
+1. GCC'S ALIAS OF THE ITANIUM NAME OF WHAT THE PROGRAM DEFINES (`cpp_alias_targets/2` in `cpp_item/2`,
+   `cpp_own_itanium/4`, `cpp_own_itanium_fn/2`, `cpp_own_itanium_var/2`, `cpp_plain_ns_name/3`): `int g_alias(int)
+   __attribute__((alias("_Z8g_targeti")));` names `g_target` as clang++ emits it, and this compiler emits the program's
+   functions by names of its own, so the target is that name here -- a function by its namespace's path and its
+   parameters as the mangler spells them, overloads, references, pointers, a class by value, nested namespaces and an
+   ellipsis among them; a static member function's value with no `this`; a namespace's object and a static data member.
+   It was LLVM's `use of undefined value '@_Z8g_targeti'`. `test/cpp/run/aliasmangled.cpp`.
+2. AN ALIAS'S FUNCTION TYPE IS THE SIGNATURE'S TYPES ALONE (`ir_lls_bare/2` in `ir_alias_def/4`): `alias i32 (i8
+   signext, i64)` was LLVM's `argument attributes invalid in function type`, in C and in C++, for every alias of a
+   function of a narrow integer or of an sret, since 1.6.40. `test/c/run/aliastypes.c`.
+3. AN ALIAS OF NOTHING THAT THE UNIT DEFINES (`ir_alias_targets_defined/1` in `ir_assemble/1`): clang's `alias must
+   point to a defined variable or function` at the alias's line, asked at the unit's end so that a later definition
+   counts, where it was LLVM's `use of undefined value`. The driver gate's `test/c/alias_missing.c`, `alias_declonly.c`
+   and `test/cpp/alias_missing.cpp`, as clang -c and clang++ -c refuse them.
+4. AN OBJECT'S CALL GIVEN A VOID VALUE (a clause of `cpp_void_call_refusal/4`): a closure's, a generic lambda's and a
+   class's with `operator()` are clang++'s `no matching function for call to object of type '(lambda at
+   vp64.cpp:3:14)'`, the closure spelled as 1.6.56 spells it, where it was a parameter's words; a void value at the
+   ellipsis of an object's or of a member function that is not static is `cannot pass expression of type 'void' to
+   variadic method`, where it was the lowering's `variadic function`, which stays a static one's, as clang++'s. The C++
+   gate's loop of 1.6.14's void values, five bodies more (vp64 to vp68).
+5. A LAMBDA'S ELLIPSIS IS ITS CALL OPERATOR'S (the reader's mark `lvariadic`, reader 223; `cpp_lambda_/10`): `[](int n,
+   ...) { ... va_arg(ap, int) ... }` takes the arguments past its named parameters; the reader dropped the ellipsis, and
+   the call was `not lowered yet: call(id(sum))`. It converts to no pointer to a function, as clang++ has it: the C++
+   gate's `variadiclambda_ptr.cpp`. `test/cpp/run/variadiclambdas.cpp`.
+
+THE PROBES. Some 35 forms against clang 23 and clang++ 23, and against 1.6.57's tree; each gives clang's first error,
+its line and its words, or its run's lines, but what Not done keeps: a class value of no conversion in C++ has C's shape
+of words, `no conversion from 'S' to 'int *'` for clang++'s `no viable conversion from`; a class defined in its object's
+declaration is `'Fo'` for clang++'s `'struct Fo'`; an alias of a member function that is not static, of a template's
+instance or of a nested class's static goes on as written, which the lowering refuses; and an alias of nothing, as the
+`error` attribute's call, is refused under `-fsyntax-only` too, where clang refuses it only as it generates code.
+
+THE NETS. Over wt38, LLVM 23 and a fresh HOME each: the flow gate GREEN in 513 s (0 findings), the reader gate GREEN in
+5 s (174 ok), the compile gate GREEN in 41 s (489 ok), the driver gate GREEN in 329 s (218 ok), the library read GREEN
+in 222 s (24 ok) and the C++ gate GREEN in 1537 s (1375 ok, 0 FAIL). The objects, cross and ccllib gates read none of
+the step's forms. Over the work tree after the port: the toolchain check strict GREEN. No CI job ran, by the owner's
+rule of 0.271.
+
+THE BROKEN COPIES. 18 copies, each one edit of the tree (EA0 none: the judge over the tree as it is), judged by the
+driver gate's check of an alias of nothing, the C++ gate's loop of the void values, the refusal of
+`variadiclambda_ptr.cpp`, and the builds and runs of `aliasmangled.cpp`, `variadiclambdas.cpp` and `aliastypes.c`, in
+107 s. Each was caught but EA0: the alias's road (EA1), the global name's form (EA2), the static member (EA3), the
+namespace's object (EA4), the static data member (EA5), a keyed name's last part (EA6); the bare types (EA7), the
+target's check and its line (EA8, EA9); the object's call (EA10), its ellipsis (EA11), a member's (EA12), its words
+(EA16), a generic lambda's operator (EA17); the reader's mark (EA13), the call operator's ellipsis (EA14), and the
+conversion that a lambda with an ellipsis has not (EA15), which the C++ gate's `variadiclambda_ptr.cpp` holds since the
+first run of the copies.
+
+- `library/ccl_cpp.pl` (`cpp_item/2`'s declaration, `cpp_alias_targets/2`, `cpp_own_itanium_target/3`,
+  `cpp_own_itanium_fn/2`, `cpp_own_itanium_var/2`, `cpp_own_itanium/4`, `cpp_plain_ns_name/3`, `cpp_gattr_swap/4`,
+  `cpp_swap_one/4`); `library/ccl_cpp_expr.pl` (`cpp_void_call_refusal/4`); `library/ccl_cpp_lambda.pl`
+  (`cpp_lambda_/10`); `library/ccl_syntax.pl` (`ccl_primary_//3`'s lambda, the reader 223); `library/ccl_ir.pl`
+  (`ir_alias_def/4`, `ir_lls_bare/2`, `ir_alias_targets_defined/1`, `ir_assemble/1`, the lowering 224);
+  `library/ccl_driver.pl` (`alias_undefined`'s and `void_vararg_method`'s words); the fixtures above; `test/driver.sh`
+  (the alias's check); `test/cpp.sh` (the void values' loop, the refusals' loop of 1.6.38); the module's version.
+- RULES.md (two rules in the C reader's topic of GCC's attributes and the lambdas' topic, one edited in the overloads'
+  topic; Not done: two records narrowed, one new), HISTORY.md, CLAUDE.md (the versions, the fixtures).
+
+The module 1.6.58, the reader 223 and the lowering 224.

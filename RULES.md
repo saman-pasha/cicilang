@@ -2565,6 +2565,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   objects and function counted by the linker's `__start_` and `__stop_` symbols -- and `test/cpp/run/gnuattrscpp.cpp`,
   as clang 23 and clang++ 23 print them; the driver gate's two units, whose strong definitions win, and its IR of two
   declarators of each, as clang's IR places them.
+- AN ALIAS'S FUNCTION TYPE IS THE SIGNATURE'S TYPES ALONE, AND ITS TARGET IS DEFINED IN THE UNIT (1.6.58; GCC's manual:
+  "it is an error if the alias target is not defined in the same translation unit"; `ir_lls_bare/2` in `ir_alias_def/4`,
+  `ir_alias_targets_defined/1` in `ir_assemble/1`): `@deepa = alias i32 (i8, i64), ptr @deep` and `@mka = alias void
+  (ptr, i32), ptr @mk` over an sret, as clang writes them -- `(i8 signext, i64)` was LLVM's `argument attributes invalid
+  in function type`, in C and in C++ -- and a target that the unit does not define, asked at the unit's end so that a
+  later definition counts, is clang's `alias must point to a defined variable or function` at the alias's line, where it
+  was LLVM's `use of undefined value`. IN C++ A TARGET THAT IS THE ITANIUM NAME OF WHAT THE PROGRAM DEFINES is that
+  one's name here (`cpp_alias_targets/2` in `cpp_item/2`'s declaration): a function by its namespace's path and its
+  parameters as the mangler spells them (`cpp_own_itanium/4`; a global name `_Z` and its text alone), the name it is
+  emitted by (`cpp_fn_name_va/5`); a static member function's value with no `this` (`cpp_static_thunk/4`); a namespace's
+  object and a static data member, the global (`cpp_own_itanium_var/2`). `alias("_Z8g_targeti")` was LLVM's `use of
+  undefined value`, since the program's functions are emitted by names of their own. A target that is none of the
+  program's goes on as written, and the lowering asks it. `test/c/run/aliastypes.c`, `test/cpp/run/aliasmangled.cpp`;
+  the driver gate's `test/c/alias_missing.c`, `alias_declonly.c` and `test/cpp/alias_missing.cpp`, each refused at
+  clang's line. Lowering 224. (1.6.58)
 - ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
   `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
   wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
@@ -7601,36 +7616,41 @@ is in `test/cpp/run/`.
   clang++'s words at the line: a call of a function by its name, an overload or a template, given a void value, is `no
   matching function for call to 'g'` (the template deduced no `tk.void`); a class's name called so is `no matching
   conversion for functional-style cast from 'void' to 'M'`; an overloaded member `no matching member function for call
-  to 'o'`; a constructor, by `M a(f())`, `M a{f()}` or `new M(f())`, `no matching constructor for initialization of
-  'M'`, and a class member's `T() : m(f())` so at its constructor's line (`cpp_void_ctor_check/3`); `new int(f())`
-  `cannot initialize a new value of type 'int' with an rvalue of type 'void'`, and a scalar member's initializer, `T() :
-  m(f())` or a default member initializer, `cannot initialize a member subobject of type 'int' ...` -- the desugaring
-  makes both an assignment, whose words the lowering would give; `auto *p = f();` is `variable 'p' with type 'auto *'
-  has incompatible initializer of type 'void'`, where the desugaring failed without a word. A CLASS COPY-INITIALIZED
-  FROM ONE ([dcl.init.general]/16.6.3, [over.match.copy]; `cpp_copy_init_void/4`) -- `M m = f();`, a static local so
-  written, a default member initializer `M m = f();`, an element and an aggregate's member from a braced item -- is `no
-  viable conversion from 'void' to 'M'`; by parentheses or braces it is direct-initialization's, above. A QUALIFIED NAME
-  IS NO UNQUALIFIED ONE ([basic.lookup.argdep]/1; `cpp_names_overloads/1`): its call is resolved by overloading only
-  where it names two functions or a template -- `ns::k(f())` and `std::abs(f())` are `no matching function for call to
-  'k'`, and one function's `ns::h(f())`, `::g(f())` and `std::puts(f())` the lowering's `cannot initialize a parameter
-  of type 'int' with an rvalue of type 'void'`, clang++'s words; a call with template arguments, `tk<int>(f())`, is an
-  overload set's, and so is one of a template that is declared and not defined, `td(f())`. A TYPE'S NAME CALLED WITH ONE
-  VOID VALUE IS A FUNCTIONAL CAST (`cpp_void_called_type/2`, `cpp_type_call/3`): a class, a plain struct (whose call was
-  C's compound literal, `cannot initialize a member subobject`), a typedef, a class template's instance, `no matching
-  conversion for functional-style cast from 'void' to 'TT<int>'`, a class template's own name in its member,
-  `'Bx<int>'`, and a nested class by its qualified name, `'O::N'`; with two values a class is its constructor's call,
-  `no matching constructor for initialization of 'M'`. A void value that an ellipsis takes, one for a member that has no
-  overload and for a qualified name of one function is the lowering's (`cannot pass expression of type 'void' to
-  variadic function`, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, a class's parameter
-  `no viable conversion from 'void' to 'M'`; the lowering's topic). The void value is one the desugaring trusts, raw or
-  desugared: a call of a function of ONE declaration whose result is void -- an overloaded name's raw call is no such
-  call, its type its chosen overload's --, a cast to void, a comma or a conditional over one, and a call through a
-  local's or a member's pointer or reference to a function by its type (1.6.27; `g(fp())` over `void (*fp)()` was the
-  lowering's parameter words, where clang++'s overloading takes no candidate). A library body's call is a
-  substitution's, which the refusal takes out as any refusal does: no build of the C++ pool's 379 lighter fixtures told
-  the rule from one kept to the program's code, and the guard is out. Through 1.6.13 each call went on and LLVM's parser
-  refused `void none`. The C++ gate's sixty-three bodies, its sixty-six of the casts and calls beside, and its
-  thirty-two of the void values that the desugaring does not trust and the classes copy-initialized from one. (1.6.14)
+  to 'o'`; AN OBJECT'S CALL, a closure's, a generic lambda's and a class's with `operator()` (1.6.58), `no matching
+  function for call to object of type '(lambda at f.cpp:3:12)'`, the closure spelled as 1.6.56 spells it, where it was a
+  parameter's words, and a void value at an ellipsis of an object's or of a member function that is not static `cannot
+  pass expression of type 'void' to variadic method`, where it was the lowering's `variadic function` (a static one's
+  are those, as clang++'s); a constructor, by `M a(f())`, `M a{f()}` or `new M(f())`, `no matching constructor for
+  initialization of 'M'`, and a class member's `T() : m(f())` so at its constructor's line (`cpp_void_ctor_check/3`);
+  `new int(f())` `cannot initialize a new value of type 'int' with an rvalue of type 'void'`, and a scalar member's
+  initializer, `T() : m(f())` or a default member initializer, `cannot initialize a member subobject of type 'int' ...`
+  -- the desugaring makes both an assignment, whose words the lowering would give; `auto *p = f();` is `variable 'p'
+  with type 'auto *' has incompatible initializer of type 'void'`, where the desugaring failed without a word. A CLASS
+  COPY-INITIALIZED FROM ONE ([dcl.init.general]/16.6.3, [over.match.copy]; `cpp_copy_init_void/4`) -- `M m = f();`, a
+  static local so written, a default member initializer `M m = f();`, an element and an aggregate's member from a braced
+  item -- is `no viable conversion from 'void' to 'M'`; by parentheses or braces it is direct-initialization's, above. A
+  QUALIFIED NAME IS NO UNQUALIFIED ONE ([basic.lookup.argdep]/1; `cpp_names_overloads/1`): its call is resolved by
+  overloading only where it names two functions or a template -- `ns::k(f())` and `std::abs(f())` are `no matching
+  function for call to 'k'`, and one function's `ns::h(f())`, `::g(f())` and `std::puts(f())` the lowering's `cannot
+  initialize a parameter of type 'int' with an rvalue of type 'void'`, clang++'s words; a call with template arguments,
+  `tk<int>(f())`, is an overload set's, and so is one of a template that is declared and not defined, `td(f())`. A
+  TYPE'S NAME CALLED WITH ONE VOID VALUE IS A FUNCTIONAL CAST (`cpp_void_called_type/2`, `cpp_type_call/3`): a class, a
+  plain struct (whose call was C's compound literal, `cannot initialize a member subobject`), a typedef, a class
+  template's instance, `no matching conversion for functional-style cast from 'void' to 'TT<int>'`, a class template's
+  own name in its member, `'Bx<int>'`, and a nested class by its qualified name, `'O::N'`; with two values a class is
+  its constructor's call, `no matching constructor for initialization of 'M'`. A void value that an ellipsis takes, one
+  for a member that has no overload and for a qualified name of one function is the lowering's (`cannot pass expression
+  of type 'void' to variadic function`, `cannot initialize a parameter of type 'int' with an rvalue of type 'void'`, a
+  class's parameter `no viable conversion from 'void' to 'M'`; the lowering's topic). The void value is one the
+  desugaring trusts, raw or desugared: a call of a function of ONE declaration whose result is void -- an overloaded
+  name's raw call is no such call, its type its chosen overload's --, a cast to void, a comma or a conditional over one,
+  and a call through a local's or a member's pointer or reference to a function by its type (1.6.27; `g(fp())` over
+  `void (*fp)()` was the lowering's parameter words, where clang++'s overloading takes no candidate). A library body's
+  call is a substitution's, which the refusal takes out as any refusal does: no build of the C++ pool's 379 lighter
+  fixtures told the rule from one kept to the program's code, and the guard is out. Through 1.6.13 each call went on and
+  LLVM's parser refused `void none`. The C++ gate's sixty-three bodies, its sixty-six of the casts and calls beside, and
+  its thirty-two of the void values that the desugaring does not trust and the classes copy-initialized from one.
+  (1.6.14)
 
 ### Where the parameters and the arguments are read
 
@@ -8397,6 +8417,13 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   -- and the pointer a captureless one converts to is a pointer to a noexcept function where its operator cannot throw.
   The reader dropped it, and every closure's call was noexcept: `noexcept(a(1))` of `[](int x) { return x + 1; }` and
   `std::is_nothrow_invocable_v<decltype(a), int>` were 1, where clang++ gives 0. `lambdanx.cpp`.
+- A LAMBDA'S ELLIPSIS IS ITS CALL OPERATOR'S ([expr.prim.lambda.closure]/1; 1.6.58; reader 223, the mark `lvariadic`
+  among its captures and words, `ccl_primary_//3`; `cpp_lambda_/10`): `[](int n, ...) { ... va_arg(ap, int) ... }` takes
+  the arguments past its named parameters, a capture's, a mutable one's and one of an ellipsis alone, `[](...)`. The
+  reader dropped the ellipsis, and the call was `not lowered yet: call(id(sum))`. Such a lambda converts to no pointer
+  to a function, as clang++ has it (`cannot compile this lambda conversion to variadic function yet`; the conversion
+  operator is made for none): the C++ gate's `variadiclambda_ptr.cpp`, by this compiler's words (Not done).
+  `test/cpp/run/variadiclambdas.cpp`. (1.6.58)
 - A lambda's own parameter pack expands with the enclosing bindings (`cpp_subst/3` on `lambda(...)`,
   `cpp_param_packs`). Why: `__tree::__emplace_unique`'s `[this](_Args &&... __args2)`. (0.79)
 - A generic lambda's `operator()` is a member template ([expr.prim.lambda.closure]/3): its own `tparams(Ps)`, then one
@@ -17654,14 +17681,16 @@ Declarations topic of the C++ reader).
   1.6.25, the safe part's topic): A CLEANUP THAT FREES THROUGH ITS PARAMETER, `void free_str(char **p) { free(*p); }`,
   is refused by the safe part, `a borrow consumed`, as the same defer written by hand is. THE OTHER ATTRIBUTES that the
   probes took (`p113/forms`, s02 to s08) are read and dropped as before: `transparent_union` fails in LLVM's parser
-  (`section`, `weak` and `alias` are spelled since 1.6.40, but in C++ an alias whose target is the mangled name of a
-  function of the program's, `alias("_Z8g_targeti")`, is LLVM's `use of undefined value '@_Z8g_targeti'`, since the
-  desugaring names the program's functions otherwise; an `extern "C"` target builds), `error` is clang's words in C
-  since 1.6.29 and in C++ since 1.6.44 -- a call in a branch that clang's code generation drops is none since 1.6.39,
-  and `-fsyntax-only` refuses none, as clang --, C's and C++'s `unavailable` are clang's
-  words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --, and C++'s
-  `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is glibc's
-  `register_t`, an `int` of four bytes where clang's is a `long`.
+  (`section`, `weak` and `alias` are spelled since 1.6.40, and in C++ an alias of the Itanium name of the program's
+  function, object or static since 1.6.58; one of a member function that is not static, of a template's instance or of a
+  class nested in a class goes on as written, and the lowering refuses it; and an alias of nothing that the unit
+  defines, as GCC's `error` attribute's call, is refused under `-fsyntax-only` too, where clang refuses it only as it
+  generates code -- a lowering that skipped it there would be served to a later build by the IR cache, whose key holds
+  no mode), `error` is clang's words in C since 1.6.29 and in C++ since 1.6.44 -- a call in a branch that clang's code
+  generation drops is none since 1.6.39, and `-fsyntax-only` refuses none, as clang --, C's and C++'s `unavailable` are
+  clang's words since 1.6.25 and 1.6.26 -- but a virtual call's and the address of a member, `&S::g`, which build --,
+  and C++'s `init_priority` orders nothing. A `mode` IN AN OWN HEADER READ PREPROCESSED is dropped as before, and so is
+  glibc's `register_t`, an `int` of four bytes where clang's is a `long`.
 - A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.42 LEAVES (the C reader's topic; GNU's `extern inline` with `gnu_inline`
   is the function's declaration since 1.6.39, one without the attribute defined again clang's words since 1.6.41, and in
   C++ a header of the program's own walked since 1.6.42): A HEADER OF THE LIBRARY AND A MACRO FILE'S C HEADER are not
@@ -17882,12 +17911,19 @@ Declarations topic of the C++ reader).
   lowering does not keep. In C++ `auto f = __builtin_trap;` has clang's words, `builtin functions must be directly
   called`, since 1.6.29; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap, where a
   build does.
-- THE WORDS OF A VOID VALUE FOR A CLOSURE ARE NOT CLANG'S WHOLE (found at 1.6.14, narrowed at 1.6.41, whose void
-  variables of a `typeof` or a `decltype` type name the type as written; a void value through `printf`'s ellipsis has
-  the format's type since 1.6.27): a closure called with a void value is `cannot initialize a parameter of type 'int'
-  with an rvalue of type 'void'`, where clang says `no matching function for call to object of type '(lambda at
-  f.cpp:7:14)'`, the closure's column, which the reader does not keep. It is refused at clang's line. An operand of a
-  `typeof` that is no name, literal or call of a name over such operands keeps the plain words (`ccl_spell_operand/2`).
+- THE WORDS OF A VOID VALUE FOR A CLOSURE ARE NOT CLANG'S WHOLE (found at 1.6.14, narrowed at 1.6.41 and at 1.6.58,
+  whose void variables of a `typeof` or a `decltype` type name the type as written; a void value through `printf`'s
+  ellipsis has the format's type since 1.6.27, and a closure's call given one clang++'s `no matching function for call
+  to object of type '(lambda at f.cpp:7:14)'` since 1.6.58): a class defined in its object's own declaration, `struct Fo
+  { ... } fo;`, is spelled `'Fo'`, where clang++ writes the elaborated `'struct Fo'`; a closure's call through a member,
+  `s.f(g())`, keeps the parameter's words. An operand of a `typeof` that is no name, literal or call of a name over such
+  operands keeps the plain words (`ccl_spell_operand/2`).
+- C++: A CLASS VALUE OF NO CONVERSION HAS C'S SHAPE OF WORDS (found at 1.6.58): `int *p = s;` over a struct, `int x =
+  l;` over a closure and `a = b;` of two classes are `no conversion from 'S' to 'int *'`, a closure named by its own
+  name `'lambda.1_y54j2g'`, where clang++ says `no viable conversion from 'S' to 'int *'`, `no viable conversion from
+  '(lambda at f.cpp:2:12)' to 'int'` and `no viable overloaded '='`, and at a call and a return their own words. Ten
+  refusals of ccllib built as C++ hold the words as they are (their `.expect.cpp`), and the C++ gate's
+  `variadiclambda_ptr.cpp`.
 - A TYPEDEF'S NAME IN A MESSAGE, WHAT 1.6.26 LEAVES (found at 1.6.14; 1.6.24 gives clang's `(aka ...)` where the words
   are clang's, and 1.6.26 C's sites of a value of no conversion and C++'s casts of a floating value and a pointer): a
   typedef or an alias that a C++ BLOCK declares is spelled as its target, `'int *'` for clang++'s `'IP' (aka 'int *')`,

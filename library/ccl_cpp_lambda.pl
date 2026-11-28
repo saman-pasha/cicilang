@@ -58,7 +58,8 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
     cpp_fsig_now(Encl), assertz('$cpp_pf_closure'(Name, Encl, Ps1)),                                   % the function it is made in, and its parameters as written: its call operator's own name (0.166)
     ( memberchk(tparams(ETPs), Caps) -> true ; ETPs = [] ), cpp_local_note(closure(Ps1, ETPs), Name, Encl),   % and its local name (0.236, cpp_local_note/3), before its body is walked
     ( ( memberchk(mutable, Caps) ; SN \== none ) -> OpQs = [closure] ; OpQs = [const, closure] ),   % A NON-MUTABLE LAMBDA'S CALL OPERATOR IS CONST ([expr.prim.lambda.closure]/5; 0.127): its by-value captures are const in the body, so a non-const member of one is no candidate and a non-const reference binds none
-    OpSig = fsig(member, Name, operator('()'), none, Ps1, false, OpQs, none),                      % ITS BODY IS ITS CALL OPERATOR'S where its result is deduced too (0.236): a lambda or a local class made there is named in it, `ZZ3ilfvENKUlvE_clEvEUlvE_'
+    ( memberchk(lvariadic, Caps) -> LV = true ; LV = false ),   % A LAMBDA WITH AN ELLIPSIS (1.6.58; [expr.prim.lambda.closure]/1): its operator() takes the arguments past its named parameters; the reader dropped the mark, and its call was `not lowered yet: call(id(f))'
+    OpSig = fsig(member, Name, operator('()'), none, Ps1, LV, OpQs, none),                      % ITS BODY IS ITS CALL OPERATOR'S where its result is deduced too (0.236): a lambda or a local class made there is named in it, `ZZ3ilfvENKUlvE_clEvEUlvE_'
     cpp_lambda_caps(Ctx, Caps, SelfPs, Body, Captures, Ms0, Items, This),
     cpp_lambda_const_check(Caps, Captures, Body),
     ( ( This = yes(EC) ; This = star(EC) ) -> cpp_note_closure_this(Name, EC) ; true ),
@@ -73,14 +74,14 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
     ( cpp_lambda_scope(Ctx, Enc) -> asserta('$cpp_encl'(Name, Enc)) ; true ),   % A CLOSURE IS ENCLOSED BY THE CLASS IT IS MADE IN, as a nested class is: its types, statics and enumerators are in scope in the body, this captured or not -- a default argument filled inside a string's lambda, `__reset_internal_buffer(__rep __new_rep = __short())', named the nested __short and found nothing
     cpp_lambda_nx(Caps, OpQs, OpQsN, FMark),   % ITS NOEXCEPT (0.205, below)
     cpp_lib_lambda_req(Caps, TPs, OpQsN, OpQs0), ( var(Trail) -> OpQs1 = OpQs0 ; append(OpQs0, Trail, OpQs1) ),
-    append(Self, Ps, MPs), Op0 = method(0, OpQs1, Ret, operator('()'), MPs, false, Body),
+    append(Self, Ps, MPs), Op0 = method(0, OpQs1, Ret, operator('()'), MPs, LV, Body),
     ( TPs == [] -> Op = Op0 ; Op = template(0, TPs, Op0) ),
     %% A CAPTURELESS LAMBDA CONVERTS TO A POINTER TO FUNCTION ([expr.prim.lambda.closure]/8; 0.112): its closure has a
     %% conversion operator to `R (*)(Ps)' answering the address of a STATIC INVOKER, `lambda.K.fn', which calls the
     %% operator() over a null `this' (nothing captured, nothing read through it) -- 0.100's thunk for a static method.
     %% libc++'s <format> writes its output buffer's flush as `__flush_([](_CharT *__p, size_t __n, void *__o) { ... })'
     %% into a member of function-pointer type; a generic lambda and one with an explicit object parameter have none here.
-    (   Ms0 == [], TPs == [], SN == none, Ret \= base(_, [auto])
+    (   Ms0 == [], TPs == [], SN == none, Ret \= base(_, [auto]), LV == false   % ... and none with an ellipsis, which clang++ refuses (`cannot compile this lambda conversion to variadic function yet')
     ->  atom_concat(Name, '.fn', Invoker), FPT = ptr([], fn(Ret, Ps, FMark)), ccl_declare(Invoker, fn(Ret, Ps, false)),   % a pointer to a NOEXCEPT function where the call operator does not throw ([expr.prim.lambda.closure]/8; 0.205)
         Conv = [method(0, [const], FPT, operator(conv(FPT)), [], false, block([return(0, addr(id(Invoker)))]))]
     ;   Conv = [] ),

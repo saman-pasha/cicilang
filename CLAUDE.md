@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.57 the versions are: the module 1.6.57 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 222 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 223 (`ccl_lowering_version/1`,
+At 1.6.58 the versions are: the module 1.6.58 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 223 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 224 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -559,7 +559,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             each at its line (1.6.8); loop_unsettled.c and loop_settled7.c, the cap of a loop's
                             passes, refused and taken, for the driver gate (1.6.19); bitint_narrow.c, bitint_zero.c,
                             bitint_wide.c and bitint_arm.c, a _BitInt's width past its limits, each refused at its line,
-                            the last for arm64 alone (1.6.57)
+                            the last for arm64 alone (1.6.57); alias_missing.c and alias_declonly.c, GCC's alias of
+                            nothing that the unit defines, for the driver gate (1.6.58)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -656,7 +657,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             libbuiltins.c, clang's library builtins, each the C library's function with no declaration,
                             built as C and as C++ (1.6.47); framebuiltins.c, clang's alloca and complex
                             functions, built as C and as C++ (1.6.54); fndesignators.c, calls through `*' of a pointer
-                            to a function, built as C and as C++ (1.6.57)
+                            to a function, built as C and as C++ (1.6.57); aliastypes.c, GCC's alias of narrow integers,
+                            an sret, a static function, an alias and an object (1.6.58)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -755,7 +757,9 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             of a class, a closure, an object's operator() and a template, ambig_*.cpp, the ambiguous calls
                             of defaults and of twins, dtorcall_*.cpp and newtemp_dtor.cpp, a call's result whose
                             destructor is not there, and aggmember_*.cpp, an aggregate's member with no item, each
-                            refused in clang++'s words (1.6.56)
+                            refused in clang++'s words (1.6.56); alias_missing.cpp, an alias of an Itanium name that the
+                            program does not define, for the driver gate, and variadiclambda_ptr.cpp, a lambda with an
+                            ellipsis converted to a pointer, refused (1.6.58)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -817,7 +821,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             and their default member initializers, and overloadfits.cpp, what 1.6.56's reference rules
                             and ambiguities keep (1.6.56); staticvavalues.cpp, static member functions with an ellipsis
                             named as values, and staticfnptrs.cpp, static pointers to functions and to members, defined
-                            out of their classes and called, and a base's statics through a derived class (1.6.57)
+                            out of their classes and called, and a base's statics through a derived class (1.6.57);
+                            aliasmangled.cpp, GCC's alias of the Itanium names of the program's functions, objects and
+                            statics, and variadiclambdas.cpp, lambdas with an ellipsis (1.6.58)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             NAME.needs, a condition of the twin's tree (1.6.21);

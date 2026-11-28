@@ -511,6 +511,44 @@ cpp_fn_put(N, Ps, Body, Origin) :- ( Body == none -> D = no ; D = yes ), cpp_par
     ( '$cpp_fn'(N, K, _, D, O0), cpp_fn_same_ellipsis(O0, Origin) -> true ; assertz('$cpp_fn'(N, K, Ps, D, Origin)) ).
 %% two noted functions of one name and key are one where both have the ellipsis or neither has it (1.6.38, below)
 cpp_fn_same_ellipsis(O1, O2) :- ( cpp_fn_variadic(O1) -> cpp_fn_variadic(O2) ; \+ cpp_fn_variadic(O2) ).
+%% GCC'S ALIAS WHOSE TARGET IS THE ITANIUM NAME OF WHAT THE PROGRAM DEFINES (1.6.58; GCC's manual, Common Function Attributes,
+%% `alias'): `int g_alias(int) __attribute__((alias("_Z8g_targeti")));' names `int g_target(int)' as clang++ emits it, and this
+%% compiler emits the program's names otherwise (the mangler's head), so the target is the name here -- of a function by its
+%% namespace's path and its parameters as the Itanium ABI spells them (cpp_ita_function/7; a global name is `_Z' and its text
+%% alone), the name it is emitted by (cpp_fn_name_va/5); of a static member function its value with no `this'
+%% (cpp_static_thunk/4); of a namespace's object, `_ZN1N1vE', and of a static data member, `_ZN1S1kE', the global. It was
+%% LLVM's `use of undefined value '@_Z8g_targeti''. A target that is none of the program's goes on as written, and the
+%% lowering asks that it is defined
+cpp_alias_targets([], []).
+cpp_alias_targets([var(N, T0, I)|Vs0], [var(N, T, I)|Vs]) :-
+    (   ccl_gattr_of(T0, alias(Tg)), atom(Tg), sub_atom(Tg, 0, 2, _, '_Z'), cpp_own_itanium_target(T0, Tg, Name)
+    ->  cpp_gattr_swap(T0, gattr(alias(Tg)), gattr(alias(Name)), T)
+    ;   T = T0 ),
+    cpp_alias_targets(Vs0, Vs).
+cpp_own_itanium_target(fn(_, _, _), Tg, Name) :- !, cpp_own_itanium_fn(Tg, Name).
+cpp_own_itanium_target(_, Tg, Name) :- cpp_own_itanium_var(Tg, Name).
+cpp_own_itanium_fn(Tg, Name) :- '$cpp_fn'(F, _, Ps, yes, own(V)), atom(F), cpp_own_itanium(F, Ps, V, Tg), !, cpp_fn_name_va(F, Ps, V, yes, Name).
+cpp_own_itanium_fn(Tg, Name) :- cpp_class(C, cls(_, _, Ms, _, _, _)), atom(C), \+ cpp_lib_class(C), member(method(_, Qs, _, M, Ps0, V0, _), Ms), memberchk(static, Qs), atom(M),
+    cpp_plain_ns_name(C, CN, CNP), catch(cpp_in_class(C, cpp_resolved_params(Ps0, Ps1)), _, fail), cpp_ita_function(CNP, [plain(CN)], M, [], Ps1, V0, Tg), !,
+    cpp_mangle_q(C, M, Qs, Ps0, MN), cpp_static_thunk(C, M, MN, Name).
+cpp_own_itanium_var(Tg, Name) :- catch('$cpp_type_ns'(K, _), _, fail), catch(ccl_gdeclared(K, T), _, fail), \+ catch(ccl_resolve_type(T, fn(_, _, _)), _, fail),
+    cpp_plain_ns_name(K, N, NP), NP \== [], cpp_ita_prefix(NP, [], [], PT, _), cpp_ita_member_name(N, MT), atomic_list_concat(['_ZN', PT, MT, 'E'], Tg), !, Name = K.
+cpp_own_itanium_var(Tg, Name) :- cpp_class_l(C, cls(_, _, Ss, _, _)), atom(C), \+ cpp_lib_class(C), member(SN-_, Ss), atom(SN),
+    cpp_plain_ns_name(C, CN, CNP), cpp_ita_prefix(CNP, [plain(CN)], [], PT, _), cpp_ita_member_name(SN, MT), atomic_list_concat(['_ZN', PT, MT, 'E'], Tg), !,
+    cpp_static_use(C, SN, Name).
+cpp_own_itanium(F, Ps, V, Ita) :- cpp_plain_ns_name(F, N, NP),
+    (   NP == [] -> cpp_ita_member_text(N, Ps, MT), cpp_ita_params(Ps, V, [], PT, _), atomic_list_concat(['_Z', MT, PT], Ita)
+    ;   cpp_ita_function(NP, [], N, [], Ps, V, Ita) ).
+%% the program's name F as the source spells it, N, and its namespace's path, a key's last part where two namespaces collide
+cpp_plain_ns_name(F, N, NP) :- ( catch('$cpp_type_ns'(F, NP0), _, fail) -> atomic_list_concat(Parts, '.', F), last(Parts, N) ; NP0 = [], N = F ),
+    ( catch('$cpp_own_ns_full'(N, FP), _, fail) -> NP = FP ; NP = NP0 ).
+cpp_gattr_swap(fn(R0, Ps, V), A, B, fn(R, Ps, V)) :- !, cpp_gattr_swap(R0, A, B, R).
+cpp_gattr_swap(base(Q0, S), A, B, base(Q, S)) :- !, cpp_swap_one(Q0, A, B, Q).
+cpp_gattr_swap(ptr(Q0, X), A, B, ptr(Q, X)) :- !, cpp_swap_one(Q0, A, B, Q).
+cpp_gattr_swap(arr(N, X0), A, B, arr(N, X)) :- !, cpp_gattr_swap(X0, A, B, X).
+cpp_gattr_swap(T, _, _, T).
+cpp_swap_one([], _, _, []).
+cpp_swap_one([X|Xs], A, B, [Y|Ys]) :- ( X == A -> Y = B, Ys = Xs ; Y = X, cpp_swap_one(Xs, A, B, Ys) ).
 %% A FUNCTION DECLARED DELETED (0.257): `'$cpp_fn_del'(N, Key, Why)', its reason or none, which a call that chooses it asks
 %% (cpp_deleted_call/3). It is a candidate as any declaration is ([over.match]/2: a deleted function takes part in overload
 %% resolution), and chosen it was called by a name nothing defines: `undeclared(g)'
@@ -585,6 +623,7 @@ cpp_item(function(L, nxif(E, Sto), Ret, N, Ps, V, Body), Out) :- !, ( cpp_class_
 %% -- its class found through the whole path, as a qualified type's is (cpp_scope_class/2), and the item taken as the
 %% one-segment definition below. Only `C::m' was taken: the others reached the lowering, `member_of_class(scoped([n, 'C'], m))'.
 cpp_item(function(L, Sto, Ret, scoped(Path, M), Ps, V, Body), Out) :- cpp_member_path_class(Path, C), !, cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), Out).
+cpp_item(declaration(L, Sto, B, Vs0), Out) :- nb_getval('$cpp_in_lib', no), cpp_alias_targets(Vs0, Vs), Vs \== Vs0, !, cpp_item(declaration(L, Sto, B, Vs), Out).   % GCC's alias of the program's mangled name (1.6.58, cpp_alias_targets/2)
 cpp_item(declaration(L, Sto, B, Vs0), Out) :- ccl_std_at_least(20), cpp_paren_agg_vars(Vs0, Vs), Vs \== Vs0, !, cpp_item(declaration(L, Sto, B, Vs), Out).   % C++20'S PARENTHESIZED AGGREGATE INITIALIZATION AT NAMESPACE SCOPE (cpp_paren_aggregate/2, 0.197): `P g(1, 2);' reached the lowering as `global_init(ctor([1, 2]))'
 cpp_item(declaration(L, Sto, B, Vs0), Out) :- member(var(scoped(Path, _), _, _), Vs0), cpp_member_path_class(Path, _), !,
     findall(V1, ( member(V, Vs0), ( V = var(scoped(P, N), T, I), cpp_member_path_class(P, C) -> V1 = var(scoped([C], N), T, I) ; V1 = V ) ), Vs), cpp_item(declaration(L, Sto, B, Vs), Out).
